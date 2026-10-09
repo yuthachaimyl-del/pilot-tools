@@ -8,6 +8,8 @@ cd ~/pilot-tools && git pull -q || true
 firebase hosting:sites:create "$SITE" --project "$PROJECT" --non-interactive 2>&1 | tail -2 || true
 rm -rf ~/fbdeploy && mkdir -p ~/fbdeploy/public
 cp ~/pilot-tools/*.html ~/pilot-tools/*.js ~/fbdeploy/public/
+# donate + feedback buttons on every page
+for f in ~/fbdeploy/public/*.html; do grep -q "extras.js" "$f" || sed -i 's#</body>#<script src="extras.js" defer></script></body>#' "$f"; done
 cat > ~/fbdeploy/firebase.json <<JSON
 {"hosting":{"site":"$SITE","public":"public","headers":[{"source":"**","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}}
 JSON
