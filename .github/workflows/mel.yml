@@ -1,0 +1,28 @@
+name: MEL dashboard snapshot
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: mel
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm i --no-save playwright@1.47.2 && npx playwright install --with-deps chromium
+      - run: node tools/mel-scrape.mjs mel.json
+      - name: commit
+        run: |
+          git config user.name "mel-bot"
+          git config user.email "mel-bot@users.noreply.github.com"
+          if ! git diff --quiet -- mel.json; then
+            git add mel.json
+            git commit -m "mel.json: $(date -u +'%Y-%m-%d %H:%MZ')"
+            git push
+          fi
