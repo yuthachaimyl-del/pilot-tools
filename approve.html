@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="th"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>อนุมัติสมาชิก · CoolCrew</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bai+Jamjuree:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#1b1e2b;--card:#262a3a;--line:#363b50;--text:#e8eaf0;--muted:#9aa1b5;--mint:#6fd3a8;--bad:#ef8a7d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:"IBM Plex Sans Thai",system-ui,sans-serif;min-height:100vh;display:grid;place-items:center;padding:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:22px;width:100%;max-width:420px;display:flex;flex-direction:column;gap:14px}
+h1{font-family:"Bai Jamjuree",sans-serif;font-size:22px;margin:0}.muted{color:var(--muted);font-size:13.5px}
+dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0}dt{color:var(--muted)}dd{margin:0;font-weight:600}
+.row{display:flex;gap:8px;flex-wrap:wrap}button,select{font:inherit;border-radius:999px;padding:11px 16px;border:1px solid var(--line);background:transparent;color:var(--text);min-height:44px}
+button.primary{background:var(--mint);color:#13261d;border-color:var(--mint);font-weight:600}button.danger{color:var(--bad)}button:disabled{opacity:.5}
+select{appearance:none;padding-right:16px}.msg{font-size:14px}.msg.err{color:var(--bad)}.msg.ok{color:var(--mint)}
+</style></head>
+<body><main class="card">
+  <h1>อนุมัติสมาชิก</h1>
+  <div id="box" class="muted">กำลังโหลด…</div>
+  <div id="acts" class="row" hidden><button class="primary" id="okBtn" data-do="">อนุมัติ</button><button class="danger" data-do="reject">ปฏิเสธ</button></div>
+  <div id="msg" class="msg"></div>
+  <a class="muted" href="./#stats">เปิดหน้าแอดมิน</a>
+</main>
+<script src="config.js"></script>
+<script>
+(function(){
+  const cfg = window.FO_CONFIG || window.CONFIG || {};
+  const URL0 = (cfg.SUPABASE_URL || window.SUPABASE_URL), KEY = (cfg.SUPABASE_ANON_KEY || window.SUPABASE_ANON_KEY);
+  const t = new URLSearchParams(location.search).get("t") || "";
+  const $ = s => document.querySelector(s); let REQ = null;
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const call = async body => {
+    const r = await fetch(URL0 + "/functions/v1/approve", { method: "POST", headers: { "Content-Type": "application/json", apikey: KEY }, body: JSON.stringify({ t, ...body }) });
+    const j = await r.json().catch(() => ({})); return { ok: r.ok, ...j };
+  };
+  const role = d => (d.fleet === "B737" ? "B737" : "A320/A321") + " " + (d.rank === "CPT" ? "Captain" : "First Officer");
+  const statusTh = s => s === "approved" ? "อนุมัติแล้ว" : s === "rejected" ? "ปฏิเสธแล้ว" : "รออนุมัติ";
+  const show = d => {
+    $("#box").className = "";
+    $("#box").innerHTML = `<dl><dt>ชื่อ</dt><dd>${esc(d.name)}</dd><dt>รหัสพนักงาน</dt><dd>${esc(d.code)}</dd><dt>ขอเป็น</dt><dd>${esc(role(d))}</dd><dt>อีเมล</dt><dd>${esc(d.email)}</dd><dt>สถานะ</dt><dd>${statusTh(d.status)}</dd></dl>`;
+  };
+  (async () => {
+    if(!t){ $("#box").textContent = "ลิงก์ไม่ครบ เปิดจากอีเมลอีกครั้ง"; return; }
+    const d = await call({});
+    if(d.error){ $("#box").textContent = d.error === "not_found" ? "ไม่พบคำขอนี้" : "โหลดไม่สำเร็จ (" + d.error + ")"; return; }
+    show(d); REQ = d;
+    $("#okBtn").dataset.do = d.rank === "CPT" ? "CPT" : "FO"; $("#okBtn").textContent = "อนุมัติ " + role(d);
+    if(d.used){ $("#msg").textContent = "ลิงก์นี้ใช้ไปแล้ว ถ้าต้องการแก้ ให้ใช้หน้าแอดมิน"; return; }
+    if(d.expired){ $("#msg").textContent = "ลิงก์หมดอายุ (เกิน 7 วัน) ให้ใช้หน้าแอดมิน"; return; }
+    $("#acts").hidden = false;
+  })();
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-do]"); if(!b) return;
+    const act = b.dataset.do;
+    if(act === "reject" && !confirm("ปฏิเสธคำขอนี้?")) return;
+    document.querySelectorAll("[data-do]").forEach(x => x.disabled = true);
+    $("#msg").className = "msg"; $("#msg").textContent = "กำลังบันทึก…";
+    const d = await call({ do: act, fleet: REQ && REQ.fleet === "B737" ? "B737" : "A320" });
+    if(d.ok && !d.error){ show(d); $("#acts").hidden = true; $("#msg").className = "msg ok"; $("#msg").textContent = act === "reject" ? "ปฏิเสธแล้ว" : "อนุมัติแล้ว สมาชิกเข้าใช้งานได้ทันที"; }
+    else { $("#msg").className = "msg err"; $("#msg").textContent = d.error === "used" ? "ลิงก์นี้ใช้ไปแล้ว" : d.error === "expired" ? "ลิงก์หมดอายุ" : "บันทึกไม่สำเร็จ (" + (d.message || d.error || "error") + ")"; document.querySelectorAll("[data-do]").forEach(x => x.disabled = false); }
+  });
+})();
+</script>
+</body></html>
