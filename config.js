@@ -1,0 +1,1 @@
+window.FO_CONFIG={SUPABASE_URL:"https://devbnbshwsibjupesywi.supabase.co",SUPABASE_ANON_KEY:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRldmJuYnNod3NpYmp1cGVzeXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MDA3MDksImV4cCI6MjEwNzA3NjcwOX0.DDpTx8IPlGzgSkcWuAObXS7Y8AnBM8IihVuKy-7UFWo"};
