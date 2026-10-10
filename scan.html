@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>CoolScan</title>
+<link rel="manifest" href="scan-manifest.webmanifest">
+<link rel="apple-touch-icon" href="scan-icon-180.png">
+<link rel="icon" href="scan-icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CoolScan">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1b1e2b">
+<style>
+:root{--bg:#1b1e2b;--card:#262b3a;--card2:#2f3547;--line:#3a4255;--fg:#eef1f6;--mut:#9aa3b5;--acc:#4fb898;--accfg:#0d1f1a;--red:#e5646a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Sukhumvit Set","Noto Sans Thai",sans-serif;overscroll-behavior:none}
+button{font:inherit;color:inherit;cursor:pointer}
+.view{position:fixed;inset:0;display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.view.on{display:flex}
+header{display:flex;align-items:center;gap:8px;padding:10px 14px;min-height:54px}
+header h1{font-size:20px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:0;text-align:left;padding:0}
+.ib{width:40px;height:40px;border-radius:999px;border:0;background:var(--card);display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex:none}
+.scroll{flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:4px 14px 120px}
+.bar{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;padding:12px 14px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(transparent,var(--bg) 30%)}
+.bar.solid{position:static;background:var(--card);border-top:1px solid var(--line)}
+.btn{flex:1;border:0;border-radius:14px;padding:13px 10px;background:var(--card2);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;min-height:48px}
+.btn.pri{background:var(--acc);color:var(--accfg)}
+.btn.sm{flex:none;padding:10px 12px;font-size:14px;min-height:42px}
+.btn:disabled{opacity:.45}
+.empty{text-align:center;color:var(--mut);padding:70px 20px;line-height:1.6}
+.empty b{display:block;color:var(--fg);font-size:18px;margin-bottom:6px}
+.doc{display:flex;gap:12px;align-items:center;background:var(--card);border-radius:14px;padding:10px;margin-bottom:10px}
+.doc img,.doc .ph{width:54px;height:72px;object-fit:cover;border-radius:6px;background:#fff;flex:none}
+.doc .m{flex:1;min-width:0;cursor:pointer}
+.doc .n{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.doc .s{color:var(--mut);font-size:13px;margin-top:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px}
+.pg{position:relative;background:var(--card);border-radius:10px;padding:6px;border:0;display:block;width:100%}
+.pg img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#111;border-radius:6px;display:block}
+.pg span{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.65);font-size:12px;padding:2px 7px;border-radius:999px}
+#stage{flex:1;position:relative;touch-action:none;overflow:hidden;background:#0e1018}
+#cv{position:absolute;left:0;top:0}
+#ov{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
+#loupe{position:absolute;top:10px;left:10px;width:116px;height:116px;border-radius:999px;border:3px solid var(--acc);display:none;background:#000;pointer-events:none}
+.tools{display:flex;gap:8px;padding:10px 14px 0;justify-content:center;flex-wrap:wrap}
+#fstage{flex:1;display:flex;align-items:center;justify-content:center;padding:10px;overflow:hidden;background:#0e1018}
+#fstage canvas{max-width:100%;max-height:100%;box-shadow:0 4px 24px rgba(0,0,0,.5)}
+.chips{display:flex;gap:8px;padding:12px 14px 0;overflow-x:auto}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:9px 15px;font-size:14px}
+.chip.on{background:var(--acc);color:var(--accfg);border-color:var(--acc);font-weight:600}
+.bd{position:fixed;inset:0;z-index:50;background:rgba(5,6,10,.6);display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;max-height:90vh;overflow:auto}
+.sheet h3{margin:4px 4px 6px;font-size:16px}
+.sheet .opt{border:0;background:var(--card2);border-radius:12px;padding:14px;text-align:left;font-size:15px}
+.sheet .opt.red{color:var(--red)}
+.sheet textarea,.sheet input{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:16px}
+.sheet textarea{min-height:46vh;resize:vertical;font-size:15px}
+.row{display:flex;gap:8px}
+#toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#000c;color:#fff;padding:10px 16px;border-radius:999px;font-size:14px;z-index:90;display:none;max-width:90vw;text-align:center}
+#busy{position:fixed;inset:0;z-index:80;background:rgba(5,6,10,.55);display:none;align-items:center;justify-content:center}
+#busy div{width:44px;height:44px;border:4px solid #fff3;border-top-color:var(--acc);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.note{color:var(--mut);font-size:12.5px;text-align:center;margin:18px 0 0;line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- หน้าแรก: รายการเอกสาร -->
+<section class="view on" id="home">
+  <header><h1>CoolScan</h1><button class="ib" id="hMore" aria-label="ตั้งค่า">⚙︎</button></header>
+  <div class="scroll" id="docs"></div>
+  <div class="bar">
+    <button class="btn" id="hGal">🖼 นำเข้ารูป</button>
+    <button class="btn pri" id="hCam">📷 สแกน</button>
+  </div>
+</section>
+
+<!-- ครอปมุมเอกสาร -->
+<section class="view" id="crop">
+  <header><button class="ib" id="cBack" aria-label="ยกเลิก">✕</button><div class="t">ปรับขอบเอกสาร</div><span id="cCount" style="color:var(--mut);font-size:13px"></span></header>
+  <div id="stage"><canvas id="cv"></canvas><svg id="ov"></svg><canvas id="loupe" width="232" height="232"></canvas></div>
+  <div class="tools">
+    <button class="btn sm" id="cRotL">⟲ หมุน</button>
+    <button class="btn sm" id="cRotR">⟳ หมุน</button>
+    <button class="btn sm" id="cAuto">ตรวจขอบอัตโนมัติ</button>
+    <button class="btn sm" id="cFull">ทั้งภาพ</button>
+  </div>
+  <div class="bar solid"><button class="btn pri" id="cNext">ถัดไป →</button></div>
+</section>
+
+<!-- เลือกฟิลเตอร์ -->
+<section class="view" id="filt">
+  <header><button class="ib" id="fBack" aria-label="กลับไปครอป">←</button><div class="t">ปรับสี</div></header>
+  <div id="fstage"></div>
+  <div class="chips" id="chips"></div>
+  <div class="bar solid"><button class="btn pri" id="fSave">✓ บันทึก</button></div>
+</section>
+
+<!-- เอกสาร (หลายหน้า) -->
+<section class="view" id="docv">
+  <header><button class="ib" id="dBack" aria-label="กลับ">←</button><button class="t" id="dName"></button><button class="ib" id="dMore" aria-label="เพิ่มเติม">⋯</button></header>
+  <div class="scroll"><div class="grid" id="pages"></div></div>
+  <div class="bar">
+    <button class="btn" id="dAdd">＋ เพิ่มหน้า</button>
+    <button class="btn pri" id="dPdf">⤴ แชร์ PDF</button>
+  </div>
+</section>
+
+<input type="file" id="inCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="inGal" accept="image/*" multiple hidden>
+<div id="toast"></div>
+<div id="busy"><div></div></div>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const MAXS=2400; // ด้านยาวสุดของรูป (px) — พอสำหรับ A4 ที่ ~200dpi และไม่กินแรม iPhone
+
+// ---------- ตั้งค่า (เก็บในเครื่อง)
+const settings=(()=>{try{return Object.assign({size:"fit",filter:"enhance"},JSON.parse(localStorage.getItem("coolscan")||"{}"))}catch{return{size:"fit",filter:"enhance"}}})();
+const saveSettings=()=>{try{localStorage.setItem("coolscan",JSON.stringify(settings))}catch{}};
+
+// ---------- IndexedDB
+let dbp;
+function db(){return dbp||(dbp=new Promise((res,rej)=>{const r=indexedDB.open("coolscan",1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore("docs",{keyPath:"id"});d.createObjectStore("pages",{keyPath:"id"})};r.onsuccess=()=>res(r.result);r.onerror=()=>{dbp=null;rej(r.error)}}))}
+async function tx(store,mode,fn){const d=await db();return new Promise((res,rej)=>{const t=d.transaction(store,mode),r=fn(t.objectStore(store));let out;if(r)r.onsuccess=()=>out=r.result;t.oncomplete=()=>res(out);t.onerror=t.onabort=()=>rej(t.error)})}
+const dbGet=(st,id)=>tx(st,"readonly",s=>s.get(id));
+const dbAll=st=>tx(st,"readonly",s=>s.getAll());
+const dbPut=(st,v)=>tx(st,"readwrite",s=>s.put(v));
+const dbDel=(st,id)=>tx(st,"readwrite",s=>s.delete(id));
+
+// ---------- UI helpers
+function show(id){document.querySelectorAll(".view").forEach(v=>v.classList.toggle("on",v.id===id))}
+let toastT;
+function toast(msg,ms=2200){const t=$("#toast");t.textContent=msg;t.style.display="block";clearTimeout(toastT);if(ms)toastT=setTimeout(()=>t.style.display="none",ms)}
+const busy=on=>$("#busy").style.display=on?"flex":"none";
+const tick=()=>new Promise(r=>setTimeout(r,30)); // ให้ spinner วาดก่อนงานหนัก
+function sheet(title,opts){
+  const bd=document.createElement("div");bd.className="bd";
+  bd.innerHTML=`<div class="sheet">${title?`<h3>${esc(title)}</h3>`:""}</div>`;
+  const sh=bd.firstChild,close=()=>bd.remove();
+  for(const o of opts){const b=document.createElement("button");b.className="opt"+(o.red?" red":"");b.textContent=o.label;b.onclick=()=>{close();o.fn()};sh.appendChild(b)}
+  const c=document.createElement("button");c.className="opt";c.style.textAlign="center";c.textContent="ปิด";c.onclick=close;sh.appendChild(c);
+  bd.onclick=e=>{if(e.target===bd)close()};document.body.appendChild(bd);return bd;
+}
+function promptSheet(title,value){return new Promise(res=>{
+  const bd=document.createElement("div");bd.className="bd";
+  bd.innerHTML=`<div class="sheet"><h3>${esc(title)}</h3><input maxlength="80"><div class="row"><button class="btn" data-x>ยกเลิก</button><button class="btn pri" data-ok>ตกลง</button></div></div>`;
+  const inp=bd.querySelector("input");inp.value=value||"";
+  const done=v=>{bd.remove();res(v)};
+  bd.querySelector("[data-x]").onclick=()=>done(null);
+  bd.querySelector("[data-ok]").onclick=()=>done(inp.value.trim()||null);
+  inp.onkeydown=e=>{if(e.key==="Enter")done(inp.value.trim()||null)};
+  bd.onclick=e=>{if(e.target===bd)done(null)};
+  document.body.appendChild(bd);setTimeout(()=>inp.focus(),50);
+})}
+function textSheet(title,text){
+  const bd=document.createElement("div");bd.className="bd";
+  bd.innerHTML=`<div class="sheet"><h3>${esc(title)}</h3><textarea readonly></textarea><div class="row"><button class="btn" data-x>ปิด</button><button class="btn pri" data-c>คัดลอก</button></div></div>`;
+  bd.querySelector("textarea").value=text;
+  bd.querySelector("[data-x]").onclick=()=>bd.remove();
+  bd.querySelector("[data-c]").onclick=async()=>{try{await navigator.clipboard.writeText(text);toast("คัดลอกแล้ว")}catch{const t=bd.querySelector("textarea");t.removeAttribute("readonly");t.select();document.execCommand("copy");toast("คัดลอกแล้ว")}};
+  document.body.appendChild(bd);
+}
+const fmtDate=t=>new Date(t).toLocaleString("th-TH",{day:"numeric",month:"short",year:"2-digit",hour:"2-digit",minute:"2-digit"});
+const defaultName=()=>{const d=new Date(),p=n=>String(n).padStart(2,"0");return`สแกน ${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}`};
+const safeName=s=>(s||"scan").replace(/[\\/:*?"<>|]+/g,"-").slice(0,80);
+
+// ---------- รูปภาพ
+function mkCanvas(w,h){const c=document.createElement("canvas");c.width=w;c.height=h;return c}
+function loadImg(blob){return new Promise((res,rej)=>{const u=URL.createObjectURL(blob),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error("อ่านรูปนี้ไม่ได้"))};i.src=u})}
+const toJpeg=(c,q)=>new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error("แปลงรูปไม่สำเร็จ")),"image/jpeg",q));
+function scaled(src,max){const w=src.naturalWidth||src.width,h=src.naturalHeight||src.height,s=Math.min(1,max/Math.max(w,h));const c=mkCanvas(Math.max(1,Math.round(w*s)),Math.max(1,Math.round(h*s)));c.getContext("2d").drawImage(src,0,0,c.width,c.height);return c}
+async function normalizeFile(file){return toJpeg(scaled(await loadImg(file),MAXS),.92)}
+function rotCanvas(img,rot){
+  const w=img.naturalWidth||img.width,h=img.naturalHeight||img.height,r=((rot%360)+360)%360;
+  const c=r%180?mkCanvas(h,w):mkCanvas(w,h),x=c.getContext("2d");
+  x.translate(c.width/2,c.height/2);x.rotate(r*Math.PI/180);x.drawImage(img,-w/2,-h/2);return c;
+}
+
+// หาขอบกระดาษอัตโนมัติ: กระดาษมักสว่างกว่าพื้นหลัง → Otsu threshold แล้วเอาก้อนสว่างที่ใหญ่สุด
+// มุมของก้อนนั้น = จุดที่ x+y และ x−y มากสุด/น้อยสุด
+function fullQuad(W,H,inset=0){const a=W*inset,b=H*inset;return[[a,b],[W-a,b],[W-a,H-b],[a,H-b]]}
+function quadArea(q){let s=0;for(let i=0;i<4;i++){const[a,b]=q[i],[c,d]=q[(i+1)%4];s+=a*d-b*c}return Math.abs(s)/2}
+function detect(c){
+  const W=c.width,H=c.height,s=Math.min(1,256/Math.max(W,H));
+  const w=Math.max(2,Math.round(W*s)),h=Math.max(2,Math.round(H*s)),n=w*h;
+  const t=mkCanvas(w,h),x=t.getContext("2d",{willReadFrequently:true});
+  x.filter="blur(1.5px)";x.drawImage(c,0,0,w,h);
+  const d=x.getImageData(0,0,w,h).data,L=new Uint8Array(n),hist=new Float64Array(256);
+  for(let i=0;i<n;i++){const v=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;L[i]=v;hist[v]++}
+  let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
+  let sB=0,wB=0,best=-1,th=128;
+  for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=i*hist[i];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>best){best=v;th=i}}
+  const seen=new Uint8Array(n),q=new Int32Array(n);let bestSize=0,bestQ=null;
+  for(let st=0;st<n;st++){
+    if(seen[st]||L[st]<=th)continue;
+    let head=0,tail=0;q[tail++]=st;seen[st]=1;
+    while(head<tail){const p=q[head++],px=p%w,py=(p/w)|0;
+      if(px>0&&!seen[p-1]&&L[p-1]>th){seen[p-1]=1;q[tail++]=p-1}
+      if(px<w-1&&!seen[p+1]&&L[p+1]>th){seen[p+1]=1;q[tail++]=p+1}
+      if(py>0&&!seen[p-w]&&L[p-w]>th){seen[p-w]=1;q[tail++]=p-w}
+      if(py<h-1&&!seen[p+w]&&L[p+w]>th){seen[p+w]=1;q[tail++]=p+w}}
+    if(tail>bestSize){
+      bestSize=tail;let a=1e9,b=-1e9,cc=-1e9,dd=1e9,tl,br,tr,bl;
+      for(let k=0;k<tail;k++){const p=q[k],px=p%w,py=(p/w)|0,sp=px+py,df=px-py;
+        if(sp<a){a=sp;tl=[px,py]}if(sp>b){b=sp;br=[px,py]}if(df>cc){cc=df;tr=[px,py]}if(df<dd){dd=df;bl=[px,py]}}
+      bestQ=[tl,tr,br,bl];
+    }
+  }
+  if(bestQ&&bestSize>n*.1){
+    const qq=bestQ.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)]),ar=quadArea(qq)/(W*H);
+    if(ar>.12&&ar<.97)return qq;
+  }
+  return fullQuad(W,H,.04);
+}
+
+// ดัดภาพให้ตรง (perspective) ด้วย homography + bilinear
+function homography(src,dst){
+  const A=[],b=[];
+  for(let i=0;i<4;i++){const[x,y]=src[i],[u,v]=dst[i];A.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);A.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v)}
+  for(let c=0;c<8;c++){
+    let p=c;for(let r=c+1;r<8;r++)if(Math.abs(A[r][c])>Math.abs(A[p][c]))p=r;
+    [A[c],A[p]]=[A[p],A[c]];[b[c],b[p]]=[b[p],b[c]];
+    for(let r=0;r<8;r++){if(r===c)continue;const f=A[r][c]/A[c][c];for(let k=c;k<8;k++)A[r][k]-=f*A[c][k];b[r]-=f*b[c]}
+  }
+  return b.map((v,i)=>v/A[i][i]);
+}
+function warp(src,q){
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  let w=Math.max(dist(q[0],q[1]),dist(q[3],q[2])),h=Math.max(dist(q[0],q[3]),dist(q[1],q[2]));
+  const s=Math.min(1,MAXS/Math.max(w,h));w=Math.max(8,Math.round(w*s));h=Math.max(8,Math.round(h*s));
+  const H=homography([[0,0],[w,0],[w,h],[0,h]],q);
+  const sw=src.width,sh=src.height,sd=src.getContext("2d",{willReadFrequently:true}).getImageData(0,0,sw,sh).data;
+  const out=mkCanvas(w,h),ox=out.getContext("2d"),O=ox.createImageData(w,h),od=O.data,row=sw*4;
+  for(let y=0;y<h;y++){const Y=y+.5;
+    for(let x=0;x<w;x++){const X=x+.5,z=H[6]*X+H[7]*Y+1;
+      let u=(H[0]*X+H[1]*Y+H[2])/z-.5,v=(H[3]*X+H[4]*Y+H[5])/z-.5;
+      if(u<0)u=0;else if(u>sw-1.001)u=sw-1.001;if(v<0)v=0;else if(v>sh-1.001)v=sh-1.001;
+      const x0=u|0,y0=v|0,fx=u-x0,fy=v-y0,i=(y0*sw+x0)*4,j=i+row,o=(y*w+x)*4;
+      for(let k=0;k<3;k++){const a=sd[i+k]+(sd[i+4+k]-sd[i+k])*fx,bb=sd[j+k]+(sd[j+4+k]-sd[j+k])*fx;od[o+k]=a+(bb-a)*fy}
+      od[o+3]=255}}
+  ox.putImageData(O,0,0);return out;
+}
+
+// ฟิลเตอร์: ประมาณแสงพื้นหลังเป็นตาราง แล้วหารออก → กระดาษขาว เงาหาย ตัวหนังสือชัด
+const FILTERS=[["enhance","✨ คมชัด"],["gray","ขาวเทา"],["bw","ขาวดำ"],["orig","ต้นฉบับ"]];
+function grid3(g,gw,gh,mx){const o=new Float32Array(g.length);
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let a=0,c=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const yy=y+dy,xx=x+dx;if(yy<0||xx<0||yy>=gh||xx>=gw)continue;const v=g[yy*gw+xx];if(mx){if(v>a)a=v}else a+=v;c++}
+    o[y*gw+x]=mx?a:a/c}
+  return o}
+function applyFilter(c,mode){
+  if(mode==="orig")return c;
+  const w=c.width,h=c.height,x=c.getContext("2d",{willReadFrequently:true}),I=x.getImageData(0,0,w,h),d=I.data,n=w*h,L=new Uint8Array(n);
+  for(let i=0;i<n;i++)L[i]=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;
+  const B=Math.max(10,Math.round(Math.max(w,h)/48)),gw=Math.ceil(w/B),gh=Math.ceil(h/B),hist=new Uint32Array(256);
+  let g=new Float32Array(gw*gh);
+  for(let by=0;by<gh;by++)for(let bx=0;bx<gw;bx++){
+    hist.fill(0);let cnt=0;const y1=Math.min(h,(by+1)*B),x1=Math.min(w,(bx+1)*B);
+    for(let y=by*B;y<y1;y+=2)for(let xx=bx*B;xx<x1;xx+=2){hist[L[y*w+xx]]++;cnt++}
+    let acc=0,v=255;const lim=cnt*.9;for(let k=0;k<256;k++){acc+=hist[k];if(acc>=lim){v=k;break}}
+    g[by*gw+bx]=v}
+  g=grid3(grid3(grid3(g,gw,gh,true),gw,gh,false),gw,gh,false);
+  const BLACK=mode==="enhance"?35:45,WHITE=242,span=255/(WHITE-BLACK);
+  for(let y=0;y<h;y++){let gy=(y+.5)/B-.5;if(gy<0)gy=0;else if(gy>gh-1)gy=gh-1;const y0=gy|0,y1=Math.min(gh-1,y0+1),fy=gy-y0;
+    for(let xx=0;xx<w;xx++){let gx=(xx+.5)/B-.5;if(gx<0)gx=0;else if(gx>gw-1)gx=gw-1;const x0=gx|0,x1=Math.min(gw-1,x0+1),fx=gx-x0;
+      const a=g[y0*gw+x0]+(g[y0*gw+x1]-g[y0*gw+x0])*fx,b=g[y1*gw+x0]+(g[y1*gw+x1]-g[y1*gw+x0])*fx,bg=a+(b-a)*fy;
+      const f=255/Math.max(bg,50),p=y*w+xx,i=p*4;
+      if(mode==="enhance"){
+        let r=(d[i]*f-BLACK)*span,gg=(d[i+1]*f-BLACK)*span,bl=(d[i+2]*f-BLACK)*span;const m=(r+gg+bl)/3;
+        d[i]=m+(r-m)*1.3;d[i+1]=m+(gg-m)*1.3;d[i+2]=m+(bl-m)*1.3; // Uint8Clamped clamps ให้เอง
+      }else{
+        const v=L[p]*f,o=mode==="bw"?(v-150)*5.1:(v-BLACK)*span;d[i]=d[i+1]=d[i+2]=o}
+    }}
+  if(mode==="enhance"){ // white balance: ทำให้กระดาษสีครีม/เหลืองเป็นสีขาว
+    let sr=0,sg=0,sb=0,cn=0;
+    for(let i=0;i<d.length;i+=16)if(d[i]>190&&d[i+1]>190&&d[i+2]>190){sr+=d[i];sg+=d[i+1];sb+=d[i+2];cn++}
+    if(cn>100){const kr=255*cn/sr,kg=255*cn/sg,kb=255*cn/sb;for(let i=0;i<d.length;i+=4){d[i]*=kr;d[i+1]*=kg;d[i+2]*=kb}}
+  }
+  x.putImageData(I,0,0);return c;
+}
+
+// ---------- PDF (เขียนเอง ไม่ต้องโหลด library): แต่ละหน้าเป็น JPEG ฝังตรง ๆ
+async function makePDF(pages,size){
+  const enc=new TextEncoder(),parts=[],offs=[];let len=0;
+  const push=v=>{const u=typeof v==="string"?enc.encode(v):v;parts.push(u);len+=u.length};
+  const f=v=>(Math.round(v*100)/100).toString();
+  const N=pages.length;
+  push("%PDF-1.4\n%âãÏÓ\n");
+  offs[1]=len;push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  offs[2]=len;push(`2 0 obj\n<< /Type /Pages /Kids [${pages.map((_,i)=>`${3+i*3} 0 R`).join(" ")}] /Count ${N} >>\nendobj\n`);
+  for(let i=0;i<N;i++){
+    const p=pages[i],bytes=new Uint8Array(await p.out.arrayBuffer()),w=p.w,h=p.h,pn=3+i*3;
+    let pw,ph;
+    if(size==="a4"){pw=595.28;ph=841.89;if(w>h)[pw,ph]=[ph,pw]}
+    else if(w>=h){ph=595.28;pw=ph*w/h}else{pw=595.28;ph=pw*h/w}
+    const k=Math.min(pw/w,ph/h),dw=w*k,dh=h*k,dx=(pw-dw)/2,dy=(ph-dh)/2;
+    const cs=`q ${f(dw)} 0 0 ${f(dh)} ${f(dx)} ${f(dy)} cm /Im0 Do Q`;
+    offs[pn]=len;push(`${pn} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${f(pw)} ${f(ph)}] /Resources << /XObject << /Im0 ${pn+2} 0 R >> >> /Contents ${pn+1} 0 R >>\nendobj\n`);
+    offs[pn+1]=len;push(`${pn+1} 0 obj\n<< /Length ${cs.length} >>\nstream\n${cs}\nendstream\nendobj\n`);
+    offs[pn+2]=len;push(`${pn+2} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${w} /Height ${h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n`);push(bytes);push("\nendstream\nendobj\n");
+  }
+  const total=3+N*3,xref=len;
+  let x=`xref\n0 ${total}\n0000000000 65535 f \n`;for(let n=1;n<total;n++)x+=String(offs[n]).padStart(10,"0")+" 00000 n \n";
+  push(x+`trailer\n<< /Size ${total} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+  return new Blob(parts,{type:"application/pdf"});
+}
+
+// ---------- แชร์ / บันทึกไฟล์
+function download(blob,name){const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),60000)}
+async function shareFiles(files,title){
+  const can=navigator.canShare&&navigator.canShare({files});
+  if(can){
+    try{await navigator.share({files,title});return}
+    catch(e){
+      if(e.name==="AbortError")return;
+      // Safari อาจไม่ยอมแชร์หลังรอสร้างไฟล์นาน → ให้ผู้ใช้แตะอีกครั้ง
+      sheet("ไฟล์พร้อมแล้ว",[{label:"⤴ แชร์ / บันทึกลงไฟล์",fn:()=>navigator.share({files,title}).catch(()=>{})},{label:"⬇︎ ดาวน์โหลด",fn:()=>files.forEach(f=>download(f,f.name))}]);
+      return;
+    }
+  }
+  files.forEach(f=>download(f,f.name));
+}
+
+// ---------- OCR (โหลด Tesseract เฉพาะตอนใช้ — ต้องต่อเน็ตครั้งแรก)
+let tessP;
+function tess(){return tessP||(tessP=new Promise((res,rej)=>{const s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";s.onload=()=>res(window.Tesseract);s.onerror=()=>{tessP=null;s.remove();rej(new Error("โหลดตัวอ่านข้อความไม่ได้ — ต้องต่ออินเทอร์เน็ต"))};document.head.appendChild(s)}))}
+async function ocr(pages){
+  toast("กำลังโหลดตัวอ่านข้อความ…",0);
+  const T=await tess();
+  let idx=0;
+  const worker=await T.createWorker("tha+eng",1,{logger:m=>{if(m.status==="recognizing text")toast(`กำลังอ่านหน้า ${idx+1}/${pages.length} · ${Math.round(m.progress*100)}%`,0)}});
+  const out=[];
+  try{for(idx=0;idx<pages.length;idx++){const r=await worker.recognize(pages[idx].out);out.push(r.data.text.trim())}}
+  finally{await worker.terminate();$("#toast").style.display="none"}
+  return out.join("\n\n— — —\n\n");
+}
+
+// ================= หน้าแรก =================
+let urls=[];
+const objUrl=b=>{const u=URL.createObjectURL(b);urls.push(u);return u};
+function freeUrls(){urls.forEach(u=>URL.revokeObjectURL(u));urls=[]}
+
+async function renderHome(){
+  freeUrls();
+  const docs=(await dbAll("docs")).sort((a,b)=>b.updated-a.updated),box=$("#docs");
+  if(!docs.length){box.innerHTML=`<div class="empty"><b>ยังไม่มีเอกสาร</b>กด 📷 สแกน เพื่อถ่ายเอกสาร<br>หรือ 🖼 นำเข้ารูปจากอัลบั้ม<br><br>ไม่มีโฆษณา · ไฟล์ทั้งหมดเก็บอยู่ในเครื่องนี้เท่านั้น</div>`;return}
+  box.innerHTML="";
+  for(const d of docs){
+    const first=d.pages.length?await dbGet("pages",d.pages[0]):null;
+    const el=document.createElement("div");el.className="doc";
+    el.innerHTML=`${first?`<img alt="" src="${objUrl(first.thumb)}">`:`<div class="ph"></div>`}<div class="m"><div class="n">${esc(d.name)}</div><div class="s">${d.pages.length} หน้า · ${fmtDate(d.updated)}</div></div><button class="ib" aria-label="ตัวเลือก">⋯</button>`;
+    el.querySelector(".m").onclick=()=>openDoc(d.id);
+    if(first)el.querySelector("img").onclick=()=>openDoc(d.id);
+    el.querySelector("button").onclick=()=>docMenu(d.id,true);
+    box.appendChild(el);
+  }
+}
+$("#hCam").onclick=()=>startCapture(null,"cam");
+$("#hGal").onclick=()=>startCapture(null,"gal");
+$("#hMore").onclick=()=>sheet("ตั้งค่า",[
+  {label:`ขนาดหน้า PDF: ${settings.size==="a4"?"A4":"ตามรูป"} (แตะเพื่อสลับ)`,fn:()=>{settings.size=settings.size==="a4"?"fit":"a4";saveSettings();toast("ขนาดหน้า PDF: "+(settings.size==="a4"?"A4":"ตามรูป"))}},
+  {label:"วิธีติดตั้งเป็นแอป",fn:()=>textSheet("ติดตั้งบน iPhone","1. เปิดหน้านี้ใน Safari\n2. กดปุ่มแชร์ (สี่เหลี่ยมมีลูกศรขึ้น)\n3. เลือก \"เพิ่มไปยังหน้าจอโฮม\"\n\nแอปจะเปิดเต็มจอเหมือนแอปทั่วไป ไม่มีโฆษณา\nเอกสารเก็บไว้ในเครื่องนี้เท่านั้น (ไม่อัปโหลดไปไหน)\n\nหมายเหตุ: ถ้าลบแอป/ล้างข้อมูล Safari เอกสารจะหายด้วย — แชร์ PDF เก็บไว้ในแอปไฟล์ถ้าสำคัญ")}
+]);
+
+// ================= เอกสาร =================
+let curDoc=null;
+async function openDoc(id){
+  const d=await dbGet("docs",id);if(!d){show("home");return renderHome()}
+  curDoc=d;freeUrls();show("docv");
+  $("#dName").textContent=d.name;
+  const box=$("#pages");box.innerHTML="";
+  if(!d.pages.length)box.innerHTML=`<div class="empty" style="grid-column:1/-1">ยังไม่มีหน้า — กด ＋ เพิ่มหน้า</div>`;
+  for(let i=0;i<d.pages.length;i++){
+    const p=await dbGet("pages",d.pages[i]);if(!p)continue;
+    const b=document.createElement("button");b.className="pg";
+    b.innerHTML=`<img alt="หน้า ${i+1}" src="${objUrl(p.thumb)}"><span>${i+1}</span>`;
+    b.onclick=()=>pageMenu(i);
+    box.appendChild(b);
+  }
+  $("#dPdf").disabled=!d.pages.length;
+}
+$("#dBack").onclick=()=>{curDoc=null;show("home");renderHome()};
+$("#dName").onclick=()=>renameDoc(curDoc.id);
+$("#dAdd").onclick=()=>sheet("เพิ่มหน้า",[{label:"📷 ถ่ายรูป",fn:()=>startCapture(curDoc.id,"cam")},{label:"🖼 เลือกจากอัลบั้ม",fn:()=>startCapture(curDoc.id,"gal")}]);
+$("#dPdf").onclick=()=>exportPDF(curDoc.id);
+$("#dMore").onclick=()=>docMenu(curDoc.id,false);
+
+async function renameDoc(id){
+  const d=await dbGet("docs",id),n=await promptSheet("ตั้งชื่อเอกสาร",d.name);
+  if(!n)return;d.name=n;d.updated=Date.now();await dbPut("docs",d);
+  if(curDoc&&curDoc.id===id)openDoc(id);else renderHome();
+}
+async function docPages(d){return(await Promise.all(d.pages.map(id=>dbGet("pages",id)))).filter(Boolean)}
+async function exportPDF(id){
+  const d=await dbGet("docs",id);if(!d.pages.length)return toast("ยังไม่มีหน้า");
+  busy(true);await tick();
+  try{const pdf=await makePDF(await docPages(d),settings.size);busy(false);await shareFiles([new File([pdf],safeName(d.name)+".pdf",{type:"application/pdf"})],d.name)}
+  catch(e){busy(false);toast("สร้าง PDF ไม่สำเร็จ: "+e.message,4000)}
+}
+async function exportJPG(id){
+  const d=await dbGet("docs",id),ps=await docPages(d);if(!ps.length)return;
+  await shareFiles(ps.map((p,i)=>new File([p.out],`${safeName(d.name)}-${i+1}.jpg`,{type:"image/jpeg"})),d.name);
+}
+async function ocrDoc(id){
+  const d=await dbGet("docs",id),ps=await docPages(d);if(!ps.length)return;
+  try{textSheet("ข้อความในเอกสาร",await ocr(ps)||"(ไม่พบข้อความ)")}catch(e){toast(e.message,4000)}
+}
+async function deleteDoc(id){
+  const d=await dbGet("docs",id);
+  sheet(`ลบ "${d.name}" ทั้งหมด?`,[{label:"🗑 ลบเอกสาร",red:true,fn:async()=>{for(const p of d.pages)await dbDel("pages",p);await dbDel("docs",id);curDoc=null;show("home");renderHome();toast("ลบแล้ว")}}]);
+}
+function docMenu(id,fromHome){
+  sheet(null,[
+    ...(fromHome?[{label:"⤴ แชร์ PDF",fn:()=>exportPDF(id)}]:[]),
+    {label:"🖼 แชร์เป็นรูป JPG",fn:()=>exportJPG(id)},
+    {label:"🔤 ดึงข้อความ (OCR ไทย/อังกฤษ)",fn:()=>ocrDoc(id)},
+    {label:"✏️ เปลี่ยนชื่อ",fn:()=>renameDoc(id)},
+    {label:"🗑 ลบเอกสาร",red:true,fn:()=>deleteDoc(id)}
+  ]);
+}
+function pageMenu(i){
+  const d=curDoc,n=d.pages.length;
+  const move=async to=>{const a=d.pages.splice(i,1)[0];d.pages.splice(to,0,a);d.updated=Date.now();await dbPut("docs",d);openDoc(d.id)};
+  sheet(`หน้า ${i+1} จาก ${n}`,[
+    {label:"✂️ ครอป / ปรับสีใหม่",fn:()=>editPage(d.pages[i])},
+    ...(i>0?[{label:"↑ ย้ายไปก่อนหน้า",fn:()=>move(i-1)}]:[]),
+    ...(i<n-1?[{label:"↓ ย้ายไปถัดไป",fn:()=>move(i+1)}]:[]),
+    {label:"🔤 ดึงข้อความหน้านี้",fn:async()=>{const p=await dbGet("pages",d.pages[i]);try{textSheet(`ข้อความหน้า ${i+1}`,await ocr([p])||"(ไม่พบข้อความ)")}catch(e){toast(e.message,4000)}}},
+    {label:"🖼 แชร์รูปหน้านี้",fn:async()=>{const p=await dbGet("pages",d.pages[i]);shareFiles([new File([p.out],`${safeName(d.name)}-${i+1}.jpg`,{type:"image/jpeg"})],d.name)}},
+    {label:"🗑 ลบหน้านี้",red:true,fn:async()=>{const id=d.pages.splice(i,1)[0];await dbDel("pages",id);d.updated=Date.now();await dbPut("docs",d);openDoc(d.id)}}
+  ]);
+}
+
+// ================= ถ่าย / นำเข้า =================
+let target=null,queue=[],queueTotal=0,ed=null; // ed = หน้าที่กำลังแก้
+function startCapture(docId,how){
+  target=docId;const inp=how==="cam"?$("#inCam"):$("#inGal");inp.value="";inp.click();
+}
+for(const inp of [$("#inCam"),$("#inGal")])inp.onchange=()=>{
+  const files=[...inp.files].filter(f=>/^image\//.test(f.type)||/\.(heic|heif|jpe?g|png|webp)$/i.test(f.name));
+  if(!files.length)return;queue=files;queueTotal=files.length;nextInQueue();
+};
+async function nextInQueue(){
+  if(!queue.length){if(target)openDoc(target);else{show("home");renderHome()}return}
+  const f=queue.shift();busy(true);await tick();
+  try{
+    const orig=await normalizeFile(f);
+    ed={pageId:null,orig,rot:0,corners:null,filter:settings.filter};
+    await prepareCrop(true);
+  }catch(e){busy(false);toast(e.message,3000);nextInQueue()}
+}
+async function editPage(pageId){
+  const p=await dbGet("pages",pageId);if(!p)return;
+  target=curDoc.id;queue=[];queueTotal=0;
+  ed={pageId,orig:p.orig,rot:p.rot,corners:p.corners,filter:p.filter};
+  busy(true);await tick();await prepareCrop(false);
+}
+
+// ================= ครอป =================
+let lay=null,drag=-1;
+async function prepareCrop(auto){
+  try{
+    if(!ed.img)ed.img=await loadImg(ed.orig);
+    ed.src=rotCanvas(ed.img,ed.rot);
+    if(auto||!ed.corners)ed.corners=detect(ed.src);
+  }finally{busy(false)}
+  const done=queueTotal-queue.length;
+  $("#cCount").textContent=queueTotal>1?`${done}/${queueTotal}`:"";
+  show("crop");layoutCrop();
+}
+function layoutCrop(){
+  if(!ed||!ed.src)return;
+  const st=$("#stage"),W=st.clientWidth,H=st.clientHeight,pad=22,src=ed.src;
+  const k=Math.min((W-pad*2)/src.width,(H-pad*2)/src.height),dw=src.width*k,dh=src.height*k,ox=(W-dw)/2,oy=(H-dh)/2;
+  const dpr=Math.min(2,window.devicePixelRatio||1),cv=$("#cv");
+  cv.width=Math.round(dw*dpr);cv.height=Math.round(dh*dpr);cv.style.width=dw+"px";cv.style.height=dh+"px";cv.style.left=ox+"px";cv.style.top=oy+"px";
+  cv.getContext("2d").drawImage(src,0,0,cv.width,cv.height);
+  const ov=$("#ov");ov.setAttribute("width",W);ov.setAttribute("height",H);
+  lay={k,ox,oy,W,H};drawOverlay();
+}
+function drawOverlay(){
+  const{k,ox,oy,W,H}=lay,pts=ed.corners.map(([x,y])=>[ox+x*k,oy+y*k]),poly=pts.map(p=>p.join(",")).join(" ");
+  $("#ov").innerHTML=`<path d="M0 0H${W}V${H}H0Z M${pts.map(p=>p.join(" ")).join(" L")}Z" fill="rgba(0,0,0,.45)" fill-rule="evenodd"/>`+
+    `<polygon points="${poly}" fill="rgba(79,184,152,.12)" stroke="#4fb898" stroke-width="2.5"/>`+
+    pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${drag===i?16:12}" fill="${drag===i?"#4fb898":"rgba(255,255,255,.9)"}" stroke="#4fb898" stroke-width="3"/>`).join("");
+}
+function drawLoupe(i){
+  const lp=$("#loupe"),[x,y]=ed.corners[i],z=lp.width,half=58/(lay.k*3); // ซูม 3 เท่าของภาพบนจอ
+  const c=lp.getContext("2d");c.fillStyle="#000";c.fillRect(0,0,z,z);
+  c.drawImage(ed.src,x-half,y-half,half*2,half*2,0,0,z,z);
+  c.strokeStyle="#4fb898";c.lineWidth=3;c.beginPath();c.moveTo(z/2,z/2-22);c.lineTo(z/2,z/2+22);c.moveTo(z/2-22,z/2);c.lineTo(z/2+22,z/2);c.stroke();
+  const px=lay.ox+x*lay.k;lp.style.left=px<lay.W/2?"auto":"10px";lp.style.right=px<lay.W/2?"10px":"auto";lp.style.display="block";
+}
+const stage=$("#stage");
+stage.addEventListener("pointerdown",e=>{
+  if(!lay)return;const r=stage.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
+  let best=-1,bd=48*48;
+  ed.corners.forEach(([x,y],i)=>{const dx=lay.ox+x*lay.k-mx,dy=lay.oy+y*lay.k-my,dd=dx*dx+dy*dy;if(dd<bd){bd=dd;best=i}});
+  if(best<0)return;drag=best;ed.grab=[mx-(lay.ox+ed.corners[best][0]*lay.k),my-(lay.oy+ed.corners[best][1]*lay.k)];
+  stage.setPointerCapture(e.pointerId);drawOverlay();drawLoupe(best);e.preventDefault();
+});
+stage.addEventListener("pointermove",e=>{
+  if(drag<0)return;const r=stage.getBoundingClientRect();
+  let x=(e.clientX-r.left-ed.grab[0]-lay.ox)/lay.k,y=(e.clientY-r.top-ed.grab[1]-lay.oy)/lay.k;
+  x=Math.max(0,Math.min(ed.src.width,x));y=Math.max(0,Math.min(ed.src.height,y));
+  ed.corners[drag]=[x,y];drawOverlay();drawLoupe(drag);
+});
+const endDrag=()=>{if(drag<0)return;drag=-1;$("#loupe").style.display="none";drawOverlay()};
+stage.addEventListener("pointerup",endDrag);stage.addEventListener("pointercancel",endDrag);
+window.addEventListener("resize",()=>{if($("#crop").classList.contains("on"))layoutCrop()});
+
+// เรียงมุมให้เป็น บนซ้าย→บนขวา→ล่างขวา→ล่างซ้าย เผื่อผู้ใช้ลากมุมสลับกัน
+function orderQuad(q){
+  const cx=q.reduce((s,p)=>s+p[0],0)/4,cy=q.reduce((s,p)=>s+p[1],0)/4;
+  const s=[...q].sort((a,b)=>Math.atan2(a[1]-cy,a[0]-cx)-Math.atan2(b[1]-cy,b[0]-cx)); // เริ่มจากซ้ายบน วนตามเข็ม (แกน y ชี้ลง)
+  let i0=0,m=1e18;s.forEach((p,i)=>{const v=p[0]+p[1];if(v<m){m=v;i0=i}});
+  return[0,1,2,3].map(j=>s[(i0+j)%4]);
+}
+async function rotate(dir){ed.rot=(ed.rot+dir+360)%360;busy(true);await tick();ed.src=rotCanvas(ed.img,ed.rot);ed.corners=detect(ed.src);busy(false);layoutCrop()}
+$("#cRotL").onclick=()=>rotate(-90);
+$("#cRotR").onclick=()=>rotate(90);
+$("#cAuto").onclick=()=>{ed.corners=detect(ed.src);drawOverlay()};
+$("#cFull").onclick=()=>{ed.corners=fullQuad(ed.src.width,ed.src.height);drawOverlay()};
+$("#cBack").onclick=()=>{
+  if(ed.pageId){ed=null;openDoc(target);return}
+  const left=queue.length;
+  sheet("ข้ามรูปนี้?",[{label:left?`ข้ามรูปนี้ (เหลืออีก ${left})`:"ยกเลิกรูปนี้",red:true,fn:()=>{ed=null;nextInQueue()}},...(left?[{label:"ยกเลิกทั้งหมด",red:true,fn:()=>{queue=[];ed=null;nextInQueue()}}]:[])]);
+};
+$("#cNext").onclick=async()=>{
+  if(quadArea(ed.corners)<100)return toast("กรอบเล็กเกินไป");
+  ed.corners=orderQuad(ed.corners);busy(true);await tick();
+  try{ed.warped=warp(ed.src,ed.corners);ed.preview=scaled(ed.warped,1200)}finally{busy(false)}
+  show("filt");renderFilter();
+};
+
+// ================= ฟิลเตอร์ =================
+function renderFilter(){
+  $("#chips").innerHTML=FILTERS.map(([k,l])=>`<button class="chip${ed.filter===k?" on":""}" data-f="${k}">${l}</button>`).join("");
+  $("#chips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{ed.filter=b.dataset.f;renderFilter()});
+  const c=mkCanvas(ed.preview.width,ed.preview.height);c.getContext("2d").drawImage(ed.preview,0,0);
+  applyFilter(c,ed.filter);const box=$("#fstage");box.innerHTML="";box.appendChild(c);
+}
+$("#fBack").onclick=()=>{show("crop");layoutCrop()};
+$("#fSave").onclick=async()=>{
+  busy(true);await tick();
+  try{
+    const c=mkCanvas(ed.warped.width,ed.warped.height);c.getContext("2d").drawImage(ed.warped,0,0);applyFilter(c,ed.filter);
+    const out=await toJpeg(c,.85),thumb=await toJpeg(scaled(c,320),.7);
+    settings.filter=ed.filter;saveSettings();
+    const page={id:ed.pageId||uid(),orig:ed.orig,rot:ed.rot,corners:ed.corners,filter:ed.filter,out,thumb,w:c.width,h:c.height};
+    await dbPut("pages",page);
+    let d=target&&await dbGet("docs",target);
+    if(!d){d={id:uid(),name:defaultName(),created:Date.now(),updated:Date.now(),pages:[]};target=d.id}
+    if(!ed.pageId)d.pages.push(page.id);
+    d.updated=Date.now();await dbPut("docs",d);
+    ed=null;busy(false);
+    if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+    nextInQueue();
+  }catch(e){busy(false);toast("บันทึกไม่สำเร็จ: "+e.message,4000)}
+};
+
+// ================= เริ่ม =================
+renderHome().catch(e=>{$("#docs").innerHTML=`<div class="empty"><b>เปิดที่เก็บข้อมูลไม่ได้</b>${esc(e.message||e)}<br>(ถ้าใช้โหมดส่วนตัวของ Safari ให้ปิดก่อน)</div>`});
+if("serviceWorker"in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
