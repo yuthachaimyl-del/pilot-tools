@@ -42,6 +42,22 @@ header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidd
 .pg{position:relative;background:var(--card);border-radius:10px;padding:6px;border:0;display:block;width:100%}
 .pg img{width:100%;aspect-ratio:3/4;object-fit:contain;background:#111;border-radius:6px;display:block}
 .pg span{position:absolute;left:10px;bottom:10px;background:rgba(0,0,0,.65);font-size:12px;padding:2px 7px;border-radius:999px}
+#cam{background:#000}
+.camtop{display:flex;align-items:center;gap:8px;padding:10px 14px}
+.camtop .ib{background:rgba(255,255,255,.12)}
+.camtop .ib.on{background:#ffd34d;color:#000}
+#kHint{flex:1;text-align:center;font-size:13px;color:var(--mut)}
+#kStage{flex:1;position:relative;overflow:hidden}
+#kVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
+#kOv{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+#kFlash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+.cambar{display:flex;align-items:center;justify-content:space-between;padding:16px 26px calc(18px + env(safe-area-inset-bottom,0px))}
+#kShot{width:76px;height:76px;border-radius:50%;border:4px solid var(--acc);background:none;padding:5px;flex:none}
+#kShot span{display:block;width:100%;height:100%;border-radius:50%;background:#fff}
+#kShot:active span{transform:scale(.9)}
+.kside{width:76px;min-height:56px;border:0;border-radius:14px;background:rgba(255,255,255,.1);font-size:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1}
+.kside small{font-size:11.5px;color:var(--mut)}
+.kside:empty{visibility:hidden}
 #stage{flex:1;position:relative;touch-action:none;overflow:hidden;background:#0e1018}
 #cv{position:absolute;left:0;top:0}
 #ov{position:absolute;left:0;top:0;overflow:visible;pointer-events:none}
@@ -80,6 +96,22 @@ header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidd
 </section>
 
 <!-- ครอปมุมเอกสาร -->
+<!-- กล้องในแอป: กรอบเขียวจับขอบเอกสารสด ๆ -->
+<section class="view" id="cam">
+  <div class="camtop">
+    <button class="ib" id="kClose" aria-label="ปิดกล้อง">✕</button>
+    <span id="kHint">เล็งให้เห็นเอกสารทั้งแผ่น</span>
+    <button class="ib" id="kTorch" aria-label="แฟลช" hidden>⚡</button>
+    <button class="ib" id="kNative" aria-label="ใช้กล้อง iPhone">📱</button>
+  </div>
+  <div id="kStage"><video id="kVideo" playsinline muted autoplay></video><svg id="kOv"></svg><div id="kFlash"></div></div>
+  <div class="cambar">
+    <button class="kside" id="kDone"></button>
+    <button id="kShot" aria-label="ถ่าย"><span></span></button>
+    <button class="kside" id="kGal">🖼<small>อัลบั้ม</small></button>
+  </div>
+</section>
+
 <section class="view" id="crop">
   <header><button class="ib" id="cBack" aria-label="ยกเลิก">✕</button><div class="t">ปรับขอบเอกสาร</div><span id="cCount" style="color:var(--mut);font-size:13px"></span></header>
   <div id="stage"><canvas id="cv"></canvas><svg id="ov"></svg><canvas id="loupe" width="232" height="232"></canvas></div>
@@ -189,11 +221,12 @@ function rotCanvas(img,rot){
 // มุมของก้อนนั้น = จุดที่ x+y และ x−y มากสุด/น้อยสุด
 function fullQuad(W,H,inset=0){const a=W*inset,b=H*inset;return[[a,b],[W-a,b],[W-a,H-b],[a,H-b]]}
 function quadArea(q){let s=0;for(let i=0;i<4;i++){const[a,b]=q[i],[c,d]=q[(i+1)%4];s+=a*d-b*c}return Math.abs(s)/2}
-function detect(c){
-  const W=c.width,H=c.height,s=Math.min(1,256/Math.max(W,H));
+// คืน null ถ้าหาไม่เจอ (ใช้ตอนกล้องสด เพื่อไม่วาดกรอบมั่ว); src เป็น canvas หรือ video ก็ได้
+function findQuad(src,W=src.width,H=src.height,max=256){
+  const s=Math.min(1,max/Math.max(W,H));
   const w=Math.max(2,Math.round(W*s)),h=Math.max(2,Math.round(H*s)),n=w*h;
   const t=mkCanvas(w,h),x=t.getContext("2d",{willReadFrequently:true});
-  x.filter="blur(1.5px)";x.drawImage(c,0,0,w,h);
+  x.filter="blur(1.5px)";x.drawImage(src,0,0,w,h);
   const d=x.getImageData(0,0,w,h).data,L=new Uint8Array(n),hist=new Float64Array(256);
   for(let i=0;i<n;i++){const v=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;L[i]=v;hist[v]++}
   let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
@@ -219,8 +252,9 @@ function detect(c){
     const qq=bestQ.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)]),ar=quadArea(qq)/(W*H);
     if(ar>.12&&ar<.97)return qq;
   }
-  return fullQuad(W,H,.04);
+  return null;
 }
+const detect=c=>findQuad(c)||fullQuad(c.width,c.height,.04);
 
 // ดัดภาพให้ตรง (perspective) ด้วย homography + bilinear
 function homography(src,dst){
@@ -453,14 +487,88 @@ function pageMenu(i){
 // ================= ถ่าย / นำเข้า =================
 let target=null,queue=[],queueTotal=0,ed=null; // ed = หน้าที่กำลังแก้
 function startCapture(docId,how){
-  target=docId;const inp=how==="cam"?$("#inCam"):$("#inGal");inp.value="";inp.click();
+  target=docId;
+  if(how==="cam"&&!camDenied&&navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){openCamera();return}
+  const inp=how==="cam"?$("#inCam"):$("#inGal");inp.value="";inp.click();
 }
+
+// ================= กล้องในแอป (กรอบเขียวสด) =================
+// หลังบันทึกแต่ละหน้าจะกลับมาที่กล้องอีก (camMode) จนกด "เสร็จ"
+let camMode=false,camDenied=false,stream=null,camTimer=0,live=null,miss=0;
+async function openCamera(){
+  camMode=true;show("cam");renderCamDone();
+  if(stream&&stream.active)return camLoop();
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:3840},height:{ideal:2160}}});
+  }catch(e){
+    camMode=false;stream=null;camDenied=true; // กดสแกนครั้งถัดไปจะใช้กล้อง iPhone แทน
+    toast("เปิดกล้องในแอปไม่ได้ — กด 📷 อีกครั้งเพื่อใช้กล้อง iPhone",4000);
+    if(target)openDoc(target);else{show("home");renderHome()}
+    return;
+  }
+  const v=$("#kVideo");v.srcObject=stream;await v.play().catch(()=>{});
+  const tr=stream.getVideoTracks()[0],caps=tr.getCapabilities?tr.getCapabilities():{};
+  const tb=$("#kTorch");tb.hidden=!caps.torch;tb.classList.remove("on");
+  camLoop();
+}
+function stopCamera(){
+  clearTimeout(camTimer);camTimer=0;live=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  $("#kVideo").srcObject=null;$("#kOv").innerHTML="";
+}
+async function renderCamDone(){
+  const d=target&&await dbGet("docs",target),n=d?d.pages.length:0;
+  $("#kDone").innerHTML=n?`✓<small>เสร็จ (${n})</small>`:"";
+}
+function camLoop(){
+  clearTimeout(camTimer);
+  if(!$("#cam").classList.contains("on")||!stream)return;
+  const v=$("#kVideo"),vw=v.videoWidth,vh=v.videoHeight;
+  if(vw&&vh){
+    const q=findQuad(v,vw,vh,200);
+    if(q){miss=0;live=live?live.map((p,i)=>[p[0]+(q[i][0]-p[0])*.5,p[1]+(q[i][1]-p[1])*.5]):q} // ลดกรอบสั่น
+    else if(++miss>3)live=null;
+    drawLive(vw,vh);
+  }
+  camTimer=setTimeout(camLoop,120);
+}
+function drawLive(vw,vh){
+  const st=$("#kStage"),W=st.clientWidth,H=st.clientHeight,k=Math.min(W/vw,H/vh),ox=(W-vw*k)/2,oy=(H-vh*k)/2;
+  $("#kHint").textContent=live?"เจอเอกสารแล้ว กดถ่ายได้เลย":"เล็งให้เห็นเอกสารทั้งแผ่น";
+  if(!live){$("#kOv").innerHTML="";return}
+  const pts=live.map(([x,y])=>`${ox+x*k},${oy+y*k}`).join(" ");
+  $("#kOv").innerHTML=`<polygon points="${pts}" fill="rgba(79,184,152,.28)" stroke="#4fb898" stroke-width="3" stroke-linejoin="round"/>`;
+}
+$("#kShot").onclick=async()=>{
+  const v=$("#kVideo"),vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;
+  const fl=$("#kFlash");fl.style.transition="none";fl.style.opacity=".8";requestAnimationFrame(()=>{fl.style.transition="";fl.style.opacity="0"});
+  const s=Math.min(1,MAXS/Math.max(vw,vh)),c=mkCanvas(Math.round(vw*s),Math.round(vh*s)); // เฟรมเต็มความละเอียดของกล้อง
+  c.getContext("2d").drawImage(v,0,0,c.width,c.height);
+  const corners=live&&live.map(([x,y])=>[x*s,y*s]);
+  stopCamera();busy(true);await tick();
+  try{
+    ed={pageId:null,orig:await toJpeg(c,.92),rot:0,corners,filter:settings.filter};queue=[];queueTotal=0;
+    await prepareCrop(!corners);
+  }catch(e){busy(false);toast(e.message,3000);openCamera()}
+};
+$("#kTorch").onclick=async()=>{
+  const tr=stream&&stream.getVideoTracks()[0];if(!tr)return;
+  const b=$("#kTorch"),on=!b.classList.contains("on");
+  try{await tr.applyConstraints({advanced:[{torch:on}]});b.classList.toggle("on",on)}catch{toast("เปิดแฟลชไม่ได้")}
+};
+$("#kNative").onclick=()=>{stopCamera();camMode=false;if(target)openDoc(target);else{show("home");renderHome()}const i=$("#inCam");i.value="";i.click()};
+$("#kGal").onclick=()=>{stopCamera();const i=$("#inGal");i.value="";i.click()}; // camMode ยังอยู่ → ทำเสร็จแล้วกลับมากล้อง
+$("#kClose").onclick=$("#kDone").onclick=()=>{stopCamera();camMode=false;if(target)openDoc(target);else{show("home");renderHome()}};
+document.addEventListener("visibilitychange",()=>{
+  if(!$("#cam").classList.contains("on"))return;
+  if(document.hidden)stopCamera();else openCamera(); // iOS ดับกล้องตอนสลับแอป
+});
 for(const inp of [$("#inCam"),$("#inGal")])inp.onchange=()=>{
   const files=[...inp.files].filter(f=>/^image\//.test(f.type)||/\.(heic|heif|jpe?g|png|webp)$/i.test(f.name));
   if(!files.length)return;queue=files;queueTotal=files.length;nextInQueue();
 };
 async function nextInQueue(){
-  if(!queue.length){if(target)openDoc(target);else{show("home");renderHome()}return}
+  if(!queue.length){if(camMode)openCamera();else if(target)openDoc(target);else{show("home");renderHome()}return}
   const f=queue.shift();busy(true);await tick();
   try{
     const orig=await normalizeFile(f);
@@ -470,7 +578,7 @@ async function nextInQueue(){
 }
 async function editPage(pageId){
   const p=await dbGet("pages",pageId);if(!p)return;
-  target=curDoc.id;queue=[];queueTotal=0;
+  target=curDoc.id;queue=[];queueTotal=0;camMode=false;
   ed={pageId,orig:p.orig,rot:p.rot,corners:p.corners,filter:p.filter};
   busy(true);await tick();await prepareCrop(false);
 }
