@@ -1,0 +1,49 @@
+name: Deploy to Firebase Hosting
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - mel.json
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+concurrency: deploy
+env:
+  PROJECT: crew-brief
+  SITE: coolcrew
+  # Printed by tools/setup-auto-deploy.sh. Deploys are skipped until it is filled in.
+  PROJECT_NUMBER: "SET_ME"
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: check setup
+        id: setup
+        run: |
+          if [ "$PROJECT_NUMBER" = "SET_ME" ]; then
+            echo "::notice::Auto-deploy not set up yet: run tools/setup-auto-deploy.sh in Cloud Shell and fill PROJECT_NUMBER."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.setup.outputs.ready == 'true'
+        uses: actions/checkout@v4
+      - if: steps.setup.outputs.ready == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github/providers/github
+          service_account: github-deploy@${{ env.PROJECT }}.iam.gserviceaccount.com
+          create_credentials_file: true
+      - if: steps.setup.outputs.ready == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - if: steps.setup.outputs.ready == 'true'
+        run: bash tools/build-hosting.sh "$RUNNER_TEMP/fbdeploy" "$SITE"
+      - if: steps.setup.outputs.ready == 'true'
+        working-directory: ${{ runner.temp }}/fbdeploy
+        run: npx --yes firebase-tools@13.29.1 deploy --only hosting --project "$PROJECT" --non-interactive
+      - if: steps.setup.outputs.ready == 'true'
+        run: echo "::notice::Deployed https://$SITE.web.app"
