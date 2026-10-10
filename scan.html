@@ -248,30 +248,38 @@ function warp(src,q){
 }
 
 // ฟิลเตอร์: ประมาณแสงพื้นหลังเป็นตาราง แล้วหารออก → กระดาษขาว เงาหาย ตัวหนังสือชัด
-const FILTERS=[["enhance","✨ คมชัด"],["gray","ขาวเทา"],["bw","ขาวดำ"],["orig","ต้นฉบับ"]];
-function grid3(g,gw,gh,mx){const o=new Float32Array(g.length);
-  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let a=0,c=0;
-    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const yy=y+dy,xx=x+dx;if(yy<0||xx<0||yy>=gh||xx>=gw)continue;const v=g[yy*gw+xx];if(mx){if(v>a)a=v}else a+=v;c++}
-    o[y*gw+x]=mx?a:a/c}
+const FILTERS=[["enhance","✨ คมชัด"],["noshadow","ไม่มีเงา"],["gray","ขาวเทา"],["bw","ขาวดำ"],["orig","ต้นฉบับ"]];
+// op: "max" | "min" | "mean" over each cell's 3×3 neighbourhood
+function grid3(g,gw,gh,op){const o=new Float32Array(g.length);
+  for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){let a=op==="min"?1e9:0,c=0;
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const yy=y+dy,xx=x+dx;if(yy<0||xx<0||yy>=gh||xx>=gw)continue;const v=g[yy*gw+xx];if(op==="max"){if(v>a)a=v}else if(op==="min"){if(v<a)a=v}else a+=v;c++}
+    o[y*gw+x]=op==="mean"?a/c:a}
   return o}
 function applyFilter(c,mode){
   if(mode==="orig")return c;
   const w=c.width,h=c.height,x=c.getContext("2d",{willReadFrequently:true}),I=x.getImageData(0,0,w,h),d=I.data,n=w*h,L=new Uint8Array(n);
   for(let i=0;i<n;i++)L[i]=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;
-  const B=Math.max(10,Math.round(Math.max(w,h)/48)),gw=Math.ceil(w/B),gh=Math.ceil(h/B),hist=new Uint32Array(256);
+  const ns=mode==="noshadow"; // ไม่มีเงา: ยกเฉพาะส่วนที่มืดเพราะเงา คงสีเดิม ไม่เร่งคอนทราสต์
+  const B=Math.max(10,Math.round(Math.max(w,h)/(ns?24:48))),gw=Math.ceil(w/B),gh=Math.ceil(h/B),hist=new Uint32Array(256);
   let g=new Float32Array(gw*gh);
   for(let by=0;by<gh;by++)for(let bx=0;bx<gw;bx++){
     hist.fill(0);let cnt=0;const y1=Math.min(h,(by+1)*B),x1=Math.min(w,(bx+1)*B);
     for(let y=by*B;y<y1;y+=2)for(let xx=bx*B;xx<x1;xx+=2){hist[L[y*w+xx]]++;cnt++}
     let acc=0,v=255;const lim=cnt*.9;for(let k=0;k<256;k++){acc+=hist[k];if(acc>=lim){v=k;break}}
     g[by*gw+bx]=v}
-  g=grid3(grid3(grid3(g,gw,gh,true),gw,gh,false),gw,gh,false);
+  // closing (max แล้ว min เท่ากัน): ลบตัวหนังสือ/รูปสีเข้มออกจากค่าพื้นหลัง แต่ขอบเงายังอยู่ที่เดิม
+  const k=ns?4:1;
+  for(let i=0;i<k;i++)g=grid3(g,gw,gh,"max");
+  for(let i=0;i<k;i++)g=grid3(g,gw,gh,"min");
+  g=grid3(grid3(g,gw,gh,"mean"),gw,gh,"mean");
+  const T=ns?[...g].sort((a,b)=>a-b)[Math.floor(g.length*.95)]:255; // ความสว่างของกระดาษส่วนที่ไม่โดนเงา
   const BLACK=mode==="enhance"?35:45,WHITE=242,span=255/(WHITE-BLACK);
   for(let y=0;y<h;y++){let gy=(y+.5)/B-.5;if(gy<0)gy=0;else if(gy>gh-1)gy=gh-1;const y0=gy|0,y1=Math.min(gh-1,y0+1),fy=gy-y0;
     for(let xx=0;xx<w;xx++){let gx=(xx+.5)/B-.5;if(gx<0)gx=0;else if(gx>gw-1)gx=gw-1;const x0=gx|0,x1=Math.min(gw-1,x0+1),fx=gx-x0;
       const a=g[y0*gw+x0]+(g[y0*gw+x1]-g[y0*gw+x0])*fx,b=g[y1*gw+x0]+(g[y1*gw+x1]-g[y1*gw+x0])*fx,bg=a+(b-a)*fy;
-      const f=255/Math.max(bg,50),p=y*w+xx,i=p*4;
-      if(mode==="enhance"){
+      const f=ns?Math.min(2.5,T/Math.max(bg,30)):255/Math.max(bg,50),p=y*w+xx,i=p*4;
+      if(ns){d[i]*=f;d[i+1]*=f;d[i+2]*=f}
+      else if(mode==="enhance"){
         let r=(d[i]*f-BLACK)*span,gg=(d[i+1]*f-BLACK)*span,bl=(d[i+2]*f-BLACK)*span;const m=(r+gg+bl)/3;
         d[i]=m+(r-m)*1.3;d[i+1]=m+(gg-m)*1.3;d[i+2]=m+(bl-m)*1.3; // Uint8Clamped clamps ให้เอง
       }else{
