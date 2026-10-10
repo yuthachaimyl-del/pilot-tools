@@ -221,6 +221,17 @@ function rotCanvas(img,rot){
 // มุมของก้อนนั้น = จุดที่ x+y และ x−y มากสุด/น้อยสุด
 function fullQuad(W,H,inset=0){const a=W*inset,b=H*inset;return[[a,b],[W-a,b],[W-a,H-b],[a,H-b]]}
 function quadArea(q){let s=0;for(let i=0;i<4;i++){const[a,b]=q[i],[c,d]=q[(i+1)%4];s+=a*d-b*c}return Math.abs(s)/2}
+// มุมทั้ง 4 อยู่ระหว่าง 55°–125° และเป็นรูปนูน (มองเอียงได้ แต่ไม่บิดเบี้ยว)
+function squareish(q){
+  let sign=0;
+  for(let i=0;i<4;i++){
+    const p=q[i],a=q[(i+3)%4],b=q[(i+1)%4],ux=a[0]-p[0],uy=a[1]-p[1],vx=b[0]-p[0],vy=b[1]-p[1];
+    const lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy);if(!lu||!lv)return false;
+    const cos=(ux*vx+uy*vy)/(lu*lv);if(Math.abs(cos)>.574)return false; // cos55°
+    const cr=Math.sign(ux*vy-uy*vx);if(sign&&cr!==sign)return false;sign=cr;
+  }
+  return true;
+}
 // คืน null ถ้าหาไม่เจอ (ใช้ตอนกล้องสด เพื่อไม่วาดกรอบมั่ว); src เป็น canvas หรือ video ก็ได้
 function findQuad(src,W=src.width,H=src.height,max=256){
   const s=Math.min(1,max/Math.max(W,H));
@@ -232,26 +243,27 @@ function findQuad(src,W=src.width,H=src.height,max=256){
   let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
   let sB=0,wB=0,best=-1,th=128;
   for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=i*hist[i];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>best){best=v;th=i}}
-  const seen=new Uint8Array(n),q=new Int32Array(n);let bestSize=0,bestQ=null;
+  const seen=new Uint8Array(n),q=new Int32Array(n),per=2*(w+h);let bestSize=0,bestQ=null;
   for(let st=0;st<n;st++){
     if(seen[st]||L[st]<=th)continue;
-    let head=0,tail=0;q[tail++]=st;seen[st]=1;
+    let head=0,tail=0,edge=0;q[tail++]=st;seen[st]=1;
     while(head<tail){const p=q[head++],px=p%w,py=(p/w)|0;
+      if(px===0||py===0||px===w-1||py===h-1)edge++;
       if(px>0&&!seen[p-1]&&L[p-1]>th){seen[p-1]=1;q[tail++]=p-1}
       if(px<w-1&&!seen[p+1]&&L[p+1]>th){seen[p+1]=1;q[tail++]=p+1}
       if(py>0&&!seen[p-w]&&L[p-w]>th){seen[p-w]=1;q[tail++]=p-w}
       if(py<h-1&&!seen[p+w]&&L[p+w]>th){seen[p+w]=1;q[tail++]=p+w}}
-    if(tail>bestSize){
-      bestSize=tail;let a=1e9,b=-1e9,cc=-1e9,dd=1e9,tl,br,tr,bl;
-      for(let k=0;k<tail;k++){const p=q[k],px=p%w,py=(p/w)|0,sp=px+py,df=px-py;
-        if(sp<a){a=sp;tl=[px,py]}if(sp>b){b=sp;br=[px,py]}if(df>cc){cc=df;tr=[px,py]}if(df<dd){dd=df;bl=[px,py]}}
-      bestQ=[tl,tr,br,bl];
-    }
+    // ก้อนที่ไหลออกขอบภาพ = แสง/พื้นหลัง ไม่ใช่กระดาษ
+    if(tail<=bestSize||tail<n*.08||edge>per*.12)continue;
+    let a=1e9,b=-1e9,cc=-1e9,dd=1e9,tl,br,tr,bl;
+    for(let k=0;k<tail;k++){const p=q[k],px=p%w,py=(p/w)|0,sp=px+py,df=px-py;
+      if(sp<a){a=sp;tl=[px,py]}if(sp>b){b=sp;br=[px,py]}if(df>cc){cc=df;tr=[px,py]}if(df<dd){dd=df;bl=[px,py]}}
+    const cand=[tl,tr,br,bl],qa=quadArea(cand);
+    // กระดาษจริงเต็มกรอบสี่เหลี่ยมของมัน (ไม่ใช่ก้อนแสงรูปร่างแปลก ๆ) และมุมใกล้ฉาก
+    if(qa<n*.1||qa>n*.97||tail/qa<.85||!squareish(cand))continue;
+    bestSize=tail;bestQ=cand;
   }
-  if(bestQ&&bestSize>n*.1){
-    const qq=bestQ.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)]),ar=quadArea(qq)/(W*H);
-    if(ar>.12&&ar<.97)return qq;
-  }
+  if(bestQ)return bestQ.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)]);
   return null;
 }
 const detect=c=>findQuad(c)||fullQuad(c.width,c.height,.04);
@@ -494,7 +506,7 @@ function startCapture(docId,how){
 
 // ================= กล้องในแอป (กรอบเขียวสด) =================
 // หลังบันทึกแต่ละหน้าจะกลับมาที่กล้องอีก (camMode) จนกด "เสร็จ"
-let camMode=false,camDenied=false,stream=null,camTimer=0,live=null,miss=0;
+let camMode=false,camDenied=false,stream=null,camTimer=0,live=null,miss=0,hit=0;
 async function openCamera(){
   camMode=true;show("cam");renderCamDone();
   if(stream&&stream.active)return camLoop();
@@ -525,9 +537,11 @@ function camLoop(){
   if(!$("#cam").classList.contains("on")||!stream)return;
   const v=$("#kVideo"),vw=v.videoWidth,vh=v.videoHeight;
   if(vw&&vh){
-    const q=findQuad(v,vw,vh,200);
+    let q=findQuad(v,vw,vh,200);
+    hit=q?hit+1:0;
+    if(q&&!live&&hit<2)q=null; // ต้องเจอติดกัน 2 เฟรมก่อนค่อยโชว์ กันกรอบกระพริบมั่ว
     if(q){miss=0;live=live?live.map((p,i)=>[p[0]+(q[i][0]-p[0])*.5,p[1]+(q[i][1]-p[1])*.5]):q} // ลดกรอบสั่น
-    else if(++miss>3)live=null;
+    else if(live&&++miss>3)live=null;
     drawLive(vw,vh);
   }
   camTimer=setTimeout(camLoop,120);
