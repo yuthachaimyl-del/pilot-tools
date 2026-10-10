@@ -238,33 +238,95 @@ function findQuad(src,W=src.width,H=src.height,max=256){
   const w=Math.max(2,Math.round(W*s)),h=Math.max(2,Math.round(H*s)),n=w*h;
   const t=mkCanvas(w,h),x=t.getContext("2d",{willReadFrequently:true});
   x.filter="blur(1.5px)";x.drawImage(src,0,0,w,h);
-  const d=x.getImageData(0,0,w,h).data,L=new Uint8Array(n),hist=new Float64Array(256);
+  const d=x.getImageData(0,0,w,h).data;
+  // วิธี 1: กระดาษสว่างกว่าพื้น (Otsu บนความสว่าง)
+  const L=new Uint8Array(n),hist=new Float64Array(256);
   for(let i=0;i<n;i++){const v=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;L[i]=v;hist[v]++}
+  const th=otsu(hist,n),bright=new Uint8Array(n);
+  for(let i=0;i<n;i++)bright[i]=L[i]>th?1:0;
+  // วิธี 2: ขอบสี — ไล่ท่วมพื้นหลังจากขอบภาพผ่านจุดที่ไม่มีเส้นขอบ ที่เหลือ (ถูกล้อมไว้) คือวัตถุ
+  // ใช้กับของที่สว่างพอ ๆ กับพื้นแต่ต่างสี เช่น ห่อ/กล่อง/ปก
+  const G=new Float32Array(n),gh=new Float64Array(256);
+  for(let y=1;y<h-1;y++)for(let xx=1;xx<w-1;xx++){
+    const p=y*w+xx;let m=0;
+    for(let k=0;k<3;k++){
+      const o=p*4+k,r=w*4;
+      const gx=d[o-r+4]+2*d[o+4]+d[o+r+4]-d[o-r-4]-2*d[o-4]-d[o+r-4];
+      const gy=d[o+r-4]+2*d[o+r]+d[o+r+4]-d[o-r-4]-2*d[o-r]-d[o-r+4];
+      const g=Math.abs(gx)+Math.abs(gy);if(g>m)m=g}
+    G[p]=m;gh[Math.min(255,m>>2)]++}
+  const gt=Math.max(12,otsu(gh,n))*4,E=new Uint8Array(n);
+  for(let y=1;y<h-1;y++)for(let xx=1;xx<w-1;xx++){const p=y*w+xx;if(G[p]>gt){E[p]=E[p-1]=E[p+1]=E[p-w]=E[p+w]=1}} // ขยายเส้น 1px ปิดรอยขาด
+  const bg=new Uint8Array(n),q=new Int32Array(n);let qt=0;
+  const seed=p=>{if(!bg[p]&&!E[p]){bg[p]=1;q[qt++]=p}},seed0=p=>{if(!bg[p]){bg[p]=1;q[qt++]=p}}; // ขอบภาพเป็นพื้นหลังเสมอ
+  for(let xx=0;xx<w;xx++){seed0(xx);seed0((h-1)*w+xx)}
+  for(let y=0;y<h;y++){seed0(y*w);seed0(y*w+w-1)}
+  for(let qh=0;qh<qt;qh++){const p=q[qh],px=p%w;
+    if(px>0)seed(p-1);if(px<w-1)seed(p+1);if(p>=w)seed(p-w);if(p<n-w)seed(p+w)}
+  let fg=new Uint8Array(n);for(let i=0;i<n;i++)fg[i]=bg[i]?0:1;
+  const EK=4;for(let i=0;i<EK;i++)fg=erode(fg,w,h); // ตัดเส้น/ส่วนยื่นบาง ๆ ที่ต่อวัตถุกับของข้าง ๆ ออก
+  let best=null;
+  for(const [mask,minFill,grow,maxEdge] of [[bright,.85,0,.12],[fg,.8,EK,.01]]){
+    const c=bestBlob(mask,w,h,minFill,maxEdge);
+    if(c&&(!best||c.area>best.area*1.3)){best=c; // ขอบสีชนะเฉพาะเมื่อได้วัตถุใหญ่กว่าชัดเจน (วิธีความสว่างแนบขอบกระดาษกว่า)
+      if(grow){const cx=c.quad.reduce((a,p)=>a+p[0],0)/4,cy=c.quad.reduce((a,p)=>a+p[1],0)/4; // ขยายกลับเท่าที่กัดไป
+        best.quad=c.quad.map(([px,py])=>{const dx=px-cx,dy=py-cy,l=Math.hypot(dx,dy)||1;return[px+dx/l*grow*1.4,py+dy/l*grow*1.4]})}}
+  }
+  return best?orderQuad(best.quad.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)])):null;
+}
+function otsu(hist,n){
   let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
   let sB=0,wB=0,best=-1,th=128;
   for(let i=0;i<256;i++){wB+=hist[i];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=i*hist[i];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)*(mB-mF);if(v>best){best=v;th=i}}
-  const seen=new Uint8Array(n),q=new Int32Array(n),per=2*(w+h);let bestSize=0,bestQ=null;
+  return th;
+}
+function erode(m,w,h){const o=new Uint8Array(m.length);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const p=y*w+x;o[p]=m[p]&m[p-1]&m[p+1]&m[p-w]&m[p+w]}
+  return o}
+// ก้อนใหญ่สุดใน mask ที่ "ดูเป็นแผ่น": ไม่ไหลออกขอบภาพ, เต็มกรอบสี่มุม, มุมใกล้ฉาก
+function bestBlob(mask,w,h,minFill,maxEdge){
+  const n=w*h,seen=new Uint8Array(n),q=new Int32Array(n),per=2*(w+h),rmin=new Int32Array(h),rmax=new Int32Array(h);
+  let best=null;
   for(let st=0;st<n;st++){
-    if(seen[st]||L[st]<=th)continue;
+    if(seen[st]||!mask[st])continue;
     let head=0,tail=0,edge=0;q[tail++]=st;seen[st]=1;
     while(head<tail){const p=q[head++],px=p%w,py=(p/w)|0;
       if(px===0||py===0||px===w-1||py===h-1)edge++;
-      if(px>0&&!seen[p-1]&&L[p-1]>th){seen[p-1]=1;q[tail++]=p-1}
-      if(px<w-1&&!seen[p+1]&&L[p+1]>th){seen[p+1]=1;q[tail++]=p+1}
-      if(py>0&&!seen[p-w]&&L[p-w]>th){seen[p-w]=1;q[tail++]=p-w}
-      if(py<h-1&&!seen[p+w]&&L[p+w]>th){seen[p+w]=1;q[tail++]=p+w}}
-    // ก้อนที่ไหลออกขอบภาพ = แสง/พื้นหลัง ไม่ใช่กระดาษ
-    if(tail<=bestSize||tail<n*.08||edge>per*.12)continue;
-    let a=1e9,b=-1e9,cc=-1e9,dd=1e9,tl,br,tr,bl;
-    for(let k=0;k<tail;k++){const p=q[k],px=p%w,py=(p/w)|0,sp=px+py,df=px-py;
-      if(sp<a){a=sp;tl=[px,py]}if(sp>b){b=sp;br=[px,py]}if(df>cc){cc=df;tr=[px,py]}if(df<dd){dd=df;bl=[px,py]}}
-    const cand=[tl,tr,br,bl],qa=quadArea(cand);
-    // กระดาษจริงเต็มกรอบสี่เหลี่ยมของมัน (ไม่ใช่ก้อนแสงรูปร่างแปลก ๆ) และมุมใกล้ฉาก
-    if(qa<n*.1||qa>n*.97||tail/qa<.85||!squareish(cand))continue;
-    bestSize=tail;bestQ=cand;
+      if(px>0&&!seen[p-1]&&mask[p-1]){seen[p-1]=1;q[tail++]=p-1}
+      if(px<w-1&&!seen[p+1]&&mask[p+1]){seen[p+1]=1;q[tail++]=p+1}
+      if(py>0&&!seen[p-w]&&mask[p-w]){seen[p-w]=1;q[tail++]=p-w}
+      if(py<h-1&&!seen[p+w]&&mask[p+w]){seen[p+w]=1;q[tail++]=p+w}}
+    if(tail<n*.08||edge>per*maxEdge||(best&&tail<=best.size))continue; // ไหลออกขอบภาพ = แสง/พื้นหลัง
+    rmin.fill(w);rmax.fill(-1);
+    for(let k=0;k<tail;k++){const p=q[k],px=p%w,py=(p/w)|0;if(px<rmin[py])rmin[py]=px;if(px>rmax[py])rmax[py]=px}
+    const pts=[];for(let y=0;y<h;y++)if(rmax[y]>=0){pts.push([rmin[y],y]);if(rmax[y]!==rmin[y])pts.push([rmax[y],y])}
+    const quad=maxQuad(hull(pts));if(!quad)continue;
+    const qa=quadArea(quad);
+    if(qa<n*.1||qa>n*.97||tail/qa<minFill||tail/qa>1.15||!squareish(quad))continue; // >1.15 = ก้อนกลม/โค้ง ไม่ใช่แผ่นสี่เหลี่ยม
+    best={size:tail,area:qa,quad};
   }
-  if(bestQ)return bestQ.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)]);
-  return null;
+  return best;
+}
+function hull(pts){ // convex hull (monotone chain)
+  pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);
+  const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]),lo=[],up=[];
+  for(const p of pts){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+  for(let i=pts.length-1;i>=0;i--){const p=pts[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+  return lo.slice(0,-1).concat(up.slice(0,-1));
+}
+function maxQuad(H){ // สี่เหลี่ยมพื้นที่มากสุดที่มุมอยู่บน hull: เริ่มจากจุดสุดขั้ว แล้วขยับทีละมุมจนไม่ดีขึ้น
+  const m=H.length;if(m<4)return null;
+  const ext=[(p)=>-p[0]-p[1],(p)=>p[0]-p[1],(p)=>p[0]+p[1],(p)=>p[1]-p[0]];
+  let id=ext.map(f=>{let bi=0;for(let i=1;i<m;i++)if(f(H[i])>f(H[bi]))bi=i;return bi});
+  if(new Set(id).size<4)return null;
+  id.sort((a,b)=>a-b);
+  let area=quadArea(id.map(i=>H[i])),better=true;
+  for(let it=0;it<20&&better;it++){better=false;
+    for(let c=0;c<4;c++){
+      const a=id[(c+3)%4],b=id[(c+1)%4];
+      for(let j=(a+1)%m;j!==b;j=(j+1)%m){const tr=id.slice();tr[c]=j;const ar=quadArea(tr.map(i=>H[i]));if(ar>area+1e-6){area=ar;id=tr;better=true}}
+    }}
+  return id.map(i=>H[i]);
 }
 const detect=c=>findQuad(c)||fullQuad(c.width,c.height,.04);
 
@@ -660,7 +722,7 @@ function orderQuad(q){
 async function rotate(dir){ed.rot=(ed.rot+dir+360)%360;busy(true);await tick();ed.src=rotCanvas(ed.img,ed.rot);ed.corners=detect(ed.src);busy(false);layoutCrop()}
 $("#cRotL").onclick=()=>rotate(-90);
 $("#cRotR").onclick=()=>rotate(90);
-$("#cAuto").onclick=()=>{ed.corners=detect(ed.src);drawOverlay()};
+$("#cAuto").onclick=()=>{const q=findQuad(ed.src,undefined,undefined,320);if(q){ed.corners=q;toast("เจอขอบแล้ว")}else toast("หาขอบไม่เจอ — ลากมุมทั้ง 4 เองได้เลย",3000);drawOverlay()};
 $("#cFull").onclick=()=>{ed.corners=fullQuad(ed.src.width,ed.src.height);drawOverlay()};
 $("#cBack").onclick=()=>{
   if(ed.pageId){ed=null;openDoc(target);return}
