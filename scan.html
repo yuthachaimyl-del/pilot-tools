@@ -27,6 +27,8 @@ header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidd
 .bar.solid{position:static;background:var(--card);border-top:1px solid var(--line)}
 .btn{flex:1;border:0;border-radius:14px;padding:13px 10px;background:var(--card2);font-weight:600;font-size:15px;display:flex;align-items:center;justify-content:center;gap:6px;min-height:48px}
 .btn.pri{background:var(--acc);color:var(--accfg)}
+.bar .btn{white-space:nowrap;padding:13px 6px}
+@media (max-width:360px){.bar{gap:6px}.bar .btn{font-size:13px;gap:3px}}
 .btn.sm{flex:none;padding:10px 12px;font-size:14px;min-height:42px}
 .btn:disabled{opacity:.45}
 .empty{text-align:center;color:var(--mut);padding:70px 20px;line-height:1.6}
@@ -104,6 +106,7 @@ header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidd
   <div class="scroll"><div class="grid" id="pages"></div></div>
   <div class="bar">
     <button class="btn" id="dAdd">＋ เพิ่มหน้า</button>
+    <button class="btn" id="dImg">🖼 บันทึกรูป</button>
     <button class="btn pri" id="dPdf">⤴ แชร์ PDF</button>
   </div>
 </section>
@@ -391,12 +394,13 @@ async function openDoc(id){
     b.onclick=()=>pageMenu(i);
     box.appendChild(b);
   }
-  $("#dPdf").disabled=!d.pages.length;
+  $("#dPdf").disabled=$("#dImg").disabled=!d.pages.length;
 }
 $("#dBack").onclick=()=>{curDoc=null;show("home");renderHome()};
 $("#dName").onclick=()=>renameDoc(curDoc.id);
 $("#dAdd").onclick=()=>sheet("เพิ่มหน้า",[{label:"📷 ถ่ายรูป",fn:()=>startCapture(curDoc.id,"cam")},{label:"🖼 เลือกจากอัลบั้ม",fn:()=>startCapture(curDoc.id,"gal")}]);
 $("#dPdf").onclick=()=>exportPDF(curDoc.id);
+$("#dImg").onclick=()=>exportJPG(curDoc.id);
 $("#dMore").onclick=()=>docMenu(curDoc.id,false);
 
 async function renameDoc(id){
@@ -413,6 +417,7 @@ async function exportPDF(id){
 }
 async function exportJPG(id){
   const d=await dbGet("docs",id),ps=await docPages(d);if(!ps.length)return;
+  toast(`เลือก "บันทึกรูปภาพ" (Save Image) เพื่อเก็บ ${ps.length} รูปลงอัลบั้ม`,5000);
   await shareFiles(ps.map((p,i)=>new File([p.out],`${safeName(d.name)}-${i+1}.jpg`,{type:"image/jpeg"})),d.name);
 }
 async function ocrDoc(id){
@@ -426,7 +431,7 @@ async function deleteDoc(id){
 function docMenu(id,fromHome){
   sheet(null,[
     ...(fromHome?[{label:"⤴ แชร์ PDF",fn:()=>exportPDF(id)}]:[]),
-    {label:"🖼 แชร์เป็นรูป JPG",fn:()=>exportJPG(id)},
+    {label:"🖼 บันทึกรูปลงเครื่อง / แชร์เป็น JPG",fn:()=>exportJPG(id)},
     {label:"🔤 ดึงข้อความ (OCR ไทย/อังกฤษ)",fn:()=>ocrDoc(id)},
     {label:"✏️ เปลี่ยนชื่อ",fn:()=>renameDoc(id)},
     {label:"🗑 ลบเอกสาร",red:true,fn:()=>deleteDoc(id)}
