@@ -13,7 +13,7 @@ env:
   PROJECT: crew-brief
   SITE: coolcrew
   # Printed by tools/setup-auto-deploy.sh. Deploys are skipped until it is filled in.
-  PROJECT_NUMBER: "SET_ME"
+  PROJECT_NUMBER: "152625331284"
 jobs:
   deploy:
     runs-on: ubuntu-latest
