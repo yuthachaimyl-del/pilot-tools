@@ -335,7 +335,7 @@ ${y?f.status==="accepted"?'<span class="pill done">\u0E15\u0E01\u0E25\u0E07\u0E4
 <div class="post-top"><span class="pill ${r.kind==="give"?"give":"want"}">${r.kind==="give"?"\u0E1B\u0E25\u0E48\u0E2D\u0E22":"\u0E2D\u0E22\u0E32\u0E01\u0E44\u0E14\u0E49"}</span>${r.status==="done"?'<span class="pill done">\u0E08\u0E31\u0E1A\u0E04\u0E39\u0E48\u0E41\u0E25\u0E49\u0E27</span>':""}<span class="who">\u0E42\u0E14\u0E22 ${esc(nm(r.author))}</span></div>
 ${isMulti(r)?`<div class="range">\u{1F4C5} ${esc(fdRange(r))} \xB7 ${nDays(r)} \u0E27\u0E31\u0E19</div>`:""}
 ${r.kind==="give"?crewHtml(crewOfPost(r)):""}
-${r.code||r.detail||r.report||r.release?`<div class="duty">${r.code?`<span class="code">${esc(r.code)}</span>`:""}${r.detail?`<span class="detail mono">${esc(r.detail)}</span>`:""}${times(r.report,r.release)?`<span class="times mono">${esc(times(r.report,r.release))}</span>`:""}</div>`:""}
+${r.code||r.detail||r.report||r.release?`<div class="duty">${r.code?`<span class="code">${esc(r.code)}</span>`:""}${times(r.report,r.release)?`<span class="times mono">${esc(times(r.report,r.release))}</span>`:""}${r.detail?`<span class="detail mono" style="flex-basis:100%">${esc(r.detail)}</span>`:""}</div>`:""}
 ${r.note?`<div class="note">${esc(r.note)}</div>`:""}
 ${hintFor(r)}${g}
 ${r.status==="done"&&r.date>=t&&(m||S.offers.some(f=>f.id===r.acceptedOfferId&&f.by===S.me))?`<div class="section" style="padding:0;gap:8px"><b style="font-size:13.5px">\u0E15\u0E01\u0E25\u0E07\u0E41\u0E25\u0E01\u0E41\u0E25\u0E49\u0E27 \u0E02\u0E31\u0E49\u0E19\u0E15\u0E48\u0E2D\u0E44\u0E1B\u0E22\u0E37\u0E48\u0E19\u0E02\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E41\u0E25\u0E01\u0E01\u0E31\u0E1A\u0E1A\u0E23\u0E34\u0E29\u0E31\u0E17</b>${formCard(r)}</div>`:""}
