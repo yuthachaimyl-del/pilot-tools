@@ -203,7 +203,7 @@ input::-webkit-date-and-time-value{text-align:left}
 </details>
 </div>
 <div class="card">
-<div class="row" style="justify-content:space-between"><h2>ตารางของฉัน</h2><span class="muted" style="font-size:12.5px" id="rosterUpdated"></span></div>
+<div class="row" style="justify-content:space-between"><h2>ตารางของฉัน</h2><span class="muted" style="font-size:12.5px" id="rosterUpdated"></span></div><div class="row" style="align-items:center;gap:10px"><button class="btn small ghost" id="clearMyRoster" type="button">🗑 ล้างตาราง</button><span class="muted" style="font-size:12.5px" id="clearMyRosterMsg">ล้างเพื่ออัปโหลดใหม่ · วันที่ประกาศแลกอยู่จะไม่ถูกลบ</span></div><script>document.getElementById("clearMyRoster").onclick=function(){if(!confirm("ล้างตารางทั้งหมด?\nตารางใน Pilot Swap และ Crew Brief จะถูกลบ ยกเว้นวันที่กำลังประกาศแลก/ยื่นข้อเสนออยู่ (ประวัติการแลกไม่หาย)"))return;var m=document.getElementById("clearMyRosterMsg");m.textContent="กำลังล้าง…";window.FOCLEAR().then(function(r){m.textContent="✓ "+window.FOCLEAR_MSG(r);try{localStorage.removeItem("cb_roster_at")}catch(e){}setTimeout(function(){location.reload()},1500)},function(x){m.textContent="ล้างไม่สำเร็จ: "+(x&&x.message||x)})}</script>
 <div id="myRoster"></div>
 </div>
 </section>
