@@ -160,20 +160,21 @@ input[type=date],input[type=time]{-webkit-appearance:none;appearance:none;width:
 </section>
 
 <section class="panel" id="p-roster" hidden>
-<div class="card">
-<div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">อัปโหลดรูป roster</h2><button class="btn" id="clearTop" type="button">🗑 ล้างตารางเดิม</button></div>
+<div class="card" id="uploadCard">
+<div class="row" style="justify-content:space-between;align-items:center"><h2 style="margin:0">อัปโหลดตารางบิน</h2><button class="btn" id="clearTop" type="button">🗑 ล้างตารางเดิม</button></div>
 <div class="small" id="clearTopMsg"></div>
-<p class="small muted" style="margin:0">แคปหน้า Employee Roster Report จาก vzportal.merlot.aero ถ้าเดือนยาวเกินหนึ่งจอ ให้แคปหลายรูปแล้วเลือกพร้อมกัน ระบบจะอ่านตาราง แล้วแทนที่วันที่ซ้ำกับข้อมูลเดิม ชื่อและข้อมูลของ crew คนอื่นในช่อง Comment จะไม่ถูกเก็บ</p>
-<label class="drop" id="drop" for="file">
-<div><b>แตะเพื่อเลือกรูป</b> หรือลากไฟล์มาวาง</div>
-<div class="small muted">PNG / JPG หลายรูปได้</div>
-</label>
-<input type="file" id="file" accept="image/*" multiple class="vh">
+<p class="small muted" style="margin:0">แคปหน้าจอ roster (Employee Roster Report จาก vzportal.merlot.aero) แล้วเลือกภาพ ระบบจะอ่านวันที่ ไฟลต์ และเวลาให้ จากนั้นตรวจทานก่อนใช้ · วันที่ซ้ำกับของเดิมจะถูกแทนที่</p>
+<div class="grid2" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:end">
+<label class="f">เดือนในภาพ<input type="month" id="cbMonth"></label>
+<label class="f">ภาพ roster<span class="btn" id="drop" role="button" tabindex="0" onclick="document.getElementById('file').click()" style="display:flex;justify-content:center;align-items:center;min-height:44px;margin:0">📷 เลือกรูป <span class="muted" id="fileCount" style="font-weight:400;margin-left:6px"></span></span></label>
+</div>
+<input type="file" id="file" accept="image/*" multiple class="vh"><script>document.getElementById("file").addEventListener("change",function(){var n=this.files.length;document.getElementById("fileCount").textContent=n?"· "+n+" รูป":""})</script>
 <button class="gd-link" type="button" data-guide="roster">ดูตัวอย่างหน้าที่ต้องแคป</button>
 <div class="thumbs" id="thumbs"></div>
 <div class="row">
 <button class="btn primary" id="parseBtn">อ่านตาราง</button>
 <button class="btn" id="stopBtn" hidden>หยุด</button>
+<button class="btn" id="addManual" type="button">＋ เพิ่มวันเอง</button>
 </div>
 <div id="parseMsg" class="small"></div>
 </div>
