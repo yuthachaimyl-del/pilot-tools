@@ -14,5 +14,5 @@ for f in "$OUT"/public/*.html; do grep -q "manifest.webmanifest" "$f" || sed -i 
 # donate + feedback buttons on every page (not the scanner: they cover its crop screen)
 for f in "$OUT"/public/*.html; do [ "$(basename "$f")" = scan.html ] && continue; grep -q 'src="extras.js"' "$f" || sed -i 's#</body>#<script src="extras.js" defer></script></body>#' "$f"; done
 cat > "$OUT/firebase.json" <<JSON
-{"hosting":{"site":"$SITE","public":"public","headers":[{"source":"**","headers":[{"key":"Cache-Control","value":"no-cache"}]}]}}
+{"hosting":{"site":"$SITE","public":"public","headers":[{"source":"**","headers":[{"key":"Cache-Control","value":"no-cache"},{"key":"X-Frame-Options","value":"DENY"},{"key":"Content-Security-Policy","value":"frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://docs.google.com"},{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"}]}]}}
 JSON
