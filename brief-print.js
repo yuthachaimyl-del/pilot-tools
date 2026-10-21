@@ -135,7 +135,7 @@
   }
   const vCls = (c) => (c === "app" ? "bad" : c === "may" || c === "unk" ? "warn" : "ok");
 
-  async function build() {
+  function buildHtml(mel) {
     const o = sorted().find((d) => key(d) === briefKey);
     if (!o) return null;
     const b = brief(o), r = BR[briefKey] || {}, legs = legsOf(o);
@@ -173,8 +173,7 @@
     const reg = regs[0] || "";
     const f0 = opOf(0), ib = ops.find((x) => x.i === 0)?.inbound;
     let melHtml = "", melCount = 0;
-    const mel = regs.length ? await melData() : null;
-    if (regs.length && mel) {
+    if (regs.length && mel?.aircraft) {
       for (const g of regs) {
         const rows = (mel.aircraft?.[g] || []).map(melRow), m = rows.filter(isMel), other = rows.length - m.length;
         melCount += m.length;
@@ -182,7 +181,7 @@
           m.map((e) => `<div class="mel"><span class="pill warn">${H(e.cat && e.cat !== "NIL" ? "CAT " + e.cat : "MEL")}</span> <b class="m">${H(e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2)}</b> ${H(e.txt)}${e.exp && e.exp !== "-" ? ` <span class="mu">· exp ${H(e.exp)}</span>` : e.lim && e.lim !== "-" ? ` <span class="mu">· ${H(e.lim)}</span>` : ""}</div>`).join("");
       }
       melHtml += `<div class="mu" style="font-size:7pt">MEL dashboard อัปเดต ${H(mel.fetched_at ? new Date(mel.fetched_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }) : "")} · ตรวจกับ Tech Log จริงก่อนบิน</div>`;
-    } else if (regs.length) melHtml = '<div class="empty">โหลด MEL dashboard ไม่ได้ · เปิด MEL Dashboard ดูแทน</div>';
+    } else if (regs.length) melHtml = '<div class="empty">ยังโหลด MEL dashboard ไม่ได้ · เปิด MEL Dashboard ดูแทน</div>';
     else melHtml = '<div class="empty">ยังไม่รู้ทะเบียนเครื่อง · กดดึงจากชีต OMC หรือพิมพ์ REG ในหน้า Brief</div>';
     const myNote = String(r.mel || "").trim();
     if (myNote && !myNote.startsWith("[MEL dashboard")) melHtml += `<div class="note">${H(myNote)}</div>`;
@@ -274,40 +273,118 @@ ${rawWx ? `<div class="raw">${rawWx}</div>` : ""}
 </div>`;
   }
 
-  async function doPrint(btn) {
-    const box = printBox();
-    const old = btn.textContent;
-    btn.disabled = true; btn.textContent = "กำลังเตรียม…";
-    try {
-      const html = await build();
-      if (!html) { btn.textContent = "ยังไม่มี flight duty"; setTimeout(() => (btn.textContent = old), 2000); return; }
-      box.shadowRoot.innerHTML = `<style>${SHADOW_CSS}</style><div id="ccPrintIn">${html}</div>`;
-      await (document.fonts?.ready || Promise.resolve());
-      window.print();
-    } catch (e) {
-      console.error("print brief", e);
-      btn.textContent = "พิมพ์ไม่ได้ ลองใหม่";
-      setTimeout(() => (btn.textContent = old), 2500);
-      return;
-    } finally { btn.disabled = false; }
-    btn.textContent = old;
-  }
-
   const SHADOW_CSS = CSS.replace(/#ccPrint\{/g, ":host{display:block;").replace(/#ccPrint /g, "");
+  const wrap = (h) => `<style>${SHADOW_CSS}</style><div id="ccPrintIn">${h}</div>`;
   function printBox() {
     let box = document.getElementById("ccPrint");
     if (!box) { box = document.createElement("div"); box.id = "ccPrint"; document.body.appendChild(box); }
     if (!box.shadowRoot) box.attachShadow({ mode: "open" });
     return box;
   }
-  window.ccFillBriefPrint = async () => { const h = await build(); if (!h) return false; printBox().shadowRoot.innerHTML = `<style>${SHADOW_CSS}</style><div id="ccPrintIn">${h}</div>`; return true; };   // used by tests
+  const cachedMel = () => melCache?.d || null;
+  const msg = (t, color) => { const m = document.getElementById("b_printMsg"); if (m) { m.innerHTML = t; m.style.color = color || ""; } };
+  // iPhone/iPad "Add to Home Screen" apps cannot reliably open the print sheet: use the PDF + share sheet there
+  const standalone = () => navigator.standalone === true || !!window.matchMedia?.("(display-mode: standalone)").matches;
+  const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+  // Safari only opens the print sheet if window.print() runs in the same tap, so nothing here may await
+  function doPrint() {
+    melData();   // refresh for next time
+    let html;
+    try { html = buildHtml(cachedMel()); } catch (e) { console.error("print brief", e); msg("สร้างรายงานไม่ได้ · ลองใหม่", "var(--red)"); return; }
+    if (!html) { msg("ยังไม่มี flight duty ในตาราง", "var(--amber)"); return; }
+    if (isIOS() && standalone()) { msg("แอปบนหน้าโฮมของ iPhone สั่งพิมพ์ตรงไม่ได้ · กำลังทำเป็น PDF ให้แทน…"); makePdf(); return; }
+    printBox().shadowRoot.innerHTML = wrap(html);
+    msg("");
+    window.print();
+  }
+
+  // ---------- PDF (share sheet: print / save to Files / LINE) ----------
+  const LIBS = [
+    ["https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js", "sha512-BNaRQnYJYiPSqHHDb58B0yaPfCu+Wgds8Gp/gU33kqBtgNS4tSPHuGibyoeqMV/TJlSKda6FXzoEyYGjTe+vXA=="],
+    ["https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js", "sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA=="],
+  ];
+  const FONTS = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap";
+  let pdfFile = null, pdfBusy = false;
+  function pdfName() {
+    const o = sorted().find((d) => key(d) === briefKey);
+    return `CrewBrief-${String(o?.code || "duty").replace(/[^\w-]+/g, "_")}-${o?.date || ""}.pdf`;
+  }
+  async function makePdf() {
+    if (pdfBusy) return;
+    pdfBusy = true; pdfFile = null;
+    const btn = document.getElementById("b_pdf");
+    if (btn) { btn.disabled = true; btn.textContent = "กำลังทำ PDF…"; }
+    msg("กำลังทำ PDF… (ครั้งแรกใช้เวลาโหลดสักครู่)");
+    let fr = null;
+    try {
+      const html = buildHtml((await melData()) || cachedMel());
+      if (!html) throw new Error("ยังไม่มี flight duty ในตาราง");
+      fr = document.createElement("iframe");
+      fr.setAttribute("aria-hidden", "true");
+      fr.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;opacity:0;pointer-events:none";
+      // A4 at 96 dpi = 794 px wide; 8 mm side margins as in print
+      fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${FONTS}">
+<style>:root{--f-body:"IBM Plex Sans Thai",sans-serif;--f-mono:"IBM Plex Mono",monospace}html,body{margin:0;background:#fff}#ccPrint{width:794px;padding:30px 34px 34px}${CSS}</style>
+${LIBS.map(([u, h]) => `<script src="${u}" integrity="${h}" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>`).join("")}
+</head><body><div id="ccPrint">${html}</div></body></html>`;
+      document.body.appendChild(fr);
+      await new Promise((res, rej) => { fr.onload = res; setTimeout(() => rej(new Error("โหลดตัวทำ PDF ไม่ทัน (เน็ตช้า?)")), 25000); });
+      const w = fr.contentWindow;
+      if (!w.html2canvas || !w.jspdf) throw new Error("โหลดตัวทำ PDF ไม่ได้");
+      await (w.document.fonts?.ready || Promise.resolve());
+      const el = w.document.getElementById("ccPrint");
+      const canvas = await w.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, windowWidth: 794 });
+      const pdf = new w.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
+      const pw = 210, ph = 297, pxPerPage = Math.floor(canvas.width * ph / pw);
+      for (let y = 0, n = 0; y < canvas.height; y += pxPerPage, n++) {
+        const h = Math.min(pxPerPage, canvas.height - y), c = w.document.createElement("canvas");
+        c.width = canvas.width; c.height = h;
+        const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, h); g.drawImage(canvas, 0, -y);
+        if (n) pdf.addPage();
+        pdf.addImage(c.toDataURL("image/jpeg", 0.92), "JPEG", 0, 0, pw, (h * pw) / canvas.width);
+      }
+      pdfFile = new File([pdf.output("blob")], pdfName(), { type: "application/pdf" });
+      if (btn) { btn.textContent = "📤 แชร์ / บันทึก PDF"; btn.classList.add("primary"); }
+      msg(`PDF พร้อมแล้ว · กด <b>แชร์ / บันทึก PDF</b> แล้วเลือก "พิมพ์", "บันทึกไปยังไฟล์" หรือส่ง LINE`, "var(--green)");
+    } catch (e) {
+      console.error("brief pdf", e);
+      if (btn) btn.textContent = "📄 PDF";
+      msg("ทำ PDF ไม่ได้: " + esc(String(e?.message || e)), "var(--red)");
+    } finally {
+      fr?.remove();
+      pdfBusy = false;
+      if (btn) btn.disabled = false;
+    }
+  }
+  // the share sheet also needs to open inside a tap, so the file is made first and shared on the next tap
+  function sharePdf() {
+    const f = pdfFile;
+    if (!f) return makePdf();
+    const done = () => { pdfFile = null; const b = document.getElementById("b_pdf"); if (b) { b.textContent = "📄 PDF"; b.classList.remove("primary"); } };
+    if (navigator.canShare?.({ files: [f] })) {
+      navigator.share({ files: [f], title: f.name }).then(() => { msg(""); done(); }).catch((e) => { if (e?.name !== "AbortError") msg("แชร์ไม่ได้: " + esc(e?.message || e), "var(--red)"); });
+      return;
+    }
+    const u = URL.createObjectURL(f), a = document.createElement("a");
+    a.href = u; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(u), 60000);
+    msg("ดาวน์โหลด " + esc(f.name) + " แล้ว", "var(--green)"); done();
+  }
+
+  window.ccFillBriefPrint = async () => { const h = buildHtml(await melData()); if (!h) return false; printBox().shadowRoot.innerHTML = wrap(h); return true; };   // used by tests
+  window.ccBuildBriefPrint = async () => buildHtml(await melData());   // used by tests
+  window.ccMakeBriefPdf = async () => { await makePdf(); return pdfFile; };   // used by tests
   function init() {
     if (!document.getElementById("ccPrintCss")) {
       const st = document.createElement("style"); st.id = "ccPrintCss"; st.textContent = DOC_CSS; document.head.appendChild(st);
     }
     const btn = document.getElementById("b_print");
-    if (btn && !btn.__cc) { btn.__cc = 1; btn.addEventListener("click", () => doPrint(btn)); }
+    if (btn && !btn.__cc) { btn.__cc = 1; btn.addEventListener("click", doPrint); }
+    const pb = document.getElementById("b_pdf");
+    if (pb && !pb.__cc) { pb.__cc = 1; pb.addEventListener("click", sharePdf); }
+    document.getElementById("b_duty")?.addEventListener("change", () => { pdfFile = null; const b = document.getElementById("b_pdf"); if (b) { b.textContent = "📄 PDF"; b.classList.remove("primary"); } msg(""); });
+    melData();   // warm the MEL cache so a tap can print straight away
   }
-  window.ccBuildBriefPrint = build;   // used by tests
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init); else init();
 })();
