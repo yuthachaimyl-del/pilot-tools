@@ -215,7 +215,7 @@
     }
     const wxRows = [...merged.values()].map((w) => {
       const st = w.label.startsWith("DEP") && !legs[0].nt ? hm(legs[0].dep, legs[0].s.dep) : "";
-      const body = w.lines.map((x) => `<div class="gl"><span class="g ${x.cls}">${H(x.raw)}</span>${x.trans ? `<span class="mu" style="font-size:7pt">${H(x.trans)}</span> ` : ""}${x.v ? (x.v.c === "app" && /improvement/i.test(x.v.t) ? `<span class="pill ok">${H(x.v.lbl)} · ดีขึ้น</span>` : `<span class="pill ${vCls(x.v.c)}">${H(x.v.lbl)}</span>`) : ""}</div>`).join("");
+      const body = w.lines.map((x) => `<div class="gl"><span class="g ${x.cls}">${H(x.raw)}</span>${x.trans ? `<span class="mu" style="font-size:7pt">${H(x.trans)}</span> ` : ""}${x.v ? (x.v.c === "app" && /improvement/i.test(x.v.t) ? `<span class="pill ok">${H(x.v.lbl)} · ดีขึ้น</span>` : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? `<span class="pill warn">${H(x.v.lbl)} · ลมเปลี่ยน</span>` : `<span class="pill ${vCls(x.v.c)}">${H(x.v.lbl)}</span>`) : ""}</div>`).join("");
       return `<tr><td class="w">${H(w.label)} <span class="m">${H(w.icao)}</span><small>${zt(w.s)}–${zt(w.n)}${st ? " · STD " + st : ""}</small></td>
 <td>${body || ""}${w.note ? `<div class="empty">${H(w.note)}</div>` : ""}</td></tr>`;
     }).join("");
@@ -238,7 +238,7 @@
     // ----- threats (from the sections above) -----
     const th = [];
     [...merged.values()].forEach((w) => w.lines.forEach((x) => {
-      if (x.v?.c === "app" && !/improvement/i.test(x.v.t) && (x.cls === "hot" || x.cls === "warm")) th.push(["b", `${w.icao} ${w.label}: ${x.raw}`, "APPLICABLE · เทียบ minima / alternate / fuel"]);
+      if (x.v?.c === "app" && !/improvement|wind\/other/i.test(x.v.t) && (x.cls === "hot" || x.cls === "warm")) th.push(["b", `${w.icao} ${w.label}: ${x.raw}`, "APPLICABLE · เทียบ minima / alternate / fuel"]);
       else if (x.cls === "hot" && !/^Prevailing/.test(x.raw)) th.push(["w", `${w.icao} ${w.label}: ${x.raw}`, w.label.startsWith("DEP") ? "สภาพอากาศตอนออก · เช็ค take-off minima" : (x.trans ? x.trans + " · " : "") + "brief threat (CB / windshear / holding)"]);
     }));
     nItems.filter((x) => x.impact === "high" && x.active_in_window !== false).forEach((x) => th.push(["b", `${x.icao} ${x.id || ""}: ${x.summary || ""}`, "NOTAM ผลสูง ทับช่วงบิน"]));
