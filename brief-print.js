@@ -15,56 +15,56 @@
 @media print{
   @page{size:A4;margin:8mm 9mm 10mm}
   :root,:root[data-theme]{color-scheme:light!important;--bg:#fff!important}
-  html,body{background:#fff!important;color:#15202B!important;padding:0!important;margin:0!important}
+  html,body{background:#fff!important;color:#0B1117!important;padding:0!important;margin:0!important;-webkit-text-size-adjust:100%!important;text-size-adjust:100%!important}
   body>*:not(#ccPrint){display:none!important}
   #ccPrint{display:block!important}
 }`;
   // the report lives in a shadow root, so the app's own CSS (.card, table, .row, dark theme...) cannot leak in
   const CSS = `
-#ccPrint{--ink:#0E1620;--text:#15202B;--muted:#5A6878;--line:#D9E0E7;--soft:#F3F6F9;--green:#2F7D4F;--green-soft:#E3F3EA;
-  --amber:#9A5B00;--amber-soft:#FCF0DA;--red:#B42318;--red-soft:#FDE8E6;--blue:#245B9E;--blue-soft:#E6EEF8;
-  font-family:var(--f-body,"IBM Plex Sans Thai",sans-serif);font-size:8.6pt;line-height:1.38;color:var(--text);background:#fff;
+#ccPrint{--ink:#0E1620;--text:#0B1117;--muted:#2F3A46;--line:#8E9AA6;--soft:#EDF0F3;--green:#1F6B3F;--green-soft:#E3F3EA;
+  --amber:#7A4500;--amber-soft:#FCF0DA;--red:#9B1C12;--red-soft:#FDE8E6;--blue:#1B4F8C;--blue-soft:#E6EEF8;
+  font-family:var(--f-body,"IBM Plex Sans Thai",sans-serif);font-size:9.9pt;line-height:1.3;font-weight:500;color:var(--text);background:#fff;-webkit-text-size-adjust:100%;text-size-adjust:100%;
   -webkit-print-color-adjust:exact;print-color-adjust:exact}
 #ccPrint *{box-sizing:border-box}
 #ccPrint .m{font-family:var(--f-mono,"IBM Plex Mono",monospace)}
 #ccPrint .mu{color:var(--muted)}
-#ccPrint .pg{display:flex;flex-direction:column;gap:1.8mm}
-#ccPrint .hdr{background:var(--ink);color:#fff;border-radius:9px;padding:2.6mm 4.4mm;display:flex;justify-content:space-between;align-items:center;gap:4mm}
-#ccPrint .kick{font-family:var(--f-mono,monospace);font-size:7pt;letter-spacing:.16em;color:#5CC08A;font-weight:600}
+#ccPrint .pg{display:flex;flex-direction:column;gap:1.5mm}
+#ccPrint .hdr{background:var(--ink);color:#fff;border-radius:9px;padding:2mm 4.4mm;display:flex;justify-content:space-between;align-items:center;gap:4mm}
+#ccPrint .kick{font-family:var(--f-mono,monospace);font-size:8pt;letter-spacing:.16em;color:#8FE0B2;font-weight:600}
 #ccPrint .hl .row{display:flex;align-items:baseline;gap:3.5mm;flex-wrap:wrap}
-#ccPrint .code{font-size:20pt;font-weight:600;line-height:1.1}
-#ccPrint .route{font-size:10pt;color:#C9D4DF}
+#ccPrint .code{font-size:22.4pt;font-weight:600;line-height:1.1}
+#ccPrint .route{font-size:11.5pt;color:#E6EDF3}
 #ccPrint .hr{text-align:right}
-#ccPrint .date{font-size:11pt;font-weight:600}
-#ccPrint .dth,#ccPrint .who2{color:#AFC0D0;font-size:8pt}
-#ccPrint .who{font-weight:600;font-size:8.6pt;margin-top:.6mm}
+#ccPrint .date{font-size:12.6pt;font-weight:600}
+#ccPrint .dth,#ccPrint .who2{color:#D5DEE7;font-size:9.2pt}
+#ccPrint .who{font-weight:600;font-size:9.9pt;margin-top:.6mm}
 #ccPrint .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:1.6mm}
-#ccPrint .tile{border:1px solid var(--line);border-radius:7px;padding:1.1mm 2.2mm}
-#ccPrint .tile span{display:block;font-size:7.4pt;color:var(--muted)}
-#ccPrint .tile b{font-size:13pt;font-weight:600;font-family:var(--f-mono,monospace)}
-#ccPrint .tile em{font-style:normal;font-size:7pt;color:var(--muted);margin-left:3px;font-family:var(--f-mono,monospace)}
-#ccPrint .tile.key{background:var(--green-soft);border-color:#B9DEC8}
+#ccPrint .tile{border:1px solid var(--line);border-radius:7px;padding:.8mm 2.2mm}
+#ccPrint .tile span{display:block;font-size:8.5pt;color:var(--muted)}
+#ccPrint .tile b{font-size:14.6pt;font-weight:600;font-family:var(--f-mono,monospace)}
+#ccPrint .tile em{font-style:normal;font-size:8pt;color:var(--muted);margin-left:3px;font-family:var(--f-mono,monospace)}
+#ccPrint .tile.key{background:var(--green-soft);border-color:var(--green)}
 #ccPrint .tile.key b{color:var(--green)}
-#ccPrint .fdp{border:1px solid var(--line);border-radius:7px;padding:1.3mm 2.6mm}
+#ccPrint .fdp{border:1px solid var(--line);border-radius:7px;padding:1mm 2.6mm}
 #ccPrint .fdp .t{display:flex;gap:5px;align-items:baseline;flex-wrap:wrap}
 #ccPrint .fdp .r{margin-left:auto;color:var(--muted)}
 #ccPrint .bar{height:5px;background:var(--soft);border-radius:4px;margin-top:1mm;overflow:hidden}
 #ccPrint .bar i{display:block;height:100%;border-radius:4px}
-#ccPrint .card{border:1px solid var(--line);border-radius:9px;padding:1.7mm 3mm}
+#ccPrint .card{border:1px solid var(--line);border-radius:9px;padding:1.4mm 3mm}
 #ccPrint .hdr,#ccPrint .tiles,#ccPrint .fdp,#ccPrint .thl li,#ccPrint .mel{break-inside:avoid}
-#ccPrint h3{margin:0 0 1mm;font-size:9.6pt;font-weight:600;color:var(--ink);display:flex;align-items:baseline;gap:5px}
-#ccPrint h3 small{font-weight:400;color:var(--muted);font-size:7.6pt}
+#ccPrint h3{margin:0 0 1mm;font-size:11pt;font-weight:600;color:var(--ink);display:flex;align-items:baseline;gap:5px}
+#ccPrint h3 small{font-weight:500;color:var(--muted);font-size:8.7pt}
 #ccPrint table{width:100%;border-collapse:collapse}
-#ccPrint th{font-size:7.3pt;font-weight:600;color:var(--muted);text-align:left;padding:.6mm 1.5mm;border-bottom:1.3px solid var(--ink)}
-#ccPrint td{padding:.7mm 1.5mm;border-bottom:1px solid var(--line);vertical-align:top}
+#ccPrint th{font-size:8.4pt;font-weight:600;color:var(--muted);text-align:left;padding:.6mm 1.5mm;border-bottom:1.6px solid var(--ink)}
+#ccPrint td{padding:.45mm 1.5mm;border-bottom:1px solid var(--line);vertical-align:top}
 #ccPrint tr:last-child td{border-bottom:none}
 #ccPrint tr{break-inside:avoid}
-#ccPrint .z{font-size:7pt;color:var(--muted);margin-left:3px}
-#ccPrint .pill{display:inline-block;font-size:6.9pt;font-weight:600;border-radius:20px;padding:0 6px;line-height:1.6;white-space:nowrap;background:var(--soft);color:var(--muted)}
-#ccPrint .bad{background:var(--red-soft);color:var(--red)}
-#ccPrint .warn{background:var(--amber-soft);color:var(--amber)}
-#ccPrint .ok{background:var(--green-soft);color:var(--green)}
-#ccPrint .info{background:var(--blue-soft);color:var(--blue)}
+#ccPrint .z{font-size:8pt;color:var(--muted);margin-left:3px}
+#ccPrint .pill{display:inline-block;font-size:8pt;font-weight:600;border-radius:20px;padding:0 6px;line-height:1.6;white-space:nowrap;background:var(--soft);color:var(--muted)}
+#ccPrint .bad{background:var(--red-soft);color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
+#ccPrint .warn{background:var(--amber-soft);color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
+#ccPrint .ok{background:var(--green-soft);color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
+#ccPrint .info{background:var(--blue-soft);color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
 #ccPrint td.tbad{color:var(--red);font-weight:600}
 #ccPrint td.twarn{color:var(--amber);font-weight:600}
 #ccPrint .thl{list-style:none;margin:0;padding:0;display:grid;gap:.7mm}
@@ -74,23 +74,23 @@
 #ccPrint .ac{display:grid;grid-template-columns:auto 1fr;gap:3mm;align-items:start}
 #ccPrint .acft{display:flex;gap:1.4mm}
 #ccPrint .acft div{background:var(--soft);border-radius:6px;padding:.9mm 2mm}
-#ccPrint .acft span{display:block;font-size:7pt;color:var(--muted)}
-#ccPrint .acft b{font-size:9.6pt;font-family:var(--f-mono,monospace)}
+#ccPrint .acft span{display:block;font-size:8pt;color:var(--muted)}
+#ccPrint .acft b{font-size:11pt;font-family:var(--f-mono,monospace)}
 #ccPrint .mel{padding:.4mm 0}
-#ccPrint .note{white-space:pre-wrap;color:var(--muted);font-size:7.8pt;margin-top:.6mm}
-#ccPrint .wx td{font-size:8pt}
+#ccPrint .note{white-space:pre-wrap;color:var(--muted);font-size:9pt;margin-top:.6mm}
+#ccPrint .wx td{font-size:9.2pt}
 #ccPrint .wx td.w{white-space:nowrap;font-weight:600}
-#ccPrint .wx td.w small{display:block;font-weight:400;color:var(--muted);font-family:var(--f-mono,monospace);font-size:6.9pt}
-#ccPrint .g{font-family:var(--f-mono,monospace);font-size:7.3pt;margin-right:4px}
+#ccPrint .wx td.w small{display:block;font-weight:500;color:var(--muted);font-family:var(--f-mono,monospace);font-size:8pt}
+#ccPrint .g{font-family:var(--f-mono,monospace);font-size:8.4pt;margin-right:4px}
 #ccPrint .g.hot{color:var(--red)} #ccPrint .g.warm{color:var(--amber)}
 #ccPrint .gl{padding:.15mm 0}
-#ccPrint .raw{font-family:var(--f-mono,monospace);font-size:6.8pt;line-height:1.4;background:var(--soft);border-radius:5px;padding:.8mm 1.6mm;margin-top:1mm;color:#2C3A48;word-break:break-word}
-#ccPrint .src{font-size:6.8pt;color:var(--muted);border-left:3px solid var(--green);padding-left:2.2mm;margin-top:1mm}
+#ccPrint .raw{font-family:var(--f-mono,monospace);font-size:8pt;line-height:1.4;background:var(--soft);border-radius:5px;padding:.8mm 1.6mm;margin-top:1mm;color:#111A22;word-break:break-word}
+#ccPrint .src{font-size:8pt;color:var(--muted);border-left:3px solid var(--green);padding-left:2.2mm;margin-top:1mm}
 #ccPrint .src b{color:var(--text)}
-#ccPrint .nt td{font-size:8pt}
-#ccPrint .nt tr.off td{color:#93A0AE}
-#ccPrint .ftr{display:flex;justify-content:space-between;gap:4mm;font-size:6.6pt;color:#8796A6;border-top:1px solid var(--line);padding-top:1.2mm;margin-top:.6mm}
-#ccPrint .empty{color:var(--muted);font-size:7.8pt}
+#ccPrint .nt td{font-size:9.2pt}
+#ccPrint .nt tr.off td{color:#55616D}
+#ccPrint .ftr{display:flex;justify-content:space-between;gap:4mm;font-size:8pt;color:#3E4955;border-top:1px solid var(--line);padding-top:1.2mm;margin-top:.6mm}
+#ccPrint .empty{color:var(--muted);font-size:9pt}
 `;
 
   let melCache = null;
@@ -180,7 +180,7 @@
         melHtml += `<div class="mel"><b class="m">${H(g)}</b> · ${m.length} MEL${other ? ` · ${other} deferred defect อื่น` : ""}${rows.length ? "" : ' <span class="pill ok">ไม่มีรายการค้าง</span>'}</div>` +
           m.map((e) => `<div class="mel"><span class="pill warn">${H(e.cat && e.cat !== "NIL" ? "CAT " + e.cat : "MEL")}</span> <b class="m">${H(e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2)}</b> ${H(e.txt)}${e.exp && e.exp !== "-" ? ` <span class="mu">· exp ${H(e.exp)}</span>` : e.lim && e.lim !== "-" ? ` <span class="mu">· ${H(e.lim)}</span>` : ""}</div>`).join("");
       }
-      melHtml += `<div class="mu" style="font-size:7pt">MEL dashboard อัปเดต ${H(mel.fetched_at ? new Date(mel.fetched_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }) : "")} · ตรวจกับ Tech Log จริงก่อนบิน</div>`;
+      melHtml += `<div class="mu" style="font-size:8.2pt">MEL dashboard อัปเดต ${H(mel.fetched_at ? new Date(mel.fetched_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }) : "")} · ตรวจกับ Tech Log จริงก่อนบิน</div>`;
     } else if (regs.length) melHtml = '<div class="empty">ยังโหลด MEL dashboard ไม่ได้ · เปิด MEL Dashboard ดูแทน</div>';
     else melHtml = '<div class="empty">ยังไม่รู้ทะเบียนเครื่อง · กดดึงจากชีต OMC หรือพิมพ์ REG ในหน้า Brief</div>';
     const myNote = String(r.mel || "").trim();
@@ -214,23 +214,21 @@
     }
     const wxRows = [...merged.values()].map((w) => {
       const st = w.label.startsWith("DEP") && !legs[0].nt ? hm(legs[0].dep, legs[0].s.dep) : "";
-      const body = w.lines.map((x) => `<div class="gl"><span class="g ${x.cls}">${H(x.raw)}</span>${x.trans ? `<span class="mu" style="font-size:7pt">${H(x.trans)}</span> ` : ""}${x.v ? (x.v.c === "app" && /improvement/i.test(x.v.t) ? `<span class="pill ok">${H(x.v.lbl)} · ดีขึ้น</span>` : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? `<span class="pill warn">${H(x.v.lbl)} · ลมเปลี่ยน</span>` : `<span class="pill ${vCls(x.v.c)}">${H(x.v.lbl)}</span>`) : ""}</div>`).join("");
+      const body = w.lines.map((x) => `<div class="gl"><span class="g ${x.cls}">${H(x.raw)}</span>${x.trans ? `<span class="mu" style="font-size:8.2pt">${H(x.trans)}</span> ` : ""}${x.v ? (x.v.c === "app" && /improvement/i.test(x.v.t) ? `<span class="pill ok">${H(x.v.lbl)} · ดีขึ้น</span>` : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? `<span class="pill warn">${H(x.v.lbl)} · ลมเปลี่ยน</span>` : `<span class="pill ${vCls(x.v.c)}">${H(x.v.lbl)}</span>`) : ""}</div>`).join("");
       return `<tr><td class="w">${H(w.label)} <span class="m">${H(w.icao)}</span><small>${zt(w.s)}–${zt(w.n)}${st ? " · STD " + st : ""}</small></td>
 <td>${body || ""}${w.note ? `<div class="empty">${H(w.note)}</div>` : ""}</td></tr>`;
     }).join("");
     const usedIcao = [...new Set(wins.filter(Boolean).map((w) => w.icao))];
     const metars = r.metar || {};
-    const rawWx = usedIcao.map((i) => {
-      const t = (r.taf || "").split("\n").filter((x) => new RegExp("\\b" + i + "\\s+\\d{6}Z").test(x)).join(" ");
-      return (metars[i]?.raw ? H(metars[i].raw) + "<br>" : "") + (t ? H(t) : "");
-    }).filter(Boolean).join("<br>");
+    // TAF groups are already listed per window above, so only the latest METARs are printed raw
+    const rawWx = usedIcao.map((i) => (metars[i]?.raw ? H(metars[i].raw) : "")).filter(Boolean).join("<br>");
 
     // ----- NOTAM -----
     const ns = r.notamSum?.airports || [];
     const rank = (x) => ({ high: 0, medium: 1 }[x.impact] ?? 2);
     const nItems = ns.flatMap((a) => (a.items || []).map((x) => ({ ...x, icao: a.icao })))
       .sort((p, q) => (p.active_in_window === false) - (q.active_in_window === false) || rank(p) - rank(q));
-    const ntRows = nItems.map((x) => `<tr class="${x.active_in_window === false ? "off" : ""}"><td class="m"><b>${H(x.icao)}</b></td><td class="m" style="font-size:7.4pt">${H(x.id || "")}</td><td>${H(x.summary || "")}</td>
+    const ntRows = nItems.map((x) => `<tr class="${x.active_in_window === false ? "off" : ""}"><td class="m"><b>${H(x.icao)}</b></td><td class="m" style="font-size:8.6pt">${H(x.id || "")}</td><td>${H(x.summary || "")}</td>
 <td>${x.active_in_window === true ? '<span class="pill info">ทับช่วงบิน</span>' : x.active_in_window === false ? '<span class="pill">ไม่ทับ</span>' : '<span class="pill warn">ตรวจเอง</span>'}</td>
 <td><span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span></td></tr>`).join("");
 
@@ -249,7 +247,7 @@
 
     // ----- header -----
     const [Y, Mo, D] = o.date.split("-").map(Number), dw = new Date(Date.UTC(Y, Mo - 1, D)).getUTCDay();
-    const route = (typeof stationName === "function" ? stationName(o) : "").split("–").map(H).join(' <span style="color:#5CC08A">→</span> ');
+    const route = (typeof stationName === "function" ? stationName(o) : "").split("–").map(H).join(' <span style="color:#8FE0B2">→</span> ');
     const whoTxt = (document.getElementById("who")?.textContent || "").trim();
     const who = / · /.test(whoTxt) ? whoTxt : "";   // name · fleet · rank once signed in
     const tile = (lbl, ms, st, cls = "", extra = "") => `<div class="tile ${cls}"><span>${lbl}</span><b>${ms == null ? "—" : hm(ms, st)}</b>${ms == null ? "" : `<em>${extra || zt(ms)}</em>`}</div>`;
@@ -260,14 +258,14 @@
 <div class="hdr"><div class="hl"><div class="kick">CREW BRIEF · PRE-REPORT</div><div class="row"><span class="code m">${H(o.code || "")}</span><span class="route m">${route}</span></div></div>
 <div class="hr"><div class="date m">${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y}</div><div class="dth">${DOW_TH[dw]} ${D} ${MON_TH[Mo - 1]} ${Y + 543}</div><div class="who">${H(who)}</div></div></div>
 <div class="tiles">${tile("ตื่น", b.wakeAbs, base, "", " ")}${tile("ออกจากบ้าน", b.leaveAbs, base, "", " ")}${tile("Report", b.repAbs, from, "key")}${tile("Off-block แรก", legs[0] && !legs[0].nt ? legs[0].dep : null, legs[0]?.s.dep)}${tile(last?.nt ? "On-block สุดท้าย ≈" : "On-block สุดท้าย", lastOn ?? null, last?.s.arr || base)}${tile("Release", b.relAbs, (o.to || last?.s.arr || base))}</div>
-${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามตาราง <span class="m">${fmtDur(fdp)}</span></b> จาก max <span class="m">${fmtDur(b.fdpMax)}</span> · เหลือ <b class="m" style="color:${lc}">${fmtDur(left)}</b> ก่อนต้องใช้ extension${last?.nt ? ' <span class="mu">(ประมาณจาก release − 30 นาที post-flight duty · OM-A 7.1.5 C)</span>' : ""}${o.block ? `<span class="r">Block รวม <b class="m" style="color:var(--text)">${H(o.block)}</b></span>` : ""}</div><div class="bar"><i style="width:${Math.max(0, Math.min(100, (fdp * 100) / b.fdpMax)).toFixed(1)}%;background:${lc}"></i></div></div>` : ""}
+${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามตาราง <span class="m">${fmtDur(fdp)}</span></b> จาก max <span class="m">${fmtDur(b.fdpMax)}</span> · เหลือ <b class="m" style="color:${lc}">${fmtDur(left)}</b> ก่อนต้องใช้ extension${last?.nt ? ' <span class="mu">(≈ release − 30 นาที · OM-A 7.1.5 C)</span>' : ""}${o.block ? `<span class="r">Block รวม <b class="m" style="color:var(--text)">${H(o.block)}</b></span>` : ""}</div><div class="bar"><i style="width:${Math.max(0, Math.min(100, (fdp * 100) / b.fdpMax)).toFixed(1)}%;background:${lc}"></i></div></div>` : ""}
 <div class="card"><h3>เที่ยวบิน <small>เวลาท้องถิ่น · Z${nt ? " · บางขายังไม่มีเวลา STD/STA (รอ Flight Detail)" : ""}</small></h3>
 <table><thead><tr><th>#</th><th>Flight</th><th>Route</th><th>STD</th><th>STA</th><th>Block</th><th>Turnaround</th><th>Gate</th></tr></thead><tbody>${legRows}</tbody></table></div>
 <div class="card"><h3>Threats วันนี้ <small>สรุปอัตโนมัติจากหัวข้อด้านล่าง</small></h3>${thHtml}</div>
 <div class="card"><h3>1 · เครื่องและ MEL</h3><div class="ac"><div class="acft"><div><span>Registration</span><b>${H(reg || "—")}</b></div><div><span>Gate ขาแรก</span><b>${H(f0?.gate || r.gate || "—")}</b></div></div><div>${melHtml}${ibHtml}</div></div></div>
 <div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows ? `<table class="wx"><tbody>${wxRows}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
-${rawWx ? `<div class="raw">${rawWx}</div>` : ""}
-<div class="src"><b>OM-A 8.1.2.4.6 A · p.8-26</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>OM-A 8.1.2.5 Table 1 · p.8-29</b> TEMPO/PROB transient (TS, SH) = Not applicable · persistent (BR, FG, HZ) = Applicable · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
+${rawWx ? `<div class="raw"><b>METAR ล่าสุด</b><br>${rawWx}</div>` : ""}
+<div class="src"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
 <div class="card"><h3>3 · NOTAM <small>${nItems.length ? "สรุปอัตโนมัติจากข้อความที่วาง · ตรวจกับต้นฉบับ" : ""}</small></h3>${ntRows ? `<table class="nt"><thead><tr><th>AD</th><th>NOTAM</th><th>เรื่อง</th><th>ช่วงบิน</th><th>ผล</th></tr></thead><tbody>${ntRows}</tbody></table>` : '<div class="empty">ยังไม่ได้สรุป NOTAM · วาง NOTAM แล้วกด "สรุป NOTAM ตามช่วงเวลาบิน" ในหน้า Brief</div>'}</div>
 <div class="ftr"><span>CoolCrew · Crew Brief · พิมพ์ ${gen.date.split("-").reverse().join("/")} ${gen.hm} ${H(base)}</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ · ใช้ OFP, NOTAM และ weather ทางการประกอบเสมอ</span></div>
 </div>`;
@@ -325,7 +323,7 @@ ${rawWx ? `<div class="raw">${rawWx}</div>` : ""}
       fr.style.cssText = "position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;opacity:0;pointer-events:none";
       // A4 at 96 dpi = 794 px wide; 8 mm side margins as in print
       fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${FONTS}">
-<style>:root{--f-body:"IBM Plex Sans Thai",sans-serif;--f-mono:"IBM Plex Mono",monospace}html,body{margin:0;background:#fff}#ccPrint{width:794px;padding:30px 34px 34px}${CSS}</style>
+<style>:root{--f-body:"IBM Plex Sans Thai",sans-serif;--f-mono:"IBM Plex Mono",monospace}html,body{margin:0;background:#fff;-webkit-text-size-adjust:100%;text-size-adjust:100%}#ccPrint{width:794px;padding:30px 34px 34px}${CSS}</style>
 ${LIBS.map(([u, h]) => `<script src="${u}" integrity="${h}" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>`).join("")}
 </head><body><div id="ccPrint">${html}</div></body></html>`;
       document.body.appendChild(fr);
