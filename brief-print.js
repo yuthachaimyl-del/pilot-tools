@@ -190,12 +190,23 @@
     const reg = regs[0] || "";
     const f0 = opOf(0), ib = ops.find((x) => x.i === 0)?.inbound;
     let melHtml = "", melCount = 0;
+    const melExpired = [];   // MEL items that run out on or before the duty date
+    const MONS = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+    const expDays = (exp) => {   // "22/Oct/26" → days from the duty date (negative = already expired on the duty date)
+      const t = /(\d{1,2})\/([A-Za-z]{3})\/(\d{2,4})/.exec(exp || ""); if (!t || MONS[t[2].toUpperCase()] == null || !o.date) return null;
+      let y = +t[3]; if (y < 100) y += 2000;
+      const d = Date.UTC(y, MONS[t[2].toUpperCase()], +t[1]), [dy, dm, dd] = o.date.split("-").map(Number);
+      return Math.round((d - Date.UTC(dy, dm - 1, dd)) / 864e5);
+    };
+    const expPill = (e) => { const n = expDays(e.exp); if (n == null || n > 3) return "";
+      if (n <= 0) melExpired.push({ ref: e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2, n });
+      return ` <span class="pill ${n <= 0 ? "bad" : "warn"}">${n < 0 ? `⛔ หมดอายุก่อนวันบิน ${-n} วัน` : n === 0 ? "⚠ หมดอายุวันบิน" : `⚠ เหลือ ${n} วัน`}</span>`; };
     if (regs.length && mel?.aircraft) {
       for (const g of regs) {
         const rows = (mel.aircraft?.[g] || []).map(melRow), m = rows.filter(isMel), other = rows.length - m.length;
         melCount += m.length;
         melHtml += `<div class="mel"><b class="m">${H(g)}</b> · ${m.length} MEL${other ? ` · ${other} deferred defect อื่น` : ""}${rows.length ? "" : ' <span class="pill ok">ไม่มีรายการค้าง</span>'}</div>` +
-          m.map((e) => `<div class="mel"><span class="pill warn">${H(e.cat && e.cat !== "NIL" ? "CAT " + e.cat : "MEL")}</span> <b class="m melref" data-copy="${H((e.ref || e.mr2 || "").replace(/^MEL\s*/i, "").trim())}" title="แตะเพื่อคัดลอกเลข MEL">${H(e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2)}</b> ${H(e.txt)}${e.exp && e.exp !== "-" ? ` <span class="mu">· exp ${H(e.exp)}</span>` : e.lim && e.lim !== "-" ? ` <span class="mu">· ${H(e.lim)}</span>` : ""}</div>`).join("");
+          m.map((e) => `<div class="mel"><span class="pill warn">${H(e.cat && e.cat !== "NIL" ? "CAT " + e.cat : "MEL")}</span> <b class="m melref" data-copy="${H((e.ref || e.mr2 || "").replace(/^MEL\s*/i, "").trim())}" title="แตะเพื่อคัดลอกเลข MEL">${H(e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2)}</b> ${H(e.txt)}${e.exp && e.exp !== "-" ? ` <span class="mu">· exp ${H(e.exp)}</span>${expPill(e)}` : e.lim && e.lim !== "-" ? ` <span class="mu">· ${H(e.lim)}</span>` : ""}</div>`).join("");
       }
       melHtml += `<div class="mu" style="font-size:8.2pt">MEL dashboard อัปเดต ${H(mel.fetched_at ? new Date(mel.fetched_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }) : "")} · ตรวจกับ Tech Log จริงก่อนบิน</div>`;
     } else if (regs.length) melHtml = '<div class="empty">ยังโหลด MEL dashboard ไม่ได้ · เปิด MEL Dashboard ดูแทน</div>';
@@ -232,6 +243,7 @@
     const tafs = parseTAF(r.taf || "", (legs[0]?.arr) || Date.now());
     const alt = r.alt || {};
     const wins = [];
+    const unknownSt = [...new Set(legs.flatMap((l) => [l.s.dep, l.s.arr]).filter((st) => st && !icao(st)))];   // stations the app cannot map to ICAO
     legs.forEach((l, k) => {
       const s0 = l.nt ? l.dep : l.arr, s1 = l.arr; // legs without times use the whole duty window
       if (k === 0) wins.push(wxWindow(`DEP ขา 1`, l.s.dep, l.dep - HR, (l.nt ? l.arr : l.dep) + HR, tafs, true));
@@ -254,6 +266,7 @@
 <td>${body || ""}${w.note ? `<div class="empty">${H(w.note)}</div>` : ""}</td></tr>`;
     }).join("");
     const usedIcao = [...new Set(wins.filter(Boolean).map((w) => w.icao))];
+    const unknownRow = unknownSt.length ? `<tr><td colspan="2"><div class="empty" style="color:var(--red)">ไม่รู้รหัส ICAO ของ ${unknownSt.map(H).join(", ")} · แอปยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้ ดูจาก AeroWeather เอง</div></td></tr>` : "";
     const metars = r.metar || {};
     // TAF groups are already listed per window above, so only the latest METARs are printed raw
     const rawWx = usedIcao.map((i) => (metars[i]?.raw ? H(metars[i].raw) : "")).filter(Boolean).join("<br>");
@@ -290,7 +303,9 @@
     nItems.filter((x) => x.impact === "high" && x.active_in_window !== false).forEach((x) => th.push(["b", `${x.icao} ${x.id || ""}: ${x.summary || ""}`, "NOTAM ผลสูง ทับช่วงบิน"]));
     turns.filter((t) => t.min < 50).forEach((t) => th.push([t.min < 35 ? "b" : "w", t.ib ? `เครื่องขาเข้าอยู่บนพื้น ${Math.round(t.min)} นาทีก่อนขาแรก` : `Turnaround ${Math.round(t.min)} นาทีที่ ${t.at}`, "ถ้าเครื่องเข้าช้า ขาถัดไปจะถูกบีบ"]));
     if (left != null && left < 120) th.push([left < 60 ? "b" : "w", `FDP เหลือ ${fmtDur(left)} ก่อนต้องใช้ extension`, "ดีเลย์สะสมอาจเกิน max FDP"]);
+    melExpired.forEach((x) => th.push(["b", `${x.ref} ${x.n < 0 ? "หมดอายุก่อนวันบิน" : "หมดอายุวันบิน"}`, "ต้องแก้หรือต่ออายุก่อนบิน · ตรวจ Tech Log"]));
     if (melCount) th.push(["w", `MEL ${melCount} รายการบน ${reg}`, "ดู (O)(M) procedure และผลต่อ performance"]);
+    unknownSt.forEach((st) => th.push(["b", `ไม่รู้รหัส ICAO ของ ${st}`, "แอปยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้ · ดูจาก AeroWeather เอง"]));
     const thHtml = th.length ? `<ul class="thl">${th.slice(0, 7).map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}</ul>`
       : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป · ยังต้องดู OFP, NOTAM และ weather ทางการ</div>';
 
@@ -303,7 +318,7 @@
     const now = new Date();
     const gen = local(now.getTime(), base);
 
-    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, merged, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
+    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, merged, unknownSt, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
     return `<div class="pg">
 <div class="hdr"><div class="hl"><div class="kick">CREW BRIEF · PRE-REPORT</div><div class="row"><span class="code m">${H(o.code || "")}</span><span class="route m">${route}</span></div></div>
 <div class="hr"><div class="date m">${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y}</div><div class="dth">${DOW_TH[dw]} ${D} ${MON_TH[Mo - 1]} ${Y + 543}</div><div class="who">${H(who)}</div></div></div>
@@ -313,7 +328,7 @@ ${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามต
 <table><thead><tr><th>#</th><th>Flight</th><th>Route</th><th>STD</th><th>STA</th><th>Block</th><th>Turnaround</th><th>Gate</th></tr></thead><tbody>${legRows}</tbody></table></div>
 <div class="card"><h3>Threats วันนี้ <small>สรุปอัตโนมัติจากหัวข้อด้านล่าง</small></h3>${thHtml}</div>
 <div class="card"><h3>1 · เครื่องและ MEL</h3><div class="ac"><div class="acl"><div class="acft"><div><span>Registration</span><b>${H(reg || "—")}</b></div><div><span>Gate ขาแรก</span><b>${H(f0?.gate || r.gate || "—")}</b></div></div>${ibHtml}${afterHtml}</div><div>${melHtml}</div></div></div>
-<div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows ? `<table class="wx"><tbody>${wxRows}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
+<div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows || unknownRow ? `<table class="wx"><tbody>${wxRows}${unknownRow}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
 ${rawWx ? `<div class="raw"><b>METAR ล่าสุด</b><br>${rawWx}</div>` : ""}
 <div class="src"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
 ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · ${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y} · ${route.replace(/<[^>]+>/g, "")}</span><span>หน้า 2 · NOTAM</span></div>` : ""}<div class="card"><h3>3 · NOTAM <small>${nItems.length ? "สรุปอัตโนมัติจากข้อความที่วาง · ตรวจกับต้นฉบับ" : ""}</small></h3>${ntRows ? `<table class="nt"><tbody>${ntRows}</tbody></table>` : '<div class="empty">ยังไม่ได้สรุป NOTAM · วาง NOTAM แล้วกด "สรุป NOTAM ตามช่วงเวลาบิน" ในหน้า Brief</div>'}</div>${ntRows ? "</div>" : ""}
@@ -470,8 +485,9 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
 <div class="fftr"><span>CoolCrew · Crew Brief</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ</span></div></section>`;
     // --- panel 3: aircraft / MEL + weather ---
     const allUncovered = merged.size && [...merged.values()].every((w) => !w.lines.length && /ไม่ครอบคลุม|ไม่มี TAF/.test(w.note || ""));
-    const wxHtml = !merged.size ? '<div class="empty">ยังไม่มี TAF / METAR</div>' : allUncovered ? `<div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน · ${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} ${zt(w.s)}–${zt(w.n)}`).join(" · ")}</div>`
-      : `<div class="fwx">${[...merged.values()].map((w) => `<div class="w"><div class="lbl"><b>${H(w.label)} ${H(w.icao)}</b><small>${zt(w.s)}–${zt(w.n)}</small></div><div>${w.lines.map((x) => `<span class="g ${x.cls}">${H(x.raw)}${x.v ? ` <span class="pill ${x.v.c === "app" && /improvement/i.test(x.v.t) ? "ok" : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? "warn" : vCls(x.v.c)}">${H(x.v.lbl)}${x.trans ? " · " + H(x.trans) : ""}</span>` : ""}</span>`).join("")}${w.note ? `<span class="empty">${H(w.note)}</span>` : ""}</div></div>`).join("")}</div>`;
+    const unk = d.unknownSt?.length ? `<div class="empty" style="color:var(--red)">ไม่รู้รหัส ICAO ของ ${d.unknownSt.map(H).join(", ")} · ยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้</div>` : "";
+    const wxHtml = unk + (!merged.size ? '<div class="empty">ยังไม่มี TAF / METAR</div>' : allUncovered ? `<div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน · ${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} ${zt(w.s)}–${zt(w.n)}`).join(" · ")}</div>`
+      : `<div class="fwx">${[...merged.values()].map((w) => `<div class="w"><div class="lbl"><b>${H(w.label)} ${H(w.icao)}</b><small>${zt(w.s)}–${zt(w.n)}</small></div><div>${w.lines.map((x) => `<span class="g ${x.cls}">${H(x.raw)}${x.v ? ` <span class="pill ${x.v.c === "app" && /improvement/i.test(x.v.t) ? "ok" : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? "warn" : vCls(x.v.c)}">${H(x.v.lbl)}${x.trans ? " · " + H(x.trans) : ""}</span>` : ""}</span>`).join("")}${w.note ? `<span class="empty">${H(w.note)}</span>` : ""}</div></div>`).join("")}</div>`);
     const panel3 = `<section class="pn"><span class="pno">3</span>
 <div class="fbox"><h3>เครื่องและ MEL <small>${H(reg || "—")}</small></h3>${melHtml}${ibHtml}${afterHtml}</div>
 <div class="fbox" style="flex:1"><h3>Weather ที่ ETA ±1 ชม. <small>UTC</small></h3>${wxHtml}<div class="src" style="margin-top:1.2mm"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach</div></div></section>`;

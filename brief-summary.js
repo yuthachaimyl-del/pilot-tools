@@ -43,6 +43,7 @@ const CSS=`
 #b_tools>summary .chev{transition:transform .2s;color:var(--muted)}
 #b_tools[open]>summary .chev{transform:rotate(180deg)}
 #b_melAuto,#b_tafOut,#b_tools .srcbox,#b_wxM1,#b_wxM2,#b_wxM2+.small,#b_notamM1,#b_notamM2,#b_notamM2+.small,#b_opsOut>.small.muted,#b_notamOut>.leg,#b_notamOut>.note.warn,#b_tools .card>p.small.muted{display:none!important}
+#p-next label.row{flex-wrap:nowrap}#p-next label.row>span{flex:1 1 auto;min-width:0}
 #b_tools details.sub{border:1px dashed var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:8px}#b_tools details.sub>summary{font-size:.86rem;font-weight:600;color:var(--info)}#b_tools details.sub:not([open])>summary{margin:0}
 #b_tools>.card{border-radius:0;border:0;border-top:1px solid var(--line)}
 #b_tools>.card:last-child{border-radius:0 0 12px 12px}
@@ -63,7 +64,7 @@ const SCREEN=`
 h3{font-size:14px;margin-bottom:4px;flex-wrap:wrap;row-gap:0}h3 small{font-size:11px;flex-basis:100%}
 table{min-width:100%}
 .lg table{min-width:0}
-@media (max-width:520px){.lg th:nth-child(1),.lg td:nth-child(1),.lg th:nth-child(6),.lg td:nth-child(6),.lg th:nth-child(8),.lg td:nth-child(8){display:none}.lg .z{display:block;margin:0}.lg td{white-space:normal}}
+@media (max-width:520px){.lg th:nth-child(1),.lg td:nth-child(1),.lg th:nth-child(6),.lg td:nth-child(6),.lg th:nth-child(8),.lg td:nth-child(8){display:none}.lg .z{display:block;margin:0;white-space:nowrap}.lg td{white-space:normal}.hdr .who,.hdr .who2{display:none}.hdr .hr{min-width:0}}
 .nt tr.off{display:none}.nt.showoff tr.off{display:table-row}.nt tr.fold{display:none!important}.nt tr.ad td{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}.nt tr.ad .chev{float:right;color:var(--p-muted);transition:transform .2s;margin-left:6px}.nt tr.ad.open .chev{transform:rotate(180deg)}.nt tr.ad .hi{color:var(--p-red);font-weight:600}.nt tr.ad .offbtn{display:block;margin:4px 0 0}
 .nt tr.ad td{position:relative}.nt .offbtn{appearance:none;border:1px solid var(--p-line);background:transparent;color:var(--p-muted);font:500 11px var(--f-body);border-radius:999px;padding:2px 8px;margin-left:6px;cursor:pointer}
 th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
@@ -122,6 +123,9 @@ function tidyTools(det){
   const cardOf=id=>$(id)?.closest(".card");
   const fold=(fromEl,toEl,title)=>{if(!fromEl||fromEl.closest("details.sub"))return;const d=document.createElement("details");d.className="more sub";d.innerHTML=`<summary>${title}</summary>`;
     let n=fromEl;const list=[];while(n){list.push(n);if(n===toEl)break;n=n.nextElementSibling}fromEl.before(d);list.forEach(x=>d.appendChild(x));return d};
+  // brief-shim opens the closest <details> around #b_melAuto when a MEL is about to expire (the summary shows that
+  // itself now): give the hidden block its own wrapper so the whole tools section does not pop open
+  const ma=$("b_melAuto");if(ma&&!ma.closest("details.sub")){const w=document.createElement("details");w.hidden=true;ma.before(w);w.appendChild(ma)}
   // 1 · aircraft: per-flight FR24 links join this card (card 5 goes)
   const ops=$("b_opsOut"),fr=$("b_fr24");if(fr&&ops){const c5=fr.closest(".card");const lab=document.createElement("div");lab.className="small muted";lab.textContent="FR24 รายไฟลท์:";ops.after(lab,fr);c5&&c5!==fr.closest(".card")&&c5.remove()}
   // the "วิธี 1 / วิธี 2" blocks are added by brief-shim a moment later: once they exist, the manual flows fold
