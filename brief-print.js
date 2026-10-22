@@ -193,7 +193,7 @@
         const rows = (mel.aircraft?.[g] || []).map(melRow), m = rows.filter(isMel), other = rows.length - m.length;
         melCount += m.length;
         melHtml += `<div class="mel"><b class="m">${H(g)}</b> · ${m.length} MEL${other ? ` · ${other} deferred defect อื่น` : ""}${rows.length ? "" : ' <span class="pill ok">ไม่มีรายการค้าง</span>'}</div>` +
-          m.map((e) => `<div class="mel"><span class="pill warn">${H(e.cat && e.cat !== "NIL" ? "CAT " + e.cat : "MEL")}</span> <b class="m">${H(e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2)}</b> ${H(e.txt)}${e.exp && e.exp !== "-" ? ` <span class="mu">· exp ${H(e.exp)}</span>` : e.lim && e.lim !== "-" ? ` <span class="mu">· ${H(e.lim)}</span>` : ""}</div>`).join("");
+          m.map((e) => `<div class="mel"><span class="pill warn">${H(e.cat && e.cat !== "NIL" ? "CAT " + e.cat : "MEL")}</span> <b class="m melref" data-copy="${H((e.ref || e.mr2 || "").replace(/^MEL\s*/i, "").trim())}" title="แตะเพื่อคัดลอกเลข MEL">${H(e.ref.replace(/^MEL\s*/i, "MEL ") || e.mr2)}</b> ${H(e.txt)}${e.exp && e.exp !== "-" ? ` <span class="mu">· exp ${H(e.exp)}</span>` : e.lim && e.lim !== "-" ? ` <span class="mu">· ${H(e.lim)}</span>` : ""}</div>`).join("");
       }
       melHtml += `<div class="mu" style="font-size:8.2pt">MEL dashboard อัปเดต ${H(mel.fetched_at ? new Date(mel.fetched_at).toLocaleString("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", day: "2-digit", month: "short" }) : "")} · ตรวจกับ Tech Log จริงก่อนบิน</div>`;
     } else if (regs.length) melHtml = '<div class="empty">ยังโหลด MEL dashboard ไม่ได้ · เปิด MEL Dashboard ดูแทน</div>';

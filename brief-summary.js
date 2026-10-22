@@ -67,6 +67,7 @@ table{min-width:100%}
 th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
 .wx td{font-size:12.5px}.nt td{font-size:12.5px}
 .pill{font-size:11px}
+.melref{cursor:pointer;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap;-webkit-tap-highlight-color:transparent}.melref::after{content:" ⧉";font-weight:400;color:var(--muted)}.melref.ok{background:var(--green-soft);border-color:var(--green);color:var(--green)}.melref.ok::after{content:" ✓"}.melhint{font-size:11px;color:var(--muted);margin-top:4px}
 .thl li{font-size:12.5px;padding-left:8px}
 .acft b{font-size:14px}.acft span{font-size:10.5px}.acft div{padding:4px 8px}
 .mel{font-size:12.5px}.note{font-size:12px}.raw{font-size:11px;color:var(--p-ink)}.src{font-size:11px}
@@ -104,6 +105,11 @@ function layout(){
   $("b_prepBtn").onclick=prep_;
   $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;if(b.dataset.go==="b_ops"&&$("b_opsPaste")?.classList.contains("on")){$("b_opsPaste").querySelector("input")?.focus();return}det.open=true;const t=$(b.dataset.go);t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
   box=$("b_sum");root=box.attachShadow({mode:"open"});
+  // MEL number: tap to copy (search it in the MEL / tech log)
+  root.addEventListener("click",e=>{const el=e.target.closest(".melref");if(!el)return;const v=el.dataset.copy||el.textContent.trim();if(!v)return;
+    const done=ok=>{root.querySelectorAll(".melref.ok").forEach(x=>x.classList.remove("ok"));if(ok){el.classList.add("ok");setTimeout(()=>el.classList.remove("ok"),1800)}};
+    const fb=()=>{try{const t=document.createElement("textarea");t.value=v;t.style.cssText="position:fixed;opacity:0";document.body.appendChild(t);t.select();const ok=document.execCommand("copy");t.remove();done(ok)}catch{done(false)}};
+    if(navigator.clipboard?.writeText)navigator.clipboard.writeText(v).then(()=>done(true),fb);else fb()});
 }
 function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
 
@@ -119,6 +125,7 @@ function render(){
   box.hidden=false;empty.hidden=true;hostVars();
   root.innerHTML=`<style>${window.ccBrief.css.replace(/#ccPrint\{/g,":host{").replace(/#ccPrint /g,"")}${SCREEN}</style>${html}`;
   const t=root.querySelector("table");t&&t.closest(".card")?.classList.add("lg");
+  {const last=[...root.querySelectorAll(".mel")].filter(m=>m.querySelector(".melref")).pop();if(last){const h=document.createElement("div");h.className="melhint";h.textContent="แตะเลข MEL เพื่อคัดลอก แล้วไปค้นในคู่มือ MEL (GoodReader)";last.after(h)}}
   // NOTAMs that do not overlap the duty window stay folded per aerodrome; a small button shows them
   root.querySelectorAll(".nt tr.ad").forEach(h=>{let n=0,r=h.nextElementSibling;while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&n++;r=r.nextElementSibling}if(!n)return;const b=document.createElement("button");b.type="button";b.className="offbtn";b.textContent="+"+n+" ไม่ทับช่วงบิน";h.querySelector("td").appendChild(b);b.onclick=()=>{let r=h.nextElementSibling,on=b.dataset.on!=="1";while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&(r.style.display=on?"table-row":"");r=r.nextElementSibling}b.dataset.on=on?"1":"";b.textContent=(on?"− ซ่อน ":"+"+n+" ")+(on?"":"")+(on?"ที่ไม่ทับช่วงบิน":"ไม่ทับช่วงบิน")}});
   if(!window.ccBrief.cached()&&!melWaiting){melWaiting=true;window.ccBrief.mel().then(()=>{melWaiting=false;schedule()}).catch(()=>{melWaiting=false})}
