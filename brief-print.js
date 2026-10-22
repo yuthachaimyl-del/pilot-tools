@@ -78,6 +78,8 @@
 #ccPrint .thl li.b{border-color:var(--red)}
 #ccPrint .thl li span{color:var(--muted)}
 #ccPrint .ac{display:grid;grid-template-columns:auto 1fr;gap:3mm;align-items:start}
+#ccPrint .acl{display:grid;gap:1.2mm;align-content:start}
+#ccPrint .acl .mel{font-size:8.6pt;line-height:1.3;max-width:52mm}
 #ccPrint .acft{display:flex;gap:1.4mm}
 #ccPrint .acft div{background:var(--soft);border-radius:6px;padding:.9mm 2mm}
 #ccPrint .acft span{display:block;font-size:8pt;color:var(--muted)}
@@ -293,7 +295,7 @@ ${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามต
 <div class="card"><h3>เที่ยวบิน <small>UTC ใหญ่ · local เล็ก${nt ? " · บางขายังไม่มีเวลา STD/STA (รอ Flight Detail)" : ""}</small></h3>
 <table><thead><tr><th>#</th><th>Flight</th><th>Route</th><th>STD</th><th>STA</th><th>Block</th><th>Turnaround</th><th>Gate</th></tr></thead><tbody>${legRows}</tbody></table></div>
 <div class="card"><h3>Threats วันนี้ <small>สรุปอัตโนมัติจากหัวข้อด้านล่าง</small></h3>${thHtml}</div>
-<div class="card"><h3>1 · เครื่องและ MEL</h3><div class="ac"><div class="acft"><div><span>Registration</span><b>${H(reg || "—")}</b></div><div><span>Gate ขาแรก</span><b>${H(f0?.gate || r.gate || "—")}</b></div></div><div>${melHtml}${ibHtml}</div></div></div>
+<div class="card"><h3>1 · เครื่องและ MEL</h3><div class="ac"><div class="acl"><div class="acft"><div><span>Registration</span><b>${H(reg || "—")}</b></div><div><span>Gate ขาแรก</span><b>${H(f0?.gate || r.gate || "—")}</b></div></div>${ibHtml}</div><div>${melHtml}</div></div></div>
 <div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows ? `<table class="wx"><tbody>${wxRows}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
 ${rawWx ? `<div class="raw"><b>METAR ล่าสุด</b><br>${rawWx}</div>` : ""}
 <div class="src"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
