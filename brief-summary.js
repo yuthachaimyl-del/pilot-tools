@@ -64,7 +64,7 @@ h3{font-size:14px;margin-bottom:4px;flex-wrap:wrap;row-gap:0}h3 small{font-size:
 table{min-width:100%}
 .lg table{min-width:0}
 @media (max-width:520px){.lg th:nth-child(1),.lg td:nth-child(1),.lg th:nth-child(6),.lg td:nth-child(6),.lg th:nth-child(8),.lg td:nth-child(8){display:none}.lg .z{display:block;margin:0}.lg td{white-space:normal}}
-.nt tr.off{display:none}.nt.showoff tr.off{display:table-row}
+.nt tr.off{display:none}.nt.showoff tr.off{display:table-row}.nt tr.fold{display:none!important}.nt tr.ad td{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}.nt tr.ad .chev{float:right;color:var(--p-muted);transition:transform .2s;margin-left:6px}.nt tr.ad.open .chev{transform:rotate(180deg)}.nt tr.ad .hi{color:var(--p-red);font-weight:600}.nt tr.ad .offbtn{display:block;margin:4px 0 0}
 .nt tr.ad td{position:relative}.nt .offbtn{appearance:none;border:1px solid var(--p-line);background:transparent;color:var(--p-muted);font:500 11px var(--f-body);border-radius:999px;padding:2px 8px;margin-left:6px;cursor:pointer}
 th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
 .wx td{font-size:12.5px}.nt td{font-size:12.5px}
@@ -136,7 +136,7 @@ function tidyTools(det){
 }
 function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
 
-let melWaiting=false;
+let melWaiting=false;const ntOpen=new Set();
 function relabelAlts(){document.querySelectorAll("#b_altRow #b_alts label.f").forEach(l=>{const t=l.firstChild;t&&t.nodeType===3&&(t.nodeValue=t.nodeValue.replace(/^\s*ALT ขา (\d+) \(ปลายทาง ([A-Z]{3})\)\s*$/,"ขา $1 → $2 · ALT"));const i=l.querySelector("input");i&&(i.placeholder="เช่น UTP")})}
 function render(){
   relabelAlts();
@@ -152,7 +152,15 @@ function render(){
     a.href=reg?"https://www.flightradar24.com/data/aircraft/"+encodeURIComponent(reg.toLowerCase()):"https://www.flightradar24.com/data/airlines/vz-tvj";a.textContent=reg?`✈️ เครื่อง ${reg} ตอนนี้อยู่ไหน (FR24) ↗`:"✈️ ฝูงบิน TVJ ตอนนี้ (FR24) ↗";acl.appendChild(a)}}
   {const last=[...root.querySelectorAll(".mel")].filter(m=>m.querySelector(".melref")).pop();if(last){const h=document.createElement("div");h.className="melhint";h.textContent="แตะเลข MEL เพื่อคัดลอก แล้วไปค้นในคู่มือ MEL (GoodReader)";last.after(h)}}
   // NOTAMs that do not overlap the duty window stay folded per aerodrome; a small button shows them
-  root.querySelectorAll(".nt tr.ad").forEach(h=>{let n=0,r=h.nextElementSibling;while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&n++;r=r.nextElementSibling}if(!n)return;const b=document.createElement("button");b.type="button";b.className="offbtn";b.textContent="+"+n+" ไม่ทับช่วงบิน";h.querySelector("td").appendChild(b);b.onclick=()=>{let r=h.nextElementSibling,on=b.dataset.on!=="1";while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&(r.style.display=on?"table-row":"");r=r.nextElementSibling}b.dataset.on=on?"1":"";b.textContent=(on?"− ซ่อน ":"+"+n+" ")+(on?"":"")+(on?"ที่ไม่ทับช่วงบิน":"ไม่ทับช่วงบิน")}});
+  // NOTAM: one aerodrome at a time — headers are tap-to-open, rows start folded (open ones stay open across re-renders)
+  root.querySelectorAll(".nt tr.ad").forEach(h=>{const icao=h.querySelector("b")?.textContent.trim()||"";const rows=[];let n=0,hi=0,r=h.nextElementSibling;
+    while(r&&!r.classList.contains("ad")){rows.push(r);r.classList.contains("off")?n++:r.querySelector(".pill.bad")&&hi++;r=r.nextElementSibling}
+    const td=h.querySelector("td");if(hi){const x=document.createElement("span");x.className="hi";x.textContent=` · high ${hi}`;td.appendChild(x)}
+    const ch=document.createElement("span");ch.className="chev";ch.textContent="▾";td.appendChild(ch);
+    let b=null;if(n){b=document.createElement("button");b.type="button";b.className="offbtn";b.textContent="+"+n+" ไม่ทับช่วงบิน";td.appendChild(b);
+      b.onclick=ev=>{ev.stopPropagation();const on=b.dataset.on!=="1";rows.forEach(x=>x.classList.contains("off")&&(x.style.display=on?"table-row":""));b.dataset.on=on?"1":"";b.textContent=on?"− ซ่อนที่ไม่ทับช่วงบิน":"+"+n+" ไม่ทับช่วงบิน"}}
+    const apply=()=>{const open=ntOpen.has(icao);h.classList.toggle("open",open);rows.forEach(x=>x.classList.toggle("fold",!open));if(!open&&b){b.dataset.on="";b.textContent="+"+n+" ไม่ทับช่วงบิน";rows.forEach(x=>x.classList.contains("off")&&(x.style.display=""))}b&&(b.style.display=open?"":"none")};
+    apply();h.addEventListener("click",()=>{ntOpen.has(icao)?ntOpen.delete(icao):ntOpen.add(icao);apply()})});
   if(!window.ccBrief.cached()&&!melWaiting){melWaiting=true;window.ccBrief.mel().then(()=>{melWaiting=false;schedule()}).catch(()=>{melWaiting=false})}
 }
 function schedule(){clearTimeout(tmr);tmr=setTimeout(()=>{try{render();chips()}catch{}},250)}
