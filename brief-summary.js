@@ -42,6 +42,7 @@ const CSS=`
 #b_tools>summary small{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:2px}
 #b_tools>summary .chev{transition:transform .2s;color:var(--muted)}
 #b_tools[open]>summary .chev{transform:rotate(180deg)}
+#b_tools details.sub{border:1px dashed var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:8px}#b_tools details.sub>summary{font-size:.86rem;font-weight:600;color:var(--info)}#b_tools details.sub:not([open])>summary{margin:0}
 #b_tools>.card{border-radius:0;border:0;border-top:1px solid var(--line)}
 #b_tools>.card:last-child{border-radius:0 0 12px 12px}
 `;
@@ -90,7 +91,7 @@ function layout(){
   // prep block: button + chips + summary, placed after the duty picker row
   const prep=document.createElement("div");prep.id="b_prep";
   prep.innerHTML=`<div id="b_prepRow"><button class="btn primary" type="button" id="b_prepBtn">⚡ เตรียม brief อัตโนมัติ</button><span id="b_prepWhen"></span></div>
-<div id="b_chips"><button type="button" data-go="b_ops">เครื่อง / gate <b>—</b></button><button type="button" data-go="b_fetch">TAF / METAR <b>—</b></button><button type="button" data-go="b_notamBtn">NOTAM <b>—</b></button></div>
+<div id="b_chips"><button type="button" data-go="b_ops">เครื่อง / gate <b>—</b></button><button type="button" data-go="b_fetch">TAF / METAR <b>—</b></button><button type="button" data-go="b_notamAuto">NOTAM <b>—</b></button></div>
 <div id="b_opsPaste"><div class="lead"><b>ชีตวันบินนี้ยังไม่มีในระบบ</b> · วางลิงก์ชีต <b>GATE &amp; ACFT STATUS</b> ของวันบินจากกลุ่ม LINE AIRBUS TVJ Operations ตรงนี้ คนแรกคนเดียวแล้วทุกคนใช้ได้ (ชีตของแต่ละวันออกช่วงบ่ายของวันก่อน)</div></div>
 <div id="b_altRow"></div><div id="b_altHint">ALT ตาม OFP (เช่น UTP หรือ VTBU) · ใส่แล้วดึงอากาศ/NOTAM ของ ALT ให้ · จำไว้ต่อปลายทาง</div>
 <div id="b_sum"></div><div id="b_sumEmpty" hidden></div>`;
@@ -102,17 +103,44 @@ function layout(){
   const rad=$("b_radar")?.closest(".card");if(rad){rad.id="b_radarCard";prep.appendChild(rad)}
   // the five detail cards fold away
   const det=document.createElement("details");det.id="b_tools";det.className="more";
-  det.innerHTML=`<summary><span>🔧 แก้เอง / ใส่ข้อมูลเพิ่ม<small>MEL ที่ต้องรู้ · วาง TAF/METAR หรือ NOTAM เอง · ALT · เครื่องขาเข้า</small></span><span class="chev">▾</span></summary>`;
+  det.innerHTML=`<summary><span>🔧 แก้เอง / ใส่ข้อมูลเพิ่ม<small>ดึงเครื่อง/gate · TAF/METAR · NOTAM · วางเองจาก AeroWeather · โน้ต MEL</small></span><span class="chev">▾</span></summary>`;
   top.insertAdjacentElement("afterend",det);
   cards.slice(1).filter(c=>c.id!=="b_radarCard").forEach(c=>det.appendChild(c));
+  tidyTools(det);
   $("b_prepBtn").onclick=prep_;
-  $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;if(b.dataset.go==="b_ops"&&$("b_opsPaste")?.classList.contains("on")){$("b_opsPaste").querySelector("input")?.focus();return}det.open=true;const t=$(b.dataset.go);t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
+  $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;if(b.dataset.go==="b_ops"&&$("b_opsPaste")?.classList.contains("on")){$("b_opsPaste").querySelector("input")?.focus();return}det.open=true;const t=$(b.dataset.go);if(t){const d2=t.closest("details.more");d2&&d2!==det&&(d2.open=true)}t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
   box=$("b_sum");root=box.attachShadow({mode:"open"});
   // MEL number: tap to copy (search it in the MEL / tech log)
   root.addEventListener("click",e=>{const el=e.target.closest(".melref");if(!el)return;const v=el.dataset.copy||el.textContent.trim();if(!v)return;
     const done=ok=>{root.querySelectorAll(".melref.ok").forEach(x=>x.classList.remove("ok"));if(ok){el.classList.add("ok");setTimeout(()=>el.classList.remove("ok"),1800)}};
     const fb=()=>{try{const t=document.createElement("textarea");t.value=v;t.style.cssText="position:fixed;opacity:0";document.body.appendChild(t);t.select();const ok=document.execCommand("copy");t.remove();done(ok)}catch{done(false)}};
     if(navigator.clipboard?.writeText)navigator.clipboard.writeText(v).then(()=>done(true),fb);else fb()});
+}
+// the folded cards: everything the summary already shows is hidden, the manual AeroWeather paste flows fold once more
+function tidyTools(det){
+  const cardOf=id=>$(id)?.closest(".card");
+  const hide=el=>{el&&(el.hidden=true)};
+  const fold=(fromEl,toEl,title)=>{if(!fromEl||fromEl.closest("details.sub"))return;const d=document.createElement("details");d.className="more sub";d.innerHTML=`<summary>${title}</summary>`;
+    let n=fromEl;const list=[];while(n){list.push(n);if(n===toEl)break;n=n.nextElementSibling}fromEl.before(d);list.forEach(x=>d.appendChild(x));return d};
+  // 1 · aircraft: the automatic MEL list and the sheet footnote are in the summary; per-flight FR24 links join this card
+  hide($("b_melAuto"));
+  const ops=$("b_opsOut");ops&&new MutationObserver(()=>{ops.querySelectorAll(":scope > .small.muted").forEach(hide)}).observe(ops,{childList:true});
+  const fr=$("b_fr24");if(fr&&ops){const c5=fr.closest(".card");const lab=document.createElement("div");lab.className="small muted";lab.textContent="FR24 รายไฟลท์:";ops.after(lab,fr);c5&&c5!==fr.closest(".card")&&c5.remove()}
+  // 2 · weather: intro text, per-leg TAF windows and the OM-A quotes are in the summary
+  const c2=cardOf("b_fetch");if(c2){hide(c2.querySelector(":scope > p"));hide($("b_tafOut"));hide(c2.querySelector("details.srcbox"))}
+  // 3 · NOTAM: the per-aerodrome list is in the summary
+  const out=$("b_notamOut");if(out){const h=()=>out.querySelectorAll(":scope > .leg, :scope > .note.warn").forEach(hide);new MutationObserver(h).observe(out,{childList:true});h()}
+  // the "วิธี 1 / วิธี 2" blocks are added by brief-shim a moment later: once they exist, the manual flows fold
+  let tries=0;const late=()=>{
+    const w2=$("b_wxM2"),n2=$("b_notamM2");
+    if(!w2||!n2){if(tries++<20)setTimeout(late,400);return}
+    hide($("b_wxM1"));hide(w2);w2.nextElementSibling?.matches(".small")&&hide(w2.nextElementSibling);
+    fold(w2,$("b_wxImgMsg")||$("b_taf")?.closest("label"),"📋 วาง METAR/TAF เองจาก AeroWeather (แม่นยำกว่า) ›");
+    hide($("b_notamM1"));hide(n2);n2.nextElementSibling?.matches(".small")&&hide(n2.nextElementSibling);
+    const c3=cardOf("b_notamAuto"),faa=c3?.querySelector(":scope > .row"),autoRow=$("b_notamAuto")?.closest(".row"),sumRow=$("b_notamBtn")?.closest(".row");
+    const d=fold(n2,sumRow||$("b_notamImgMsg"),"📋 ค้นเอง / วาง NOTAM เองจาก AeroWeather หรือ FAA ›");
+    if(d&&faa&&faa!==autoRow)d.insertBefore(faa,d.children[1]||null);
+  };late();
 }
 function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
 

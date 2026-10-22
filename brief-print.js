@@ -369,12 +369,9 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .ffdp{border:1px solid var(--line);border-radius:2mm;padding:1.2mm 2.4mm;font-size:8.4pt}
 #ccPrint .ffdp .bar{height:4px;margin-top:1mm}
 #ccPrint .fbox{border:1px solid var(--line);border-radius:2.4mm;padding:1.8mm 2.6mm;min-height:0}
-#ccPrint .ftwo{display:grid;grid-template-columns:1.25fr 1fr;grid-template-rows:minmax(0,1fr);gap:2mm;flex:1;min-height:0}
-#ccPrint .ftwo>.fbox{min-height:0;overflow:hidden}
+#ccPrint .fth{flex:1;min-height:0;overflow:hidden}
 #ccPrint .fold-p .ftwo{grid-template-columns:1fr;flex:0 0 auto}
 #ccPrint .pn .thl li{font-size:8pt}#ccPrint .fold-l .thl li{font-size:7.5pt;line-height:1.25}
-#ccPrint .chk{display:grid;gap:1mm;font-size:8pt}
-#ccPrint .chk div::before{content:"☐";margin-right:1.6mm;color:var(--muted)}
 #ccPrint .fwx{display:grid;grid-template-columns:1fr 1fr;gap:1mm 4mm}
 #ccPrint .fold-p .fwx{grid-template-columns:1fr}
 #ccPrint .fwx .w{display:grid;grid-template-columns:22mm 1fr;gap:1.2mm;font-size:7.6pt;border-bottom:1px solid var(--line);padding-bottom:.8mm}
@@ -465,12 +462,11 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
     const tileZ = (lbl, ms, st, cls = "") => `<div class="tile ${cls}"><span>${lbl}</span><b>${ms == null ? "—" : zr(ms) + "Z"}</b><em>${ms == null ? "" : lt(ms, st) + " L"}</em></div>`;
     const tileL = (lbl, ms, st) => `<div class="tile"><span>${lbl}</span><b>${ms == null ? "—" : lt(ms, st)}</b><em>local</em></div>`;
     const tiles = tileL("ตื่น", b.wakeAbs, base) + tileL("ออกจากบ้าน", b.leaveAbs, base) + tileZ("Report", b.repAbs, from, "key") + tileZ("Off-block แรก", legs[0] && !legs[0].nt ? legs[0].dep : null, legs[0]?.s.dep) + tileZ(last?.nt ? "On-block ≈" : "On-block สุดท้าย", lastOn ?? null, last?.s.arr || base) + tileZ("Release", b.relAbs, o.to || last?.s.arr || base);
-    const alco = b.repAbs ? lt(b.repAbs - 8 * HR, from) : "";
-    const thHtml = th.length ? `<ul class="thl">${th.slice(0, P ? 6 : 5).map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}</ul>` : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป</div>';
+    const thHtml = th.length ? `<ul class="thl">${th.map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}</ul>` : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป</div>';
     const panel2 = `<section class="pn"><span class="pno">2</span>
 <h3>เวลาวันนี้ <small>UTC ใหญ่ · local เล็ก</small></h3><div class="ftiles">${tiles}</div>
 ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <span class="m">${fmtDur(fdp)}</span></b> จาก max <span class="m">${fmtDur(b.fdpMax)}</span> · เหลือ <b class="m" style="color:${lc}">${fmtDur(left)}</b> ก่อนต้องใช้ extension<div class="bar"><i style="width:${Math.max(0, Math.min(100, (fdp * 100) / b.fdpMax)).toFixed(1)}%;background:${lc}"></i></div></div>` : ""}
-<div class="ftwo"><div class="fbox"><h3>Threats วันนี้</h3>${thHtml}</div><div class="fbox"><h3>เช็คก่อนออกจากบ้าน</h3><div class="chk">${alco ? `<div>ไม่ดื่มแอลกอฮอล์หลัง ${alco} (8 ชม. ก่อน report)</div>` : ""}<div>License · medical · passport (OM-A 5.1.1 B)</div><div>iPad / EFB ชาร์จแล้ว · headset</div><div>เช็คข้อความ OMC ก่อนออกจากบ้าน</div></div></div></div>
+<div class="fbox fth"><h3>Threats วันนี้ <small>${th.length} รายการ</small></h3>${thHtml}</div>
 <div class="fftr"><span>CoolCrew · Crew Brief</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ</span></div></section>`;
     // --- panel 3: aircraft / MEL + weather ---
     const allUncovered = merged.size && [...merged.values()].every((w) => !w.lines.length && /ไม่ครอบคลุม|ไม่มี TAF/.test(w.note || ""));
