@@ -373,6 +373,7 @@ ${LIBS.map(([u, h]) => `<script src="${u}" integrity="${h}" crossorigin="anonymo
   window.ccFillBriefPrint = async () => { const h = buildHtml(await melData()); if (!h) return false; printBox().shadowRoot.innerHTML = wrap(h); return true; };   // used by tests
   window.ccBuildBriefPrint = async () => buildHtml(await melData());   // used by tests
   window.ccMakeBriefPdf = async () => { await makePdf(); return pdfFile; };   // used by tests
+  window.ccBrief = { build: buildHtml, mel: melData, cached: cachedMel, css: CSS };   // on-screen summary card (brief-summary.js)
   function init() {
     if (!document.getElementById("ccPrintCss")) {
       const st = document.createElement("style"); st.id = "ccPrintCss"; st.textContent = DOC_CSS; document.head.appendChild(st);

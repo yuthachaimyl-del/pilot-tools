@@ -1,0 +1,159 @@
+// brief-summary.js — the Brief tab shows the result first.
+// Top of the tab: duty picker, one "⚡ เตรียม brief" button that fetches aircraft/gate (OMC sheet), TAF/METAR and
+// NOTAM together, three status chips, and the same one-page summary the print button makes (brief-print.js
+// buildHtml, rendered in a shadow root with screen colours). The five detail cards (MEL text, paste TAF/METAR,
+// paste NOTAM, radar, inbound) move under one folded "แก้เอง" section. The page's own auto-fetch on opening the
+// tab (fetchOps/fetchWx quiet, NOTAM auto timer in brief-shim) is unchanged; this only changes what is shown.
+(function(){
+"use strict";
+const $=id=>document.getElementById(id);
+const CSS=`
+#b_prep{display:flex;flex-direction:column;gap:10px}
+#b_prepRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+#b_prepBtn{min-height:48px;font-size:1rem;flex:1 1 auto;border-radius:12px}
+#b_prepBtn.quiet{flex:0 0 auto;min-height:40px;font-size:.88rem}
+#b_prepWhen{font-size:.82rem;color:var(--muted)}
+#b_chips{display:flex;gap:6px;flex-wrap:wrap}
+#b_chips button{appearance:none;border:1px solid var(--line);background:var(--sunk);color:var(--ink);font:500 .8rem var(--f-body);padding:5px 10px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;max-width:100%}
+#b_chips button b{font-weight:600}
+#b_chips button.ok{border-color:var(--green);background:var(--green-soft)}
+#b_chips button.busy{border-color:var(--info);background:var(--info-soft)}
+#b_chips button.bad{border-color:var(--amber);background:var(--amber-soft)}
+#b_chips button .spin{width:11px;height:11px;border-width:2px}
+#b_sum{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
+#b_sumEmpty{color:var(--muted);font-size:.88rem}
+#b_legs{display:none}
+#b_tools{border:1px solid var(--line);border-radius:12px;padding:0;background:var(--surface)}
+#b_tools>summary{padding:12px 14px;font-size:.95rem;color:var(--ink);font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:10px}
+#b_tools>summary small{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:2px}
+#b_tools>summary .chev{transition:transform .2s;color:var(--muted)}
+#b_tools[open]>summary .chev{transform:rotate(180deg)}
+#b_tools>.card{border-radius:0;border:0;border-top:1px solid var(--line)}
+#b_tools>.card:last-child{border-radius:0 0 12px 12px}
+`;
+// screen version of the report stylesheet: page colours via --p-* copied onto the host element
+const SCREEN=`
+:host{display:block;background:var(--p-surface);color:var(--p-ink);font-size:13.5px;line-height:1.4;padding:10px;
+  --ink:var(--p-ink);--text:var(--p-ink);--muted:var(--p-muted);--line:var(--p-line);--soft:var(--p-sunk);
+  --green:var(--p-green);--green-soft:var(--p-green-soft);--amber:var(--p-amber);--amber-soft:var(--p-amber-soft);
+  --red:var(--p-red);--red-soft:var(--p-red-soft);--blue:var(--p-info);--blue-soft:var(--p-info-soft)}
+.pg{gap:8px}
+.hdr{background:#0E1620;color:#fff;padding:10px 12px;border-radius:10px}
+.code{font-size:20px}.route{font-size:13px}.date{font-size:14px}
+.tiles{grid-template-columns:repeat(3,1fr);gap:6px}
+.tile{padding:5px 8px}.tile span{font-size:11px}.tile b{font-size:17px}.tile em{font-size:10.5px}
+.fdp{padding:6px 10px}
+.card{padding:8px 10px;overflow-x:auto}
+h3{font-size:14px;margin-bottom:4px}h3 small{font-size:11px}
+table{min-width:100%}
+.lg table{min-width:520px}
+th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
+.wx td{font-size:12.5px}.nt td{font-size:12.5px}
+.pill{font-size:11px}
+.thl li{font-size:12.5px;padding-left:8px}
+.acft b{font-size:14px}.acft span{font-size:10.5px}.acft div{padding:4px 8px}
+.mel{font-size:12.5px}.note{font-size:12px}.raw{font-size:11px;color:var(--p-ink)}.src{font-size:11px}
+.nt tr.off td{color:var(--p-muted)}
+.empty{font-size:12.5px}
+.ftr{display:none}
+`;
+const VARS=["surface","ink","muted","line","sunk","green","green-soft","amber","amber-soft","red","red-soft","info","info-soft"];
+let box=null,root=null,tmr=null,tick=null,layoutDone=false;
+const cur=()=>{try{return sorted().find(d=>key(d)===briefKey)}catch{return null}};
+const rec=()=>{try{return BR[briefKey]||{}}catch{return{}}};
+const hm=ms=>{try{const o=cur();return local(ms,(o?.from||S.base||"BKK").toUpperCase()).hm}catch{return""}};
+
+function layout(){
+  if(layoutDone)return;const p=$("p-brief");if(!p)return;layoutDone=true;
+  const st=document.createElement("style");st.textContent=CSS;document.head.appendChild(st);
+  const cards=[...p.querySelectorAll(":scope > .card")];const top=cards[0];if(!top)return;
+  // prep block: button + chips + summary, placed after the duty picker row
+  const prep=document.createElement("div");prep.id="b_prep";
+  prep.innerHTML=`<div id="b_prepRow"><button class="btn primary" type="button" id="b_prepBtn">⚡ เตรียม brief อัตโนมัติ</button><span id="b_prepWhen"></span></div>
+<div id="b_chips"><button type="button" data-go="b_ops">เครื่อง / gate <b>—</b></button><button type="button" data-go="b_fetch">TAF / METAR <b>—</b></button><button type="button" data-go="b_notamBtn">NOTAM <b>—</b></button></div>
+<div id="b_sum"></div><div id="b_sumEmpty" hidden></div>`;
+  const legs=$("b_legs");legs?legs.insertAdjacentElement("beforebegin",prep):top.appendChild(prep);
+  // print / PDF buttons go under the summary
+  const pr=$("b_print")?.parentElement;if(pr){prep.appendChild(pr);const m=$("b_printMsg");m&&prep.appendChild(m)}
+  // the five detail cards fold away
+  const det=document.createElement("details");det.id="b_tools";det.className="more";
+  det.innerHTML=`<summary><span>🔧 แก้เอง / ใส่ข้อมูลเพิ่ม<small>MEL ที่ต้องรู้ · วาง TAF/METAR หรือ NOTAM เอง · ALT · radar · เครื่องขาเข้า</small></span><span class="chev">▾</span></summary>`;
+  top.insertAdjacentElement("afterend",det);
+  cards.slice(1).forEach(c=>det.appendChild(c));
+  $("b_prepBtn").onclick=prep_;
+  $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;det.open=true;const t=$(b.dataset.go);t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
+  box=$("b_sum");root=box.attachShadow({mode:"open"});
+}
+function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
+
+let melWaiting=false;
+function render(){
+  if(!root||!window.ccBrief)return;
+  let html=null;
+  try{html=window.ccBrief.build(window.ccBrief.cached())}catch(e){console.warn("brief summary",e)}
+  const empty=$("b_sumEmpty");
+  if(!html){box.hidden=true;empty.hidden=false;empty.textContent="ยังไม่มี flight duty ในตาราง · ใส่ roster ก่อน";return}
+  box.hidden=false;empty.hidden=true;hostVars();
+  root.innerHTML=`<style>${window.ccBrief.css.replace(/#ccPrint\{/g,":host{").replace(/#ccPrint /g,"")}${SCREEN}</style>${html}`;
+  const t=root.querySelector("table");t&&t.closest(".card")?.classList.add("lg");
+  if(!window.ccBrief.cached()&&!melWaiting){melWaiting=true;window.ccBrief.mel().then(()=>{melWaiting=false;schedule()}).catch(()=>{melWaiting=false})}
+}
+function schedule(){clearTimeout(tmr);tmr=setTimeout(()=>{try{render();chips()}catch{}},250)}
+
+function chips(){
+  const c=$("b_chips");if(!c)return;const r=rec(),o=cur();
+  const set=(i,cls,txt)=>{const b=c.children[i];if(!b)return;b.className=cls;b.querySelector("b").innerHTML=txt};
+  const busy=id=>!!$(id)?.disabled;
+  // aircraft / gate
+  const regs=[String(r.reg||"")].concat((r.ops||[]).map(x=>x.f?.ac||"")).filter(Boolean);
+  const gate=(r.ops||[]).find(x=>x.i===0)?.f?.gate||r.gate||"";
+  if(busy("b_ops"))set(0,"busy",'<span class="spin"></span> กำลังหา');
+  else if(regs.length)set(0,"ok",esc(regs[0])+(gate?" · gate "+esc(gate):""));
+  else if(r.opsAt)set(0,"bad","ยังไม่มีในชีต OMC");
+  else set(0,"","—");
+  // weather
+  if(busy("b_fetch"))set(1,"busy",'<span class="spin"></span> กำลังดึง');
+  else if(r.wxAt||r.taf)set(1,"ok",r.wxAt?hm(r.wxAt):"วางเอง");
+  else set(1,"","—");
+  // notam
+  const n=(r.notamSum?.airports||[]).reduce((a,x)=>a+(x.items||[]).length,0);
+  if(busy("b_notamAuto")||busy("b_notamBtn"))set(2,"busy",'<span class="spin"></span> กำลังดึง');
+  else if(r.notamSum)set(2,"ok",n+" รายการ");
+  else if(r.notam)set(2,"bad","ยังไม่สรุป");
+  else set(2,"","—");
+  const btn=$("b_prepBtn"),when=$("b_prepWhen");
+  const anyBusy=busy("b_ops")||busy("b_fetch")||busy("b_notamAuto")||busy("b_notamBtn");
+  const done=!!(r.opsAt||r.wxAt||r.notamSum);
+  if(btn){btn.disabled=anyBusy;btn.textContent=anyBusy?"กำลังเตรียม…":done?"↻ ดึงใหม่":"⚡ เตรียม brief อัตโนมัติ";btn.classList.toggle("quiet",done&&!anyBusy);btn.classList.toggle("primary",!done)}
+  if(when){const ts=Math.max(r.opsAt||0,r.wxAt||0,r.notamAutoAt||0);when.textContent=anyBusy?"ดึงเครื่อง/gate · TAF/METAR · NOTAM พร้อมกัน":ts?"อัปเดตล่าสุด "+hm(ts)+" · เปิดแท็บนี้ใกล้วันบินจะดึงให้เอง":o?"ดึงเครื่อง/gate · TAF/METAR · NOTAM ให้ในครั้งเดียว":""}
+}
+async function prep_(){
+  if(!cur())return;
+  const det=$("b_tools");
+  try{typeof fetchOps=="function"&&fetchOps(false)}catch{}
+  try{typeof fetchWx=="function"&&fetchWx(false)}catch{}
+  const na=$("b_notamAuto");if(na&&!na.disabled)na.click();
+  else if(!na&&det){det.open=true}
+  chips();
+}
+// re-render when anything about the brief changes: the page saves BR to localStorage (cb_brief) on every change
+function hooks(){
+  if(typeof window.renderBrief=="function"){const rb=window.renderBrief;window.renderBrief=function(){const x=rb.apply(this,arguments);schedule();return x}}
+  const d=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){d.call(this,k,v);if(this===localStorage&&(k==="cb_brief"||k==="cb_altdef"))schedule()};
+  const mo=new MutationObserver(schedule);
+  ["b_opsOut","b_tafOut","b_metarOut","b_notamOut","b_legs","b_opsMsg","b_fetchMsg","b_notamAutoMsg"].forEach(id=>{const e=$(id);e&&mo.observe(e,{childList:true,subtree:true,characterData:true})});
+  const p=$("p-brief");
+  const vis=()=>{clearInterval(tick);if(p&&!p.hidden){chips();tick=setInterval(chips,1000)}};
+  p&&new MutationObserver(vis).observe(p,{attributes:true,attributeFilter:["hidden"]});vis();
+  window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change",schedule);
+  new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+}
+function init(){
+  layout();if(!layoutDone)return;
+  hooks();
+  // b_notamAutoMsg is added by brief-shim after load; observe it once it exists
+  setTimeout(()=>{const e=$("b_notamAutoMsg");e&&new MutationObserver(schedule).observe(e,{childList:true,characterData:true,subtree:true})},1500);
+  schedule();
+}
+document.readyState==="loading"?document.addEventListener("DOMContentLoaded",init):init();
+})();
