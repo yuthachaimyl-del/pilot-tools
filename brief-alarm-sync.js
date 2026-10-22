@@ -19,15 +19,28 @@
 7. Show Notification with the text from step 6.
 No action may ask the user for input when the shortcut runs.`;
 
+  const AUTO_TEXT = "Add an automation so this shortcut runs by itself every day at 08:00 and again at 20:00, run immediately without asking for confirmation";
   const STEPS = (url) => `
-<ol class="small" style="margin:6px 0 0;padding-left:20px;line-height:1.7">
-<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">ถ้า Shortcuts ถาม <b>Enter URL</b>: <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done · ถ้าผลที่ได้มีขั้น "Use Cloud model" หรือ "Ask Each Time" ให้ลบ shortcut นั้นทิ้ง (แตะค้าง → Delete) แล้วสั่งใหม่ด้วยคำสั่งเดิม · iOS 17 ขึ้นไป</span></li>
-<li>เช็กว่าชื่อเป็น <b>CoolCrew Alarm Sync</b> แล้วกด <b>▶ ทดสอบ</b> 1 ครั้ง · iPhone จะถามสิทธิ์ ให้ตอบ <b>Always Allow</b> / <b>Delete Always</b></li>
-<li>ให้รันเองทุกวัน: แท็บ <b>Automation</b> → <b>＋</b> → <b>Time of Day</b> → ตั้ง <b>08:00</b> · Daily → เลือก <b>Run Immediately</b> (ปิด Ask Before Running) → เลือก shortcut <b>CoolCrew Alarm Sync</b> → Done</li>
-<li>ทำข้อ 3 ซ้ำอีกครั้งที่ <b>20:00</b> (รอบเย็นจับตารางที่เพิ่งเปลี่ยนในวันนั้น)</li>
+<style>
+.alst{counter-reset:s;list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
+.alst li{position:relative;padding:10px 12px 10px 44px;border:1px solid var(--line);border-radius:12px;line-height:1.55}
+.alst li::before{counter-increment:s;content:counter(s);position:absolute;left:12px;top:10px;width:24px;height:24px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+.alst b{color:var(--ink)}
+.alst .k{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:.92em;white-space:nowrap}
+.alst .why{display:block;color:var(--muted);font-size:.9em;margin-top:4px}
+.alst .ok{color:var(--green);font-weight:600}
+</style>
+<p class="small muted" style="margin:6px 0 0">ทำครั้งเดียว ประมาณ 3 นาที · ต้องการ iOS 17 ขึ้นไป · หน้าจอ Shortcuts รุ่นใหม่ <b>ไม่มีแท็บ Automation</b> ตั้งเวลาด้วยการพิมพ์บอกในข้อ 4</p>
+<ol class="alst">
+<li><b>สร้าง Shortcut</b><br>กดปุ่ม <span class="k">📋 คัดลอกคำสั่ง</span> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง<span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>
+<li><b>เช็คผล</b> แตะเปิดดู ต้องมี: Find Alarms → Delete → Get contents of <b>(มีลิงก์ยาวอยู่ในช่อง)</b> → Get Dictionary Value <b>alarms</b> → Repeat → Create Alarm <b>CoolCrew</b> → Show notification<span class="why">ถ้าเห็น <b>Use Cloud model</b> หรือ <b>Ask Each Time</b> = AI สร้างผิด ให้ลบ Shortcut ทิ้ง (กลับหน้ารวม → แตะค้าง → Delete) แล้วทำข้อ 1 ใหม่</span></li>
+<li><b>ทดสอบ</b> กด <span class="k">▶</span> 1 ครั้ง → iPhone ถามสิทธิ์ ตอบ <b>Always Allow</b> และ <b>Delete Always</b><span class="why">ควรเด้งแจ้งเตือน "ตั้งปลุก …" หรือเด้งว่างๆ ถ้า 24 ชม. นี้ไม่มี duty · กลับมาหน้านี้กด <span class="k">🔍 ทดสอบลิงก์</span> สถานะด้านบนจะเปลี่ยนเป็น "ถูกเรียกล่าสุด …"</span></li>
+<li><b>ตั้งให้รันเองทุกวัน</b> ในหน้า Shortcut แตะช่อง <b>Describe a change</b> ด้านล่าง → วางข้อความนี้ → ส่ง<br><div class="row" style="gap:8px;margin-top:6px;align-items:center"><button class="btn" type="button" id="al_copyAuto">📋 คัดลอกข้อความตั้งเวลา</button></div><span class="why">สำเร็จเมื่อหัวการ์ดขึ้นว่า <b class="ok">"When it is 08:00 or 20:00 daily"</b> · จบแล้ว ไม่ต้องกดอะไรอีก</span></li>
 </ol>
-<div class="row" style="margin-top:8px;gap:8px"><button class="btn primary" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์</button></div><div class="small" id="al_testOut"></div>
-<textarea id="al_prompt" readonly rows="4" class="small" style="width:100%;margin-top:6px;font-family:var(--f-mono);font-size:12px">${H(PROMPT(url))}</textarea>`;
+<details class="more" style="margin-top:8px"><summary>ถ้า Shortcuts ของคุณยังมีแท็บ Automation (iOS รุ่นเก่ากว่า) ›</summary><div class="small" style="margin-top:6px;line-height:1.6">แท็บ <b>Automation</b> ด้านล่าง → ＋ → <b>Time of Day</b> → 08:00 · Daily → <b>Run Immediately</b> → เลือก CoolCrew Alarm Sync → Done · ทำซ้ำอีกอันที่ 20:00</div></details>
+<details class="more" style="margin-top:6px"><summary>ถ้ารอบ 20:00 ไม่ทำงานตอนจอล็อก ›</summary><div class="small" style="margin-top:6px;line-height:1.6">เปิด Shortcut → <b>Edit</b> → <b>ⓘ</b> → <b>Privacy</b> → เปิด <b>Allow Running When Locked</b></div></details>
+<div class="row" style="margin-top:10px;gap:8px"><button class="btn primary" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง (ข้อ 1)</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์</button></div>
+<details class="more" style="margin-top:6px"><summary>ดูข้อความคำสั่ง ›</summary><textarea id="al_prompt" readonly rows="4" class="small" style="width:100%;margin-top:6px;font-family:var(--f-mono);font-size:11px">${H(PROMPT(url))}</textarea></details>`;
 
   function card() {
     let c = document.getElementById("al_card");
@@ -46,7 +59,7 @@ No action may ask the user for input when the shortcut runs.`;
     if (error) throw error;
     return data;   // null when no link, else {created_at,last_used_at}
   }
-  const statusLine = (st) => `<b style="color:var(--green)">● ลิงก์ส่วนตัวพร้อมใช้</b> · สร้าง ${when(st.created_at)} · ${st.last_used_at ? "ถูกเรียกล่าสุด " + when(st.last_used_at) : "ยังไม่เคยถูกเรียก · ทำข้อ 1–2 ด้านล่างให้เสร็จ"}`;
+  const statusLine = (st) => `<b style="color:var(--green)">● ลิงก์ส่วนตัวพร้อมใช้</b> · สร้าง ${when(st.created_at)} · ${st.last_used_at ? "iPhone เรียกล่าสุด " + when(st.last_used_at) : "iPhone ยังไม่เคยเรียก · ทำขั้นตอนด้านล่างให้ครบ"}`;
   const when = (s) => (s ? new Date(s).toLocaleString("th-TH", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "");
 
   async function render(msg) {
@@ -55,7 +68,7 @@ No action may ask the user for input when the shortcut runs.`;
     try { st = await status(); if (!st && link) keep(""); } catch (e) { err = String(e?.message || e); }
 
     c.innerHTML = `<h2>ปลุกอัตโนมัติบน iPhone</h2>
-<p class="small muted" style="margin:0">Shortcut บน iPhone จะดึงเวลาปลุกของ duty ถัดไป (ตื่น + ปลุกซ้ำ) จากตารางของคุณวันละ 2 รอบ แล้วตั้งนาฬิกาปลุกให้เอง · วันที่ไม่มี duty จะลบปลุก CoolCrew ทิ้งเงียบๆ · ใช้ค่าในการ์ด "เวลาส่วนตัว" ด้านบน</p>
+<p class="small" style="margin:0;line-height:1.6"><b>ไม่ต้องกดตั้งปลุกเองอีก</b> · iPhone จะดึงเวลาปลุกของ duty ถัดไปจากตารางของคุณเอง <b>ทุกวัน 08:00 และ 20:00</b> แล้วตั้งนาฬิกาปลุก (ตื่น + ปลุกซ้ำ) ให้ · วันไหนไม่มี duty จะลบปลุก CoolCrew ทิ้งเงียบๆ · เวลาคำนวณจากการ์ด "เวลาส่วนตัว" ด้านบน</p>
 ${err ? `<div class="note err small">${H(err)}</div>` : ""}
 <div class="row" style="gap:8px;align-items:center">
 <span class="small al_status">${st ? statusLine(st) : "<b>ยังไม่มีลิงก์ส่วนตัว</b>"}</span>
@@ -65,7 +78,7 @@ ${err ? `<div class="note err small">${H(err)}</div>` : ""}
 ${st ? '<button class="btn ghost" type="button" id="al_revoke">ยกเลิกลิงก์</button>' : ""}
 </div>
 <div class="small" id="al_msg" style="min-height:1.2em">${msg || ""}</div>
-${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary>วิธีตั้งค่า Shortcut บน iPhone (ลิงก์ของคุณอยู่ในคำสั่งแล้ว) ›</summary>${STEPS(FEED + link)}</details>`
+${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary><b>ขั้นตอนตั้งค่าบน iPhone</b> (ลิงก์ของคุณฝังในคำสั่งแล้ว ไม่ต้องคัดลอกแยก) ›</summary>${STEPS(FEED + link)}</details>`
       : st ? `<div class="note warn small">ลิงก์นี้ถูกสร้างจากเครื่องอื่น · ถ้าจะตั้ง Shortcut บนเครื่องนี้ ให้กด "สร้างลิงก์ใหม่" (เครื่องเก่าจะหยุดทำงาน)</div>` : ""}
 <p class="small muted" style="margin:6px 0 0">ลิงก์นี้เปิดดูเวลาปลุกของคุณได้โดยไม่ต้องล็อกอิน อย่าส่งต่อ · ถ้าหลุด กดสร้างลิงก์ใหม่ ลิงก์เก่าจะใช้ไม่ได้ทันที · นาฬิกาปลุก iPhone ไม่มีวันที่ จึงตั้งล่วงหน้าได้ 24 ชม. และต้องรันทุกวัน</p>`;
   }
@@ -105,6 +118,11 @@ ${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary>
     if (t.id === "al_copyLink") {
       const v = FEED + link, ok = () => { t.textContent = "✓ คัดลอกแล้ว"; setTimeout(() => (t.textContent = "คัดลอกลิงก์"), 2500); };
       try { await navigator.clipboard.writeText(v); ok(); } catch { const ta = document.createElement("textarea"); ta.value = v; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); ok(); }
+      return;
+    }
+    if (t.id === "al_copyAuto") {
+      const ok = () => { t.textContent = "✓ คัดลอกแล้ว ไปวางใน Describe a change"; setTimeout(() => (t.textContent = "📋 คัดลอกข้อความตั้งเวลา"), 3000); };
+      try { await navigator.clipboard.writeText(AUTO_TEXT); ok(); } catch { const ta = document.createElement("textarea"); ta.value = AUTO_TEXT; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); ok(); }
       return;
     }
     if (t.id === "al_copyPrompt") {
