@@ -89,6 +89,9 @@
 #ccPrint .src b{color:var(--text)}
 #ccPrint .nt td{font-size:9.2pt}
 #ccPrint .nt tr.off td{color:#55616D}
+#ccPrint .nt tr.ad td{background:var(--soft);border-bottom:1.6px solid var(--ink);padding-top:1.2mm;font-size:9.4pt}
+#ccPrint .nt td.nid{white-space:nowrap;font-size:8.6pt;width:1%}
+#ccPrint .nt .pill{margin-left:2px}
 #ccPrint .ftr{display:flex;justify-content:space-between;gap:4mm;font-size:8pt;color:#3E4955;border-top:1px solid var(--line);padding-top:1.2mm;margin-top:.6mm}
 #ccPrint .empty{color:var(--muted);font-size:9pt}
 `;
@@ -228,9 +231,15 @@
     const rank = (x) => ({ high: 0, medium: 1 }[x.impact] ?? 2);
     const nItems = ns.flatMap((a) => (a.items || []).map((x) => ({ ...x, icao: a.icao })))
       .sort((p, q) => (p.active_in_window === false) - (q.active_in_window === false) || rank(p) - rank(q));
-    const ntRows = nItems.map((x) => `<tr class="${x.active_in_window === false ? "off" : ""}"><td class="m"><b>${H(x.icao)}</b></td><td class="m" style="font-size:8.6pt">${H(x.id || "")}</td><td>${H(x.summary || "")}</td>
-<td>${x.active_in_window === true ? '<span class="pill info">ทับช่วงบิน</span>' : x.active_in_window === false ? '<span class="pill">ไม่ทับ</span>' : '<span class="pill warn">ตรวจเอง</span>'}</td>
-<td><span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span></td></tr>`).join("");
+    // one block per aerodrome, in the order it is used on the duty (DEP, ARR, ALT per leg), then any other
+    const iataOf = {}; try { Object.keys(ST).forEach((k) => { iataOf[ST[k][0]] = k; }); } catch {}
+    const roleOf = (i) => [...merged.values()].filter((w) => w.icao === i).map((w) => w.label).join(", ");
+    const order = [...new Set([...usedIcao, ...nItems.map((x) => x.icao)])].filter((i) => nItems.some((x) => x.icao === i));
+    const ntRows = order.map((i) => {
+      const rows = nItems.filter((x) => x.icao === i), on = rows.filter((x) => x.active_in_window !== false).length;
+      const head = `<tr class="ad"><td colspan="2"><b class="m">${H(i)}</b>${iataOf[i] ? ` <span class="mu">${H(iataOf[i])}</span>` : ""}${roleOf(i) ? ` <span class="mu">· ${H(roleOf(i))}</span>` : ""} <span class="mu">· ${rows.length} รายการ${on < rows.length ? ` · ทับช่วงบิน ${on}` : ""}</span></td></tr>`;
+      return head + rows.map((x) => `<tr class="${x.active_in_window === false ? "off" : ""}"><td class="m nid">${H(x.id || "")}</td><td>${H(x.summary || "")} ${x.active_in_window === true ? '<span class="pill info">ทับช่วงบิน</span>' : x.active_in_window === false ? '<span class="pill">ไม่ทับ</span>' : '<span class="pill warn">ตรวจเอง</span>'} <span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span></td></tr>`).join("");
+    }).join("");
 
     // ----- threats (from the sections above) -----
     const th = [];
@@ -266,7 +275,7 @@ ${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามต
 <div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows ? `<table class="wx"><tbody>${wxRows}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
 ${rawWx ? `<div class="raw"><b>METAR ล่าสุด</b><br>${rawWx}</div>` : ""}
 <div class="src"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
-<div class="card"><h3>3 · NOTAM <small>${nItems.length ? "สรุปอัตโนมัติจากข้อความที่วาง · ตรวจกับต้นฉบับ" : ""}</small></h3>${ntRows ? `<table class="nt"><thead><tr><th>AD</th><th>NOTAM</th><th>เรื่อง</th><th>ช่วงบิน</th><th>ผล</th></tr></thead><tbody>${ntRows}</tbody></table>` : '<div class="empty">ยังไม่ได้สรุป NOTAM · วาง NOTAM แล้วกด "สรุป NOTAM ตามช่วงเวลาบิน" ในหน้า Brief</div>'}</div>
+<div class="card"><h3>3 · NOTAM <small>${nItems.length ? "สรุปอัตโนมัติจากข้อความที่วาง · ตรวจกับต้นฉบับ" : ""}</small></h3>${ntRows ? `<table class="nt"><tbody>${ntRows}</tbody></table>` : '<div class="empty">ยังไม่ได้สรุป NOTAM · วาง NOTAM แล้วกด "สรุป NOTAM ตามช่วงเวลาบิน" ในหน้า Brief</div>'}</div>
 <div class="ftr"><span>CoolCrew · Crew Brief · พิมพ์ ${gen.date.split("-").reverse().join("/")} ${gen.hm} ${H(base)}</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ · ใช้ OFP, NOTAM และ weather ทางการประกอบเสมอ</span></div>
 </div>`;
   }
