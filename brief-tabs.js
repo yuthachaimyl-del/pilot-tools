@@ -30,6 +30,7 @@ nav.tabs button svg{width:20px;height:20px;display:block}
 #p-more .tile b{display:block;font-family:var(--f-display);font-size:1rem}
 #p-more .tile small{display:block;color:var(--muted);font-size:.8rem;line-height:1.4;margin-top:2px}
 #p-more .tile .chev{color:var(--muted);font-size:1.2rem}
+#p-more .tile .badge{display:inline-block;margin-left:8px;font:600 .72rem var(--f-body);padding:2px 8px;border-radius:999px;background:var(--amber-soft);color:var(--amber);vertical-align:2px}#p-more .tile .badge.bad{background:var(--red-soft);color:var(--red)}#p-more .tile small.warn{color:var(--amber)}
 .subBack{display:flex;align-items:center;gap:6px;margin:-4px 0 -4px}
 .subBack button{appearance:none;background:none;border:0;padding:4px 0;color:var(--info);font:600 .9rem var(--f-body);cursor:pointer}
 `;
@@ -47,14 +48,26 @@ function build(){
   SUB.forEach(k=>{const p=$("p-"+k);if(!p||p.querySelector(".subBack"))return;const d=document.createElement("div");d.className="subBack";d.innerHTML='<button type="button">‹ อื่นๆ</button>';d.querySelector("button").onclick=()=>showTab("more");p.prepend(d)});
   return true;
 }
+// "เอกสาร" tile: how many documents run out within 60 days (same rule as the checklist), red when one has already expired
+function docBadge(){
+  const tile=more?.querySelector('[data-open="docs"]');if(!tile)return;
+  let soon=[];try{if(typeof DOCS==="object"&&Array.isArray(DOC_LIST)){const now=Date.now();soon=DOC_LIST.filter(([k])=>DOCS[k]).map(([k,n])=>({n,d:Math.floor((Date.parse(DOCS[k]+"T23:59:00+07:00")-now)/864e5)})).filter(x=>x.d<=60).sort((a,b)=>a.d-b.d)}}catch{}
+  const b=tile.querySelector("b"),sm=tile.querySelector("small");if(!b||!sm)return;
+  tile.querySelector(".badge")?.remove();
+  if(!soon.length){sm.textContent=MENU.find(m=>m[0]==="docs")[3];sm.classList.remove("warn");return}
+  const exp=soon.filter(x=>x.d<0).length,sp=document.createElement("span");sp.className="badge"+(exp?" bad":"");sp.textContent=exp?`⛔ หมดอายุ ${exp}`:`⚠ ใกล้หมดอายุ ${soon.length}`;b.appendChild(sp);
+  sm.textContent=soon.map(x=>`${x.n} ${x.d<0?`หมดแล้ว ${-x.d} วัน`:x.d===0?"หมดวันนี้":`อีก ${x.d} วัน`}`).join(" · ");sm.classList.add("warn");
+}
 function light(e){
   const t=SUB.includes(e)?"more":e;
+  if(e==="more")docBadge();
   nav.querySelectorAll("button").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===t?"true":"false"));
   more.hidden=e!=="more";
   if(e==="more")try{window.scrollTo(0,0)}catch{}
 }
 function init(){
   if(!build())return;
+  docBadge();setTimeout(docBadge,1500);
   if(typeof window.showTab=="function"){const o=window.showTab;window.showTab=function(e){const r=o.apply(this,arguments);try{light(e)}catch{}return r}}
   // light the tab the page opened on (the inline script restored it from localStorage before this ran)
   let cur="next";try{cur=localStorage.getItem("cb_tab")||"next"}catch{}
