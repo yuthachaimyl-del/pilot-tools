@@ -21,12 +21,12 @@ No action may ask the user for input when the shortcut runs.`;
 
   const STEPS = (url) => `
 <ol class="small" style="margin:6px 0 0;padding-left:20px;line-height:1.7">
-<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">ถ้า Shortcuts ถาม <b>Enter URL</b>: กด <b>คัดลอกลิงก์</b> แล้ววาง → Done · ถ้าผลที่ได้มีขั้น "Use Cloud model" หรือ "Ask Each Time" ให้ลบ shortcut นั้นทิ้ง (แตะค้าง → Delete) แล้วสั่งใหม่ด้วยคำสั่งเดิม · iOS 17 ขึ้นไป</span></li>
+<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">ถ้า Shortcuts ถาม <b>Enter URL</b>: <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done · ถ้าผลที่ได้มีขั้น "Use Cloud model" หรือ "Ask Each Time" ให้ลบ shortcut นั้นทิ้ง (แตะค้าง → Delete) แล้วสั่งใหม่ด้วยคำสั่งเดิม · iOS 17 ขึ้นไป</span></li>
 <li>เช็กว่าชื่อเป็น <b>CoolCrew Alarm Sync</b> แล้วกด <b>▶ ทดสอบ</b> 1 ครั้ง · iPhone จะถามสิทธิ์ ให้ตอบ <b>Always Allow</b> / <b>Delete Always</b></li>
 <li>ให้รันเองทุกวัน: แท็บ <b>Automation</b> → <b>＋</b> → <b>Time of Day</b> → ตั้ง <b>08:00</b> · Daily → เลือก <b>Run Immediately</b> (ปิด Ask Before Running) → เลือก shortcut <b>CoolCrew Alarm Sync</b> → Done</li>
 <li>ทำข้อ 3 ซ้ำอีกครั้งที่ <b>20:00</b> (รอบเย็นจับตารางที่เพิ่งเปลี่ยนในวันนั้น)</li>
 </ol>
-<div class="row" style="margin-top:8px;gap:8px"><button class="btn" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button><button class="btn" type="button" id="al_copyLink">🔗 คัดลอกลิงก์</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์</button></div><div class="small" id="al_testOut"></div>
+<div class="row" style="margin-top:8px;gap:8px"><button class="btn primary" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์</button></div><div class="small" id="al_testOut"></div>
 <textarea id="al_prompt" readonly rows="4" class="small" style="width:100%;margin-top:6px;font-family:var(--f-mono);font-size:12px">${H(PROMPT(url))}</textarea>`;
 
   function card() {
@@ -71,7 +71,8 @@ ${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary>
   }
 
   async function onClick(e) {
-    const t = e.target.closest("button"); if (!t) return;
+    const t = e.target.closest("button, a#al_copyLink"); if (!t) return;
+    if (t.id === "al_copyLink") e.preventDefault();
     const m = document.getElementById("al_msg");
     if (t.id === "al_make") {
       if (t.dataset.arm !== "1" && t.textContent.includes("ใหม่")) { t.dataset.arm = "1"; t.textContent = "ยืนยันสร้างลิงก์ใหม่"; setTimeout(() => { if (t.isConnected) { t.dataset.arm = ""; render(); } }, 4000); return; }
@@ -102,7 +103,7 @@ ${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary>
       return;
     }
     if (t.id === "al_copyLink") {
-      const v = FEED + link, ok = () => { t.textContent = "✓ คัดลอกลิงก์แล้ว"; setTimeout(() => (t.textContent = "🔗 คัดลอกลิงก์"), 2500); };
+      const v = FEED + link, ok = () => { t.textContent = "✓ คัดลอกแล้ว"; setTimeout(() => (t.textContent = "คัดลอกลิงก์"), 2500); };
       try { await navigator.clipboard.writeText(v); ok(); } catch { const ta = document.createElement("textarea"); ta.value = v; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); ok(); }
       return;
     }
