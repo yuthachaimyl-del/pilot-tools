@@ -60,11 +60,11 @@
 #ccPrint tr:last-child td{border-bottom:none}
 #ccPrint tr{break-inside:avoid}
 #ccPrint .z{font-size:8pt;color:var(--muted);margin-left:3px}
-#ccPrint .pill{display:inline-block;font-size:8pt;font-weight:600;border-radius:20px;padding:0 6px;line-height:1.6;white-space:nowrap;background:var(--soft);color:var(--muted)}
-#ccPrint .bad{background:var(--red-soft);color:var(--red);box-shadow:inset 0 0 0 1px var(--red)}
-#ccPrint .warn{background:var(--amber-soft);color:var(--amber);box-shadow:inset 0 0 0 1px var(--amber)}
-#ccPrint .ok{background:var(--green-soft);color:var(--green);box-shadow:inset 0 0 0 1px var(--green)}
-#ccPrint .info{background:var(--blue-soft);color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+#ccPrint .pill{display:inline-block;font-size:8pt;font-weight:600;border-radius:20px;padding:0 6px;line-height:1.5;white-space:nowrap;background:var(--soft);color:var(--muted);border:1px solid transparent}
+#ccPrint .bad{background:var(--red-soft);color:var(--red);border-color:var(--red)}
+#ccPrint .warn{background:var(--amber-soft);color:var(--amber);border-color:var(--amber)}
+#ccPrint .ok{background:var(--green-soft);color:var(--green);border-color:var(--green)}
+#ccPrint .info{background:var(--blue-soft);color:var(--blue);border-color:var(--blue)}
 #ccPrint td.tbad{color:var(--red);font-weight:600}
 #ccPrint td.twarn{color:var(--amber);font-weight:600}
 #ccPrint .thl{list-style:none;margin:0;padding:0;display:grid;gap:.7mm}
@@ -94,6 +94,9 @@
 #ccPrint .nt .pill{margin-left:2px}
 #ccPrint .ftr{display:flex;justify-content:space-between;gap:4mm;font-size:8pt;color:#3E4955;border-top:1px solid var(--line);padding-top:1.2mm;margin-top:.6mm}
 #ccPrint .empty{color:var(--muted);font-size:9pt}
+#ccPrint .p2h{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:1mm;margin-bottom:.4mm}
+#ccPrint .p2h b{color:var(--text)}
+@media print{#ccPrint .p2{break-before:page}}
 `;
 
   let melCache = null;
@@ -275,7 +278,7 @@ ${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามต
 <div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows ? `<table class="wx"><tbody>${wxRows}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
 ${rawWx ? `<div class="raw"><b>METAR ล่าสุด</b><br>${rawWx}</div>` : ""}
 <div class="src"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
-<div class="card"><h3>3 · NOTAM <small>${nItems.length ? "สรุปอัตโนมัติจากข้อความที่วาง · ตรวจกับต้นฉบับ" : ""}</small></h3>${ntRows ? `<table class="nt"><tbody>${ntRows}</tbody></table>` : '<div class="empty">ยังไม่ได้สรุป NOTAM · วาง NOTAM แล้วกด "สรุป NOTAM ตามช่วงเวลาบิน" ในหน้า Brief</div>'}</div>
+${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · ${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y} · ${route.replace(/<[^>]+>/g, "")}</span><span>หน้า 2 · NOTAM</span></div>` : ""}<div class="card"><h3>3 · NOTAM <small>${nItems.length ? "สรุปอัตโนมัติจากข้อความที่วาง · ตรวจกับต้นฉบับ" : ""}</small></h3>${ntRows ? `<table class="nt"><tbody>${ntRows}</tbody></table>` : '<div class="empty">ยังไม่ได้สรุป NOTAM · วาง NOTAM แล้วกด "สรุป NOTAM ตามช่วงเวลาบิน" ในหน้า Brief</div>'}</div>${ntRows ? "</div>" : ""}
 <div class="ftr"><span>CoolCrew · Crew Brief · พิมพ์ ${gen.date.split("-").reverse().join("/")} ${gen.hm} ${H(base)}</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ · ใช้ OFP, NOTAM และ weather ทางการประกอบเสมอ</span></div>
 </div>`;
   }
@@ -341,6 +344,16 @@ ${LIBS.map(([u, h]) => `<script src="${u}" integrity="${h}" crossorigin="anonymo
       if (!w.html2canvas || !w.jspdf) throw new Error("โหลดตัวทำ PDF ไม่ได้");
       await (w.document.fonts?.ready || Promise.resolve());
       const el = w.document.getElementById("ccPrint");
+      // NOTAM block starts on page 2 (same rule as @media print break-before): pad it down to the next page top
+      try {
+        const p2 = el.querySelector(".p2");
+        if (p2) {
+          const pageH = el.offsetWidth * 297 / 210, pad0 = 30;
+          const top = p2.getBoundingClientRect().top - el.getBoundingClientRect().top;
+          const target = Math.ceil((top - pad0 - 1) / pageH) * pageH + pad0;
+          if (target - top > 1) p2.style.marginTop = (target - top) + "px";
+        }
+      } catch {}
       const canvas = await w.html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, logging: false, windowWidth: 794 });
       const pdf = new w.jspdf.jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
       const pw = 210, ph = 297, pxPerPage = Math.floor(canvas.width * ph / pw);

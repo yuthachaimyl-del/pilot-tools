@@ -63,6 +63,7 @@ th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
 .nt tr.off td{color:var(--p-muted)}
 .empty{font-size:12.5px}
 .ftr{display:none}
+.p2h{display:none}
 `;
 const VARS=["surface","ink","muted","line","sunk","green","green-soft","amber","amber-soft","red","red-soft","info","info-soft"];
 let box=null,root=null,tmr=null,tick=null,layoutDone=false;
