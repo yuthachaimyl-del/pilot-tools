@@ -43,7 +43,7 @@ const SCREEN=`<div class="card">
 <div class="wl-hero">
 <div class="wl-kick">CREW BRIEF · เริ่มใช้งาน</div>
 <h2 class="wl-h">ใส่ roster ครั้งเดียว แล้วให้แอปเตรียมวันบินให้</h2>
-<p class="wl-sub">เวลาปลุกและเวลาออกจากบ้านตาม report · brief อากาศ NOTAM MEL ก่อนบิน · FDP · ตารางเดือน — ทั้งหมดอ่านจากรูป roster ที่แคปจาก Merlot</p>
+<p class="wl-sub" id="wlSub">เวลาปลุกและเวลาออกจากบ้านตาม report · brief อากาศ NOTAM MEL ก่อนบิน · FDP · ตารางเดือน — ทั้งหมดอ่านจากรูป roster ที่แคปจาก Merlot</p>
 </div>
 <ol class="wl-steps">
 <li><span><b>แคปหน้าจอ roster</b> จาก vzportal.merlot.aero → Employee Roster Report (ยาวเกินจอให้แคปหลายรูปซ้อนกันเล็กน้อย)</span></li>
@@ -55,6 +55,7 @@ const SCREEN=`<div class="card">
 <div class="wl-alt">ยังไม่มี roster? <a href="#" id="wlSample">ดูตัวอย่างด้วยข้อมูลสมมติ</a><a href="#" id="wlManual">ใส่ duty เองทีละวัน</a></div>
 </div>`;
 let sec=null,entered=false,exited=false,lastParse=0,dropLabel=null,dropText=null;
+let fromBoard=false;try{fromBoard=new URLSearchParams(location.search).get("from")==="board"}catch{}
 const hasRoster=()=>{try{return((typeof STATE!="undefined"&&STATE&&STATE.duties)||[]).length>0}catch{return false}};
 function mount(){
   if(sec)return sec;
@@ -76,6 +77,7 @@ function enter(){
     const f=$("file");f&&f.addEventListener("change",markFiles);drop&&drop.addEventListener("drop",()=>setTimeout(markFiles,0));
     markFiles();
   }
+  if(fromBoard){const h=sec.querySelector(".wl-h"),su=$("wlSub");h&&(h.textContent="ใส่ roster ครั้งเดียว ใช้ได้ทั้งบอร์ดแลกและ Crew Brief");su&&(su.textContent="อ่านเสร็จกด กลับไปบอร์ด ได้เลย · บอร์ดจะรู้ว่าคุณบินวันไหน ว่างวันไหน และ Crew Brief เตรียมเวลาปลุก brief FDP ให้จากตารางเดียวกัน")}
   try{const g=window.CB_GUIDE&&window.CB_GUIDE.roster;g&&$("wlEx").insertAdjacentHTML("beforeend",g)}catch{}
   $("wlSample").onclick=e=>{e.preventDefault();const b=$("loadSample");b?b.click():exit("next")};
   $("wlManual").onclick=e=>{e.preventDefault();exit("roster");setTimeout(()=>{$("addManual")?.click();$("editCard")?.scrollIntoView({behavior:"smooth",block:"start"})},50)};
@@ -98,9 +100,12 @@ function exit(tab){
 function note(total){
   const nav=document.querySelector("nav.tabs");if(!nav)return;
   const n=document.createElement("div");n.className="card";n.id="wlNote";
-  n.innerHTML=`<div class="row"><div><b>✅ อ่าน roster ได้ ${total} รายการ</b><div class="small muted">ตรวจดูว่าวันและเวลาตรง ถ้าอ่านผิดแก้ได้ที่ปุ่ม "แก้" · เสร็จแล้วไปแท็บ <b>ถัดไป</b> เพื่อดูเวลาปลุกและ brief วันบินถัดไป</div></div><button class="btn primary" type="button" id="wlGoNext">ถัดไป →</button></div>`;
+  n.innerHTML=fromBoard
+    ?`<div class="row"><div><b>✅ อ่าน roster ได้ ${total} รายการ</b><div class="small muted">ตรวจดูว่าวันและเวลาตรง ถ้าอ่านผิดแก้ได้ที่ปุ่ม "แก้" · ตารางนี้ใช้ในบอร์ดแลกด้วย กลับไปได้เลย</div></div><button class="btn primary" type="button" id="wlGoBoard">กลับไปบอร์ด →</button></div>`
+    :`<div class="row"><div><b>✅ อ่าน roster ได้ ${total} รายการ</b><div class="small muted">ตรวจดูว่าวันและเวลาตรง ถ้าอ่านผิดแก้ได้ที่ปุ่ม "แก้" · เสร็จแล้วไปแท็บ <b>ถัดไป</b> เพื่อดูเวลาปลุกและ brief วันบินถัดไป</div></div><button class="btn primary" type="button" id="wlGoNext">ถัดไป →</button></div>`;
   nav.insertAdjacentElement("afterend",n);
-  n.querySelector("#wlGoNext").onclick=()=>{n.remove();typeof showTab=="function"&&showTab("next")};
+  const gn=n.querySelector("#wlGoNext");gn&&(gn.onclick=()=>{n.remove();typeof showTab=="function"&&showTab("next")});
+  const gb=n.querySelector("#wlGoBoard");gb&&(gb.onclick=async()=>{gb.disabled=true;gb.textContent="กำลังซิงก์…";try{await Promise.race([typeof window.cbRosterFlush=="function"?window.cbRosterFlush():Promise.resolve(),new Promise(r=>setTimeout(r,8000))])}catch{}location.href="index.html?from=brief#swap"});
   nav.addEventListener("click",()=>n.remove(),{once:true});
 }
 function sync(){
