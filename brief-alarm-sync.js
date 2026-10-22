@@ -18,12 +18,12 @@
 
   const STEPS = (url) => `
 <ol class="small" style="margin:6px 0 0;padding-left:20px;line-height:1.7">
-<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">iOS 17 ขึ้นไป · ถ้าไม่มีช่องนี้ ให้สร้างเอง: Find Alarms (label is CoolCrew) → Delete Alarms → Get Contents of URL → Get Dictionary Value "alarms" → Repeat: Create Alarm (label CoolCrew)</span></li>
+<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">ถ้า Shortcuts ถาม <b>Enter URL</b>: กด <b>คัดลอกลิงก์</b> ด้านล่าง แล้ววางในช่องนั้น → Done · iOS 17 ขึ้นไป · ถ้าไม่มีช่อง Describe ให้สร้างเอง: Find Alarms (label is CoolCrew) → Delete Alarms → Get Contents of URL → Get Dictionary Value "alarms" → Repeat: Create Alarm (label CoolCrew)</span></li>
 <li>เช็กว่าชื่อเป็น <b>CoolCrew Alarm Sync</b> แล้วกด <b>▶ ทดสอบ</b> 1 ครั้ง · iPhone จะถามสิทธิ์ ให้ตอบ <b>Always Allow</b> / <b>Delete Always</b></li>
 <li>ให้รันเองทุกวัน: แท็บ <b>Automation</b> → <b>＋</b> → <b>Time of Day</b> → ตั้ง <b>08:00</b> · Daily → เลือก <b>Run Immediately</b> (ปิด Ask Before Running) → เลือก shortcut <b>CoolCrew Alarm Sync</b> → Done</li>
 <li>ทำข้อ 3 ซ้ำอีกครั้งที่ <b>20:00</b> (รอบเย็นจับตารางที่เพิ่งเปลี่ยนในวันนั้น)</li>
 </ol>
-<div class="row" style="margin-top:8px;gap:8px"><button class="btn" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์</button></div><div class="small" id="al_testOut"></div>
+<div class="row" style="margin-top:8px;gap:8px"><button class="btn" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button><button class="btn" type="button" id="al_copyLink">🔗 คัดลอกลิงก์</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์</button></div><div class="small" id="al_testOut"></div>
 <textarea id="al_prompt" readonly rows="4" class="small" style="width:100%;margin-top:6px;font-family:var(--f-mono);font-size:12px">${H(PROMPT(url))}</textarea>`;
 
   function card() {
@@ -96,6 +96,11 @@ ${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary>
       } catch (e) { o.innerHTML = `<span style="color:var(--red)">เรียกไม่ได้: ${H(e?.message || e)}</span>`; }
       t.disabled = false;
       const st = await status().catch(() => null); const line = card().querySelector(".al_status"); if (line && st) line.innerHTML = statusLine(st);
+      return;
+    }
+    if (t.id === "al_copyLink") {
+      const v = FEED + link, ok = () => { t.textContent = "✓ คัดลอกลิงก์แล้ว"; setTimeout(() => (t.textContent = "🔗 คัดลอกลิงก์"), 2500); };
+      try { await navigator.clipboard.writeText(v); ok(); } catch { const ta = document.createElement("textarea"); ta.value = v; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); ok(); }
       return;
     }
     if (t.id === "al_copyPrompt") {
