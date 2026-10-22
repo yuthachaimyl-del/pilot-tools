@@ -70,6 +70,7 @@ th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
 .melref{cursor:pointer;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap;-webkit-tap-highlight-color:transparent}.melref::after{content:" ⧉";font-weight:400;color:var(--muted)}.melref.ok{background:var(--green-soft);border-color:var(--green);color:var(--green)}.melref.ok::after{content:" ✓"}.melhint{font-size:11px;color:var(--muted);margin-top:4px}.fr24{display:block;text-align:center;text-decoration:none;font-weight:600;font-size:13px;color:#fff;background:var(--blue);border-radius:9px;padding:8px 10px}#b_radarCard h3{font-size:1rem}
 .thl li{font-size:12.5px;padding-left:8px}
 .acft b{font-size:14px;white-space:nowrap}.acft span{font-size:10.5px}.acft div{padding:4px 8px}.acl .mel{font-size:12.5px;max-width:none;background:var(--soft);border-radius:8px;padding:5px 8px}
+@media (max-width:640px){.ac{grid-template-columns:1fr;gap:8px}.acl{grid-template-columns:1fr 1fr;gap:6px;align-items:stretch}.acl .acft{grid-column:1/-1}.acl .mel{margin:0}.acl .fr24{grid-column:1/-1}.acl .mel:only-of-type{grid-column:1/-1}.ac>div:last-child .mel{padding:3px 0}}
 .mel{font-size:12.5px}.note{font-size:12px}.raw{font-size:11px;color:var(--p-ink)}.src{font-size:11px}
 .nt tr.off td{color:var(--p-muted)}
 .empty{font-size:12.5px}
