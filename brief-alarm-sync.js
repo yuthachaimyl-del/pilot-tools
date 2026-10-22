@@ -9,16 +9,17 @@
   let link = ""; try { link = localStorage.getItem(LS_KEY) || ""; } catch {}
   const keep = (v) => { link = v || ""; try { v ? localStorage.setItem(LS_KEY, v) : localStorage.removeItem(LS_KEY); } catch {} };
 
-  const PROMPT = (url) => `Create a shortcut named CoolCrew Alarm Sync with exactly these actions, in this order, using only built-in Shortcuts actions. Do not use any AI model, Cloud model, or "Ask Each Time" anywhere.
-1. Find Alarms where Label is CoolCrew.
-2. If Alarms has any value: Delete Alarms (the found alarms). End If.
-3. Get Contents of URL with this exact URL typed in as a fixed value: ${url}
-4. Get Dictionary Value for key "alarms" in Contents of URL.
-5. Repeat with each item in Dictionary Value: Create Alarm at Repeat Item with label CoolCrew. End Repeat.
-6. Get Dictionary Value for key "summary" in Contents of URL.
-7. Show Notification with the text from step 6.
-No action may ask the user for input when the shortcut runs.
-Also add an automation so this shortcut runs by itself every day at 08:00 and again at 20:00, run immediately without asking for confirmation.`;
+  const PROMPT = (url) => `Create a shortcut named exactly "CoolCrew Alarm Sync".
+Use only these built-in Shortcuts actions, with these exact names, in this exact order, and nothing else:
+1. "Find Alarms" with filter: Label is "CoolCrew".
+2. "If" Alarms has any value: "Delete Alarms" using the Alarms from step 1. "End If".
+3. "Get Contents of URL" with the URL typed in as a fixed text value (not a variable, not "Ask Each Time"): ${url}
+4. "Get Dictionary Value" for key "alarms" in Contents of URL.
+5. "Repeat with Each" item in Dictionary Value: "Create Alarm" at Repeat Item, with label "CoolCrew". "End Repeat".
+6. "Get Dictionary Value" for key "summary" in Contents of URL.
+7. "Show Notification" with the Dictionary Value from step 6.
+Rules: do not add, remove, rename or reorder any action. Do not use "Use Model", "Cloud model", "Ask for Input", "Ask Each Time", or any AI, text-parsing, or variable-setting action. Nothing may ask the user anything when it runs.
+Then add a personal automation for this shortcut: trigger "Time of Day", 08:00, repeat Daily, "Run Immediately" (not "Run After Confirmation"), notify when run off; and a second identical automation at 20:00.`;
 
   const AUTO_TEXT = "Add an automation so this shortcut runs by itself every day at 08:00 and again at 20:00, run immediately without asking for confirmation";
   const STYLE = `<style>
