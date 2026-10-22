@@ -112,8 +112,13 @@ function thDate(iso){const [y,m,d]=iso.split("-").map(Number);const w=new Date(D
 function menuLine(){
   const brand=$("#menuView .brand");if(!brand)return;
   let el=$("#menuNext");if(!el){el=document.createElement("div");el.id="menuNext";el.style.cssText="font-size:13px;line-height:1.5;color:var(--muted);margin:-4px 0 2px";brand.insertAdjacentElement("afterend",el)}
-  const s=S();if(!s||!s.me||!s.rostersLoaded){el.textContent="";return}
-  const days=myDays().filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d.date||"")).sort((a,b)=>a.date<b.date?-1:1);
+  const s=S();if(!s||!s.me){el.textContent="";return}
+  // the board's own data loads only when the board opens; on the menu read the roster row once
+  if(!s.rostersLoaded){
+    if(!menuDays){if(!menuBusy&&window.SB){menuBusy=true;window.SB.from("rosters").select("days").eq("user_id",s.me).maybeSingle().then(r=>{menuDays=Array.isArray(r?.data?.days)?r.data.days:[];menuLine()}).catch(()=>{menuBusy=false})}el.textContent="";return}
+  }
+  const src=s.rostersLoaded?myDays():menuDays;
+  const days=src.filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d.date||"")).sort((a,b)=>a.date<b.date?-1:1);
   if(!days.length){el.innerHTML='ยังไม่มีตาราง · <a href="'+BRIEF+'" style="color:var(--accent)">ใส่ roster ใน Crew Brief →</a>';return}
   const now=new Date(Date.now()+7*36e5),today=now.toISOString().slice(0,10);
   const nx=days.find(d=>d.date>=today&&["FLT","SBY","TRN","RSV"].includes(d.type)&&(d.report||d.type!=="FLT"));
@@ -121,6 +126,7 @@ function menuLine(){
   const tail=`roster ถึง ${thDate(last)}`+(last<today?' <span style="color:var(--accent)">· หมดแล้ว ใส่เดือนใหม่</span>':"");
   el.innerHTML=nx?`ถัดไป <b style="color:var(--ink)">${thDate(nx.date)} · ${esc_(nx.code||nx.type)}${nx.report?" · report "+esc_(nx.report):""}</b> · ${tail}`:`ไม่มี duty ที่จะถึง · ${tail}`;
 }
+let menuDays=null,menuBusy=false;
 const esc_=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 function sync(){
   try{menuLine()}catch{}
@@ -134,6 +140,6 @@ function sync(){
   enter();
 }
 if(typeof window.render=="function"){const r=window.render;window.render=function(){const x=r.apply(this,arguments);try{sync()}catch{}return x};window.FORENDER=window.render}
-const boot=()=>{try{styles();layoutUpload()}catch{}try{sync()}catch{}};
+const boot=()=>{try{styles();layoutUpload()}catch{}try{sync()}catch{}const mt=setInterval(()=>{try{menuLine();const s=S();if(s&&s.me&&(s.rostersLoaded||menuDays))clearInterval(mt)}catch{}},800);window.addEventListener("hashchange",()=>setTimeout(()=>{try{menuLine()}catch{}},100))};
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",boot):boot();
 })();
