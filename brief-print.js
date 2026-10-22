@@ -92,6 +92,9 @@
 #ccPrint .nt tr.ad td{background:var(--soft);border-bottom:1.6px solid var(--ink);padding-top:1.2mm;font-size:9.4pt}
 #ccPrint .nt td.nid{white-space:nowrap;font-size:8.6pt;width:1%}
 #ccPrint .nt .pill{margin-left:2px}
+#ccPrint .nt .nx{display:flex;flex-wrap:wrap;gap:1mm 3mm;font-size:8.2pt;margin-top:.3mm}
+#ccPrint .nt .nleg{color:var(--blue)}
+#ccPrint .nt .nleg .m{font-weight:600}
 #ccPrint .ftr{display:flex;justify-content:space-between;gap:4mm;font-size:8pt;color:#3E4955;border-top:1px solid var(--line);padding-top:1.2mm;margin-top:.6mm}
 #ccPrint .empty{color:var(--muted);font-size:9pt}
 #ccPrint .p2h{display:flex;justify-content:space-between;gap:4mm;font-size:8.6pt;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:1mm;margin-bottom:.4mm}
@@ -218,7 +221,8 @@
       m.label += ", " + w.label;
       if (m.dep && !w.dep) { m.lines = w.lines; m.note = w.note; m.dep = false; }
     }
-    const wxRows = [...merged.values()].map((w) => {
+    const allUncovered = merged.size && [...merged.values()].every((w) => !w.lines.length && /ไม่ครอบคลุม|ไม่มี TAF/.test(w.note || ""));
+    const wxRows = allUncovered ? `<tr><td colspan="2"><div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน (${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} <span class="m">${zt(w.s)}–${zt(w.n)}</span>`).join(" · ")}) · TAF ออกล่วงหน้า ~30 ชม. เปิดแท็บนี้ใกล้วันบินจะดึงใหม่ให้เอง</div></td></tr>` : [...merged.values()].map((w) => {
       const st = w.label.startsWith("DEP") && !legs[0].nt ? hm(legs[0].dep, legs[0].s.dep) : "";
       const body = w.lines.map((x) => `<div class="gl"><span class="g ${x.cls}">${H(x.raw)}</span>${x.trans ? `<span class="mu" style="font-size:8.2pt">${H(x.trans)}</span> ` : ""}${x.v ? (x.v.c === "app" && /improvement/i.test(x.v.t) ? `<span class="pill ok">${H(x.v.lbl)} · ดีขึ้น</span>` : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? `<span class="pill warn">${H(x.v.lbl)} · ลมเปลี่ยน</span>` : `<span class="pill ${vCls(x.v.c)}">${H(x.v.lbl)}</span>`) : ""}</div>`).join("");
       return `<tr><td class="w">${H(w.label)} <span class="m">${H(w.icao)}</span><small>${zt(w.s)}–${zt(w.n)}${st ? " · STD " + st : ""}</small></td>
@@ -237,11 +241,18 @@
     // one block per aerodrome, in the order it is used on the duty (DEP, ARR, ALT per leg), then any other
     const iataOf = {}; try { Object.keys(ST).forEach((k) => { iataOf[ST[k][0]] = k; }); } catch {}
     const roleOf = (i) => [...merged.values()].filter((w) => w.icao === i).map((w) => w.label).join(", ");
+    const winByLabel = {}; wins.filter(Boolean).forEach((w) => { winByLabel[w.label] = w; });
     const order = [...new Set([...usedIcao, ...nItems.map((x) => x.icao)])].filter((i) => nItems.some((x) => x.icao === i));
     const ntRows = order.map((i) => {
       const rows = nItems.filter((x) => x.icao === i), on = rows.filter((x) => x.active_in_window !== false).length;
       const head = `<tr class="ad"><td colspan="2"><b class="m">${H(i)}</b>${iataOf[i] ? ` <span class="mu">${H(iataOf[i])}</span>` : ""}${roleOf(i) ? ` <span class="mu">· ${H(roleOf(i))}</span>` : ""} <span class="mu">· ${rows.length} รายการ${on < rows.length ? ` · ทับช่วงบิน ${on}` : ""}</span></td></tr>`;
-      return head + rows.map((x) => `<tr class="${x.active_in_window === false ? "off" : ""}"><td class="m nid">${H(x.id || "")}</td><td>${H(x.summary || "")} ${x.active_in_window === true ? '<span class="pill info">ทับช่วงบิน</span>' : x.active_in_window === false ? '<span class="pill">ไม่ทับ</span>' : '<span class="pill warn">ตรวจเอง</span>'} <span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span></td></tr>`).join("");
+      return head + rows.map((x) => {
+        // which leg windows it overlaps (from the summariser) → "ARR ขา 1 0025–0225Z"
+        const legs = Array.isArray(x.legs) ? x.legs.map((l) => { const m = /^(DEP|ARR|ALT)\s*(\d+)/i.exec(String(l)); if (!m) return ""; const lbl = `${m[1].toUpperCase()} ขา ${m[2]}`; const w = winByLabel[lbl]; return w ? `${lbl} <span class="m">${zt(w.s)}–${zt(w.n)}</span>` : lbl; }).filter(Boolean) : [];
+        const when = String(x.when || "").trim();
+        const extra = (x.active_in_window === true && legs.length ? `<span class="mu nleg">${legs.join(" · ")}</span>` : "") + (when ? `<span class="mu nwhen">NOTAM ${H(when)}</span>` : "");
+        return `<tr class="${x.active_in_window === false ? "off" : ""}"><td class="m nid">${H(x.id || "")}</td><td>${H(x.summary || "")} ${x.active_in_window === true ? '<span class="pill info">ทับช่วงบิน</span>' : x.active_in_window === false ? '<span class="pill">ไม่ทับ</span>' : '<span class="pill warn">ตรวจเอง</span>'} ${x.active_in_window === false ? "" : `<span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span>`}${extra ? `<div class="nx">${extra}</div>` : ""}</td></tr>`;
+      }).join("");
     }).join("");
 
     // ----- threats (from the sections above) -----

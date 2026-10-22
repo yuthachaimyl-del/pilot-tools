@@ -48,12 +48,15 @@ const SCREEN=`
 .hdr{background:#0E1620;color:#fff;padding:10px 12px;border-radius:10px}
 .code{font-size:20px}.route{font-size:13px}.date{font-size:14px}
 .tiles{grid-template-columns:repeat(3,1fr);gap:6px}
-.tile{padding:5px 8px}.tile span{font-size:11px}.tile b{font-size:17px}.tile em{font-size:10.5px}
+.tile{padding:5px 8px;min-width:0}.tile span{font-size:11px}.tile b{font-size:17px}.tile em{font-size:10.5px;display:block;margin:0}
 .fdp{padding:6px 10px}
 .card{padding:8px 10px;overflow-x:auto}
-h3{font-size:14px;margin-bottom:4px}h3 small{font-size:11px}
+h3{font-size:14px;margin-bottom:4px;flex-wrap:wrap;row-gap:0}h3 small{font-size:11px;flex-basis:100%}
 table{min-width:100%}
-.lg table{min-width:520px}
+.lg table{min-width:0}
+@media (max-width:520px){.lg th:nth-child(1),.lg td:nth-child(1),.lg th:nth-child(6),.lg td:nth-child(6),.lg th:nth-child(8),.lg td:nth-child(8){display:none}.lg .z{display:block;margin:0}.lg td{white-space:normal}}
+.nt tr.off{display:none}.nt.showoff tr.off{display:table-row}
+.nt tr.ad td{position:relative}.nt .offbtn{appearance:none;border:1px solid var(--p-line);background:transparent;color:var(--p-muted);font:500 11px var(--f-body);border-radius:999px;padding:2px 8px;margin-left:6px;cursor:pointer}
 th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
 .wx td{font-size:12.5px}.nt td{font-size:12.5px}
 .pill{font-size:11px}
@@ -79,7 +82,7 @@ function layout(){
   const prep=document.createElement("div");prep.id="b_prep";
   prep.innerHTML=`<div id="b_prepRow"><button class="btn primary" type="button" id="b_prepBtn">⚡ เตรียม brief อัตโนมัติ</button><span id="b_prepWhen"></span></div>
 <div id="b_chips"><button type="button" data-go="b_ops">เครื่อง / gate <b>—</b></button><button type="button" data-go="b_fetch">TAF / METAR <b>—</b></button><button type="button" data-go="b_notamBtn">NOTAM <b>—</b></button></div>
-<div id="b_altRow"></div><div id="b_altHint">ใส่ alternate ของแต่ละขาตาม OFP (ICAO หรือ IATA) แล้วระบบดึง TAF/METAR และ NOTAM ของ ALT ให้ด้วย · จำไว้ให้ปลายทางเดิมครั้งหน้า</div>
+<div id="b_altRow"></div><div id="b_altHint">ALT ตาม OFP (เช่น UTP หรือ VTBU) · ใส่แล้วดึงอากาศ/NOTAM ของ ALT ให้ · จำไว้ต่อปลายทาง</div>
 <div id="b_sum"></div><div id="b_sumEmpty" hidden></div>`;
   const legs=$("b_legs");legs?legs.insertAdjacentElement("beforebegin",prep):top.appendChild(prep);
   const alts=$("b_alts");if(alts){$("b_altRow").appendChild(alts);alts.addEventListener("change",e=>{const v=String(e.target.value||"").trim();if(!cur())return;setTimeout(()=>{try{typeof fetchWx=="function"&&fetchWx(false)}catch{}const na=$("b_notamAuto");na&&!na.disabled&&v&&na.click();chips()},350)})}
@@ -97,7 +100,7 @@ function layout(){
 function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
 
 let melWaiting=false;
-function relabelAlts(){document.querySelectorAll("#b_altRow #b_alts label.f").forEach(l=>{const t=l.firstChild;t&&t.nodeType===3&&(t.nodeValue=t.nodeValue.replace(/^\s*ALT ขา (\d+) \(ปลายทาง ([A-Z]{3})\)\s*$/,"ขา $1 → $2 · ALT"))})}
+function relabelAlts(){document.querySelectorAll("#b_altRow #b_alts label.f").forEach(l=>{const t=l.firstChild;t&&t.nodeType===3&&(t.nodeValue=t.nodeValue.replace(/^\s*ALT ขา (\d+) \(ปลายทาง ([A-Z]{3})\)\s*$/,"ขา $1 → $2 · ALT"));const i=l.querySelector("input");i&&(i.placeholder="เช่น UTP")})}
 function render(){
   relabelAlts();
   if(!root||!window.ccBrief)return;
@@ -108,6 +111,8 @@ function render(){
   box.hidden=false;empty.hidden=true;hostVars();
   root.innerHTML=`<style>${window.ccBrief.css.replace(/#ccPrint\{/g,":host{").replace(/#ccPrint /g,"")}${SCREEN}</style>${html}`;
   const t=root.querySelector("table");t&&t.closest(".card")?.classList.add("lg");
+  // NOTAMs that do not overlap the duty window stay folded per aerodrome; a small button shows them
+  root.querySelectorAll(".nt tr.ad").forEach(h=>{let n=0,r=h.nextElementSibling;while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&n++;r=r.nextElementSibling}if(!n)return;const b=document.createElement("button");b.type="button";b.className="offbtn";b.textContent="+"+n+" ไม่ทับช่วงบิน";h.querySelector("td").appendChild(b);b.onclick=()=>{let r=h.nextElementSibling,on=b.dataset.on!=="1";while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&(r.style.display=on?"table-row":"");r=r.nextElementSibling}b.dataset.on=on?"1":"";b.textContent=(on?"− ซ่อน ":"+"+n+" ")+(on?"":"")+(on?"ที่ไม่ทับช่วงบิน":"ไม่ทับช่วงบิน")}});
   if(!window.ccBrief.cached()&&!melWaiting){melWaiting=true;window.ccBrief.mel().then(()=>{melWaiting=false;schedule()}).catch(()=>{melWaiting=false})}
 }
 function schedule(){clearTimeout(tmr);tmr=setTimeout(()=>{try{render();chips()}catch{}},250)}
