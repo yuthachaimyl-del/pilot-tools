@@ -210,6 +210,23 @@
       ibHtml = `<div class="mel"><span class="pill ${g != null && g < 35 ? "bad" : g != null && g < 50 ? "warn" : "info"}">ขาเข้า</span> <b class="m">${H(ib.flt)}</b> ${H(ib.from)}→${H(ib.to)} ${ib.ata ? "ATA" : "ETA"} <b class="m">${H(p || "—")}</b>${g != null ? ` · บนพื้นก่อนขาแรก <b class="m">${Math.round(g)}</b> นาที` : ""}</div>`;
       if (g != null) turns.unshift({ at: "inbound " + ib.flt, min: g, ib: true });
     }
+    // what the aircraft does after each of our legs (from the OMC sheet): only legs whose next flight is not ours
+    let afterHtml = "";
+    {
+      const norm = (x) => String(x || "").toUpperCase().replace(/^VZ\s*/, "").trim();
+      const ours = new Set(legs.map((l) => norm(l.s.flt)));
+      legs.forEach((l, k) => {
+        const row = ops.find((x) => x.i === l.i);
+        if (!row || !row.f) return;
+        const nx = row.next;
+        if (nx && ours.has(norm(nx.flt))) return;
+        if (!nx) { afterHtml += `<div class="mel after"><span class="pill info">หลังขา ${k + 1}</span> ไม่มีไฟลท์ต่อในชีตวันนี้</div>`; return; }
+        const p = [row.f.ata, row.f.eta2, row.f.eta, row.f.sta].find((x) => /\d{1,2}:\d{2}/.test(x || "")) || "";
+        const q = [nx.etd, nx.std].find((x) => /\d{1,2}:\d{2}/.test(x || "")) || "";
+        const g = typeof gapMin === "function" ? gapMin(p, q) : null;
+        afterHtml += `<div class="mel after"><span class="pill info">หลังขา ${k + 1}</span> เครื่องบินต่อ <b class="m">${H(nx.flt)}</b> ${H(nx.from)}→${H(nx.to)} STD <b class="m">${H(nx.std || q || "—")}</b>${nx.etd && nx.etd !== nx.std ? ` · ETD <b class="m">${H(nx.etd)}</b>` : ""}${g != null ? ` · บนพื้น <b class="m">${Math.round(g)}</b> นาที` : ""}</div>`;
+      });
+    }
 
     // ----- weather -----
     const tafs = parseTAF(r.taf || "", (legs[0]?.arr) || Date.now());
@@ -286,7 +303,7 @@
     const now = new Date();
     const gen = local(now.getTime(), base);
 
-    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, melCount, merged, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
+    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, merged, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
     return `<div class="pg">
 <div class="hdr"><div class="hl"><div class="kick">CREW BRIEF · PRE-REPORT</div><div class="row"><span class="code m">${H(o.code || "")}</span><span class="route m">${route}</span></div></div>
 <div class="hr"><div class="date m">${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y}</div><div class="dth">${DOW_TH[dw]} ${D} ${MON_TH[Mo - 1]} ${Y + 543}</div><div class="who">${H(who)}</div></div></div>
@@ -295,7 +312,7 @@ ${fdp != null && b.fdpMax ? `<div class="fdp"><div class="t"><b>FDP ตามต
 <div class="card"><h3>เที่ยวบิน <small>UTC ใหญ่ · local เล็ก${nt ? " · บางขายังไม่มีเวลา STD/STA (รอ Flight Detail)" : ""}</small></h3>
 <table><thead><tr><th>#</th><th>Flight</th><th>Route</th><th>STD</th><th>STA</th><th>Block</th><th>Turnaround</th><th>Gate</th></tr></thead><tbody>${legRows}</tbody></table></div>
 <div class="card"><h3>Threats วันนี้ <small>สรุปอัตโนมัติจากหัวข้อด้านล่าง</small></h3>${thHtml}</div>
-<div class="card"><h3>1 · เครื่องและ MEL</h3><div class="ac"><div class="acl"><div class="acft"><div><span>Registration</span><b>${H(reg || "—")}</b></div><div><span>Gate ขาแรก</span><b>${H(f0?.gate || r.gate || "—")}</b></div></div>${ibHtml}</div><div>${melHtml}</div></div></div>
+<div class="card"><h3>1 · เครื่องและ MEL</h3><div class="ac"><div class="acl"><div class="acft"><div><span>Registration</span><b>${H(reg || "—")}</b></div><div><span>Gate ขาแรก</span><b>${H(f0?.gate || r.gate || "—")}</b></div></div>${ibHtml}${afterHtml}</div><div>${melHtml}</div></div></div>
 <div class="card"><h3>2 · Weather ที่ ETA ±1 ชม. <small>เวลา UTC</small></h3>${wxRows ? `<table class="wx"><tbody>${wxRows}</tbody></table>` : '<div class="empty">ยังไม่มี TAF / METAR · กด "ดึง TAF / METAR" หรือวางจาก AeroWeather ในหน้า Brief</div>'}
 ${rawWx ? `<div class="raw"><b>METAR ล่าสุด</b><br>${rawWx}</div>` : ""}
 <div class="src"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach (ดู Jeppesen)</div></div>
@@ -421,7 +438,7 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
     return cols;
   }
   function foldPage(mode, d) {
-    const { o, b, r, legs, base, from, reg, f0, melHtml, ibHtml, melCount, merged, nItems, winByLabel, th, fdp, left, lc, last, lastOn, who, Y, Mo, D, dw, gen, opOf, alt, iataOf } = d;
+    const { o, b, r, legs, base, from, reg, f0, melHtml, ibHtml, afterHtml, melCount, merged, nItems, winByLabel, th, fdp, left, lc, last, lastOn, who, Y, Mo, D, dw, gen, opOf, alt, iataOf } = d;
     const P = mode === "fold-p";
     const zr = (ms) => (ms == null ? "—" : zt(ms).replace("Z", "")), lt = (ms, st) => (ms == null ? "—" : hm(ms, st));
     const icaoOf = (st) => (typeof icao === "function" ? icao(st) : "") || st;
@@ -460,7 +477,7 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
     const wxHtml = !merged.size ? '<div class="empty">ยังไม่มี TAF / METAR</div>' : allUncovered ? `<div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน · ${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} ${zt(w.s)}–${zt(w.n)}`).join(" · ")}</div>`
       : `<div class="fwx">${[...merged.values()].map((w) => `<div class="w"><div class="lbl"><b>${H(w.label)} ${H(w.icao)}</b><small>${zt(w.s)}–${zt(w.n)}</small></div><div>${w.lines.map((x) => `<span class="g ${x.cls}">${H(x.raw)}${x.v ? ` <span class="pill ${x.v.c === "app" && /improvement/i.test(x.v.t) ? "ok" : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? "warn" : vCls(x.v.c)}">${H(x.v.lbl)}${x.trans ? " · " + H(x.trans) : ""}</span>` : ""}</span>`).join("")}${w.note ? `<span class="empty">${H(w.note)}</span>` : ""}</div></div>`).join("")}</div>`;
     const panel3 = `<section class="pn"><span class="pno">3</span>
-<div class="fbox"><h3>เครื่องและ MEL <small>${H(reg || "—")}</small></h3>${melHtml}${ibHtml}</div>
+<div class="fbox"><h3>เครื่องและ MEL <small>${H(reg || "—")}</small></h3>${melHtml}${ibHtml}${afterHtml}</div>
 <div class="fbox" style="flex:1"><h3>Weather ที่ ETA ±1 ชม. <small>UTC</small></h3>${wxHtml}<div class="src" style="margin-top:1.2mm"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach</div></div></section>`;
     // --- panel 4 (+ page 2): NOTAMs that overlap the duty, grouped per aerodrome, packed into columns ---
     const rank = (x) => ({ high: 0, medium: 1 }[x.impact] ?? 2);

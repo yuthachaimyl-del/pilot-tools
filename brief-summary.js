@@ -67,7 +67,7 @@ table{min-width:100%}
 th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
 .wx td{font-size:12.5px}.nt td{font-size:12.5px}
 .pill{font-size:11px}
-.melref{cursor:pointer;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap;-webkit-tap-highlight-color:transparent}.melref::after{content:" ⧉";font-weight:400;color:var(--muted)}.melref.ok{background:var(--green-soft);border-color:var(--green);color:var(--green)}.melref.ok::after{content:" ✓"}.melhint{font-size:11px;color:var(--muted);margin-top:4px}
+.melref{cursor:pointer;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1px 6px;white-space:nowrap;-webkit-tap-highlight-color:transparent}.melref::after{content:" ⧉";font-weight:400;color:var(--muted)}.melref.ok{background:var(--green-soft);border-color:var(--green);color:var(--green)}.melref.ok::after{content:" ✓"}.melhint{font-size:11px;color:var(--muted);margin-top:4px}.fr24{display:block;text-align:center;text-decoration:none;font-weight:600;font-size:13px;color:#fff;background:var(--blue);border-radius:9px;padding:8px 10px}#b_radarCard h3{font-size:1rem}
 .thl li{font-size:12.5px;padding-left:8px}
 .acft b{font-size:14px;white-space:nowrap}.acft span{font-size:10.5px}.acft div{padding:4px 8px}.acl .mel{font-size:12.5px;max-width:none;background:var(--soft);border-radius:8px;padding:5px 8px}
 .mel{font-size:12.5px}.note{font-size:12px}.raw{font-size:11px;color:var(--p-ink)}.src{font-size:11px}
@@ -97,11 +97,13 @@ function layout(){
   const alts=$("b_alts");if(alts){$("b_altRow").appendChild(alts);alts.addEventListener("change",e=>{const v=String(e.target.value||"").trim();if(!cur())return;setTimeout(()=>{try{typeof fetchWx=="function"&&fetchWx(false)}catch{}const na=$("b_notamAuto");na&&!na.disabled&&v&&na.click();chips()},350)})}
   // print / PDF buttons go under the summary
   const pr=$("b_print")?.parentElement;if(pr){const lay=$("b_layout");lay&&prep.appendChild(lay);prep.appendChild(pr);const m=$("b_printMsg");m&&prep.appendChild(m)}
+  // weather radar links stay in view, right after the print buttons
+  const rad=$("b_radar")?.closest(".card");if(rad){rad.id="b_radarCard";prep.appendChild(rad)}
   // the five detail cards fold away
   const det=document.createElement("details");det.id="b_tools";det.className="more";
-  det.innerHTML=`<summary><span>🔧 แก้เอง / ใส่ข้อมูลเพิ่ม<small>MEL ที่ต้องรู้ · วาง TAF/METAR หรือ NOTAM เอง · ALT · radar · เครื่องขาเข้า</small></span><span class="chev">▾</span></summary>`;
+  det.innerHTML=`<summary><span>🔧 แก้เอง / ใส่ข้อมูลเพิ่ม<small>MEL ที่ต้องรู้ · วาง TAF/METAR หรือ NOTAM เอง · ALT · เครื่องขาเข้า</small></span><span class="chev">▾</span></summary>`;
   top.insertAdjacentElement("afterend",det);
-  cards.slice(1).forEach(c=>det.appendChild(c));
+  cards.slice(1).filter(c=>c.id!=="b_radarCard").forEach(c=>det.appendChild(c));
   $("b_prepBtn").onclick=prep_;
   $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;if(b.dataset.go==="b_ops"&&$("b_opsPaste")?.classList.contains("on")){$("b_opsPaste").querySelector("input")?.focus();return}det.open=true;const t=$(b.dataset.go);t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
   box=$("b_sum");root=box.attachShadow({mode:"open"});
@@ -125,6 +127,8 @@ function render(){
   box.hidden=false;empty.hidden=true;hostVars();
   root.innerHTML=`<style>${window.ccBrief.css.replace(/#ccPrint\{/g,":host{").replace(/#ccPrint /g,"")}${SCREEN}</style>${html}`;
   const t=root.querySelector("table");t&&t.closest(".card")?.classList.add("lg");
+  {const acl=root.querySelector(".acl");if(acl){const reg=String(((typeof BR!=="undefined"&&BR[briefKey])||{}).reg||"").trim().toUpperCase().replace(/^HS-?/,"HS-");const a=document.createElement("a");a.className="fr24";a.target="_blank";a.rel="noopener";
+    a.href=reg?"https://www.flightradar24.com/data/aircraft/"+encodeURIComponent(reg.toLowerCase()):"https://www.flightradar24.com/data/airlines/vz-tvj";a.textContent=reg?`✈️ เครื่อง ${reg} ตอนนี้อยู่ไหน (FR24) ↗`:"✈️ ฝูงบิน TVJ ตอนนี้ (FR24) ↗";acl.appendChild(a)}}
   {const last=[...root.querySelectorAll(".mel")].filter(m=>m.querySelector(".melref")).pop();if(last){const h=document.createElement("div");h.className="melhint";h.textContent="แตะเลข MEL เพื่อคัดลอก แล้วไปค้นในคู่มือ MEL (GoodReader)";last.after(h)}}
   // NOTAMs that do not overlap the duty window stay folded per aerodrome; a small button shows them
   root.querySelectorAll(".nt tr.ad").forEach(h=>{let n=0,r=h.nextElementSibling;while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&n++;r=r.nextElementSibling}if(!n)return;const b=document.createElement("button");b.type="button";b.className="offbtn";b.textContent="+"+n+" ไม่ทับช่วงบิน";h.querySelector("td").appendChild(b);b.onclick=()=>{let r=h.nextElementSibling,on=b.dataset.on!=="1";while(r&&!r.classList.contains("ad")){r.classList.contains("off")&&(r.style.display=on?"table-row":"");r=r.nextElementSibling}b.dataset.on=on?"1":"";b.textContent=(on?"− ซ่อน ":"+"+n+" ")+(on?"":"")+(on?"ที่ไม่ทับช่วงบิน":"ไม่ทับช่วงบิน")}});
