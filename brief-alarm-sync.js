@@ -17,7 +17,8 @@
 5. Repeat with each item in Dictionary Value: Create Alarm at Repeat Item with label CoolCrew. End Repeat.
 6. Get Dictionary Value for key "summary" in Contents of URL.
 7. Show Notification with the text from step 6.
-No action may ask the user for input when the shortcut runs.`;
+No action may ask the user for input when the shortcut runs.
+Also add an automation so this shortcut runs by itself every day at 08:00 and again at 20:00, run immediately without asking for confirmation.`;
 
   const AUTO_TEXT = "Add an automation so this shortcut runs by itself every day at 08:00 and again at 20:00, run immediately without asking for confirmation";
   const STYLE = `<style>
@@ -35,10 +36,10 @@ No action may ask the user for input when the shortcut runs.`;
 .alst .btn.ib{display:inline-block;vertical-align:middle;padding:4px 12px;margin:2px 0;font-size:.95em}
 </style>`;
   const STEPS = (url) => `
-<li><b>สร้าง Shortcut</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button> → <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง</span><span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>
+<li><b>สร้าง Shortcut</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button> → <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง</span><span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> หัวการ์ดควรขึ้น <b class="ok">"When it is 08:00 or 20:00 daily"</b> · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>
 <li><b>เช็คผล</b> แตะเปิดดู ต้องมี: Find Alarms → Delete → Get contents of <b>(มีลิงก์ยาวอยู่ในช่อง)</b> → Get Dictionary Value <b>alarms</b> → Repeat → Create Alarm <b>CoolCrew</b> → Show notification<span class="why">ถ้าเห็น <b>Use Cloud model</b> หรือ <b>Ask Each Time</b> = AI สร้างผิด ให้ลบ Shortcut ทิ้ง (กลับหน้ารวม → แตะค้าง → Delete) แล้วทำข้อ 2 ใหม่</span></li>
 <li><b>ทดสอบ</b> ใน Shortcuts กด <span class="k">▶</span> 1 ครั้ง → iPhone ถามสิทธิ์ ตอบ <b>Always Allow</b> และ <b>Delete Always</b><span class="why">ควรเด้งแจ้งเตือน "ตั้งปลุก …" หรือเด้งว่างๆ ถ้า 24 ชม. นี้ไม่มี duty</span><span class="seq" style="display:block;margin-top:8px">แล้วกลับมากด <button class="btn ib" type="button" id="al_test">🔍 ทดสอบลิงก์</button> ที่นี่ สถานะด้านบนจะเปลี่ยนเป็น "iPhone เรียกล่าสุด …"</span><div class="small" id="al_testOut"></div></li>
-<li><b>ตั้งให้รันเองทุกวัน</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyAuto">📋 คัดลอกข้อความตั้งเวลา</button> → ในหน้า Shortcut แตะช่อง <b>Describe a change</b> ด้านล่าง → วาง → ส่ง</span><span class="why">สำเร็จเมื่อหัวการ์ดขึ้นว่า <b class="ok">"When it is 08:00 or 20:00 daily"</b> · จบแล้ว ไม่ต้องกดอะไรอีก</span></li>
+<li><b>เช็คว่ารันเองทุกวัน</b> หัวการ์ด Shortcut ต้องขึ้น <b class="ok">"When it is 08:00 or 20:00 daily"</b> → จบแล้ว ไม่ต้องกดอะไรอีก<span class="why">ถ้าไม่ขึ้น: กด <button class="btn ib" type="button" id="al_copyAuto">📋 คัดลอกข้อความตั้งเวลา</button> → ในหน้า Shortcut แตะช่อง <b>Describe a change</b> ด้านล่าง → วาง → ส่ง</span></li>
 `;
 
   function card() {
