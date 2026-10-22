@@ -20,6 +20,13 @@ const CSS=`
 #b_chips button.busy{border-color:var(--info);background:var(--info-soft)}
 #b_chips button.bad{border-color:var(--amber);background:var(--amber-soft)}
 #b_chips button .spin{width:11px;height:11px;border-width:2px}
+#b_opsPaste{display:none;flex-direction:column;gap:6px;border:1px solid var(--amber);background:var(--amber-soft);border-radius:12px;padding:10px 12px}
+#b_opsPaste.on{display:flex}
+#b_opsPaste .lead{font-size:.84rem;line-height:1.45}
+#b_opsPaste .omcPaste>summary{display:none}
+#b_opsPaste .omcPasteIn{margin-top:0}
+#b_opsPaste .omcPasteIn input{flex:1 1 200px;min-width:0;padding:9px 10px;font-size:.9rem}
+#b_opsPaste .omcPasteIn .btn{min-height:40px}
 #b_altRow{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;font-size:.82rem}
 #b_altRow .lbl{font-weight:600;color:var(--muted);padding-top:7px;white-space:nowrap}
 #b_altRow .grid2{display:flex!important;flex-wrap:wrap;gap:6px 12px;flex:1 1 auto}
@@ -82,6 +89,7 @@ function layout(){
   const prep=document.createElement("div");prep.id="b_prep";
   prep.innerHTML=`<div id="b_prepRow"><button class="btn primary" type="button" id="b_prepBtn">⚡ เตรียม brief อัตโนมัติ</button><span id="b_prepWhen"></span></div>
 <div id="b_chips"><button type="button" data-go="b_ops">เครื่อง / gate <b>—</b></button><button type="button" data-go="b_fetch">TAF / METAR <b>—</b></button><button type="button" data-go="b_notamBtn">NOTAM <b>—</b></button></div>
+<div id="b_opsPaste"><div class="lead"><b>ชีตวันบินนี้ยังไม่มีในระบบ</b> · วางลิงก์ชีต <b>GATE &amp; ACFT STATUS</b> ของวันบินจากกลุ่ม LINE AIRBUS TVJ Operations ตรงนี้ คนแรกคนเดียวแล้วทุกคนใช้ได้ (ชีตของแต่ละวันออกช่วงบ่ายของวันก่อน)</div></div>
 <div id="b_altRow"></div><div id="b_altHint">ALT ตาม OFP (เช่น UTP หรือ VTBU) · ใส่แล้วดึงอากาศ/NOTAM ของ ALT ให้ · จำไว้ต่อปลายทาง</div>
 <div id="b_sum"></div><div id="b_sumEmpty" hidden></div>`;
   const legs=$("b_legs");legs?legs.insertAdjacentElement("beforebegin",prep):top.appendChild(prep);
@@ -94,7 +102,7 @@ function layout(){
   top.insertAdjacentElement("afterend",det);
   cards.slice(1).forEach(c=>det.appendChild(c));
   $("b_prepBtn").onclick=prep_;
-  $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;det.open=true;const t=$(b.dataset.go);t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
+  $("b_chips").addEventListener("click",e=>{const b=e.target.closest("button[data-go]");if(!b)return;if(b.dataset.go==="b_ops"&&$("b_opsPaste")?.classList.contains("on")){$("b_opsPaste").querySelector("input")?.focus();return}det.open=true;const t=$(b.dataset.go);t&&setTimeout(()=>t.closest(".card")?.scrollIntoView({behavior:"smooth",block:"start"}),50)});
   box=$("b_sum");root=box.attachShadow({mode:"open"});
 }
 function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
@@ -117,6 +125,12 @@ function render(){
 }
 function schedule(){clearTimeout(tmr);tmr=setTimeout(()=>{try{render();chips()}catch{}},250)}
 
+// the shim adds a "วางลิ้ง OMC" row under #b_opsOut (folded tools); when the day's sheet is missing it is pulled up here
+function pasteBlock(show){
+  const box=$("b_opsPaste");if(!box)return;
+  if(show&&!box.querySelector(".omcPaste")){const row=$("b_opsOut")?.nextElementSibling;row&&row.classList.contains("omcPaste")&&(row.open=true,box.appendChild(row))}
+  box.classList.toggle("on",show&&!!box.querySelector(".omcPaste"));
+}
 function chips(){
   const c=$("b_chips");if(!c)return;const r=rec(),o=cur();
   const set=(i,cls,txt)=>{const b=c.children[i];if(!b)return;b.className=cls;b.querySelector("b").innerHTML=txt};
@@ -124,10 +138,12 @@ function chips(){
   // aircraft / gate
   const regs=[String(r.reg||"")].concat((r.ops||[]).map(x=>x.f?.ac||"")).filter(Boolean);
   const gate=(r.ops||[]).find(x=>x.i===0)?.f?.gate||r.gate||"";
+  let opsState="";
   if(busy("b_ops"))set(0,"busy",'<span class="spin"></span> กำลังหา');
   else if(regs.length)set(0,"ok",esc(regs[0])+(gate?" · gate "+esc(gate):""));
-  else if(r.opsAt)set(0,"bad","ยังไม่มีในชีต OMC");
+  else if(r.opsAt){set(0,"bad","ยังไม่มีในชีต OMC");opsState="missing"}
   else set(0,"","—");
+  pasteBlock(opsState==="missing");
   // weather
   if(busy("b_fetch"))set(1,"busy",'<span class="spin"></span> กำลังดึง');
   else if(r.wxAt||r.taf)set(1,"ok",r.wxAt?hm(r.wxAt):"วางเอง");
