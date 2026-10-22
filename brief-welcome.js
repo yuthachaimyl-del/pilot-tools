@@ -119,15 +119,21 @@ function sync(){
 }
 // hooks (function declarations in the page script are writable window properties; callers resolve them by name)
 if(typeof window.renderAll=="function"){const ra=window.renderAll;window.renderAll=function(){const r=ra.apply(this,arguments);try{sync()}catch{}return r}}
-if(typeof window.applyParsed=="function"){const ap=window.applyParsed;window.applyParsed=function(){lastParse=Date.now();return ap.apply(this,arguments)}}
+if(typeof window.applyParsed=="function"){const ap=window.applyParsed;window.applyParsed=function(){lastParse=Date.now();const r=ap.apply(this,arguments);if(fromBoard&&!entered&&r&&r.total&&!$("wlNote"))try{note(r.total)}catch{}return r}}
+// an existing member sent here from the board ("ใส่ roster ใน Crew Brief →"): open the upload page, not the last tab
+function landRoster(){
+  if(!fromBoard)return;
+  try{typeof showTab=="function"&&showTab("roster")}catch{}
+  setTimeout(()=>{try{window.scrollTo(0,0);$("uploadCard")?.scrollIntoView({behavior:"smooth",block:"start"})}catch{}},50);
+}
 function init(){
-  if(hasRoster()){exited=true;return}
+  if(hasRoster()){exited=true;landRoster();return}
   mount();
   // a member signing in on a new device: the roster is on the server → wait for the sync (max 5 s) before showing the welcome
   const cloud=!!window.SB&&!localStorage.getItem("cb_roster");
   if(cloud){
     sec.innerHTML=LOADING;sec.hidden=false;document.body.classList.add("wl");
-    let done=false;const go=()=>{if(done)return;done=true;hasRoster()?(document.body.classList.remove("wl"),sec.hidden=true,exited=true):enter()};
+    let done=false;const go=()=>{if(done)return;done=true;hasRoster()?(document.body.classList.remove("wl"),sec.hidden=true,exited=true,landRoster()):enter()};
     window.addEventListener("cb:rosterSynced",go,{once:true});setTimeout(go,5000);
   }else enter();
 }
