@@ -95,7 +95,7 @@ function layout(){
   const legs=$("b_legs");legs?legs.insertAdjacentElement("beforebegin",prep):top.appendChild(prep);
   const alts=$("b_alts");if(alts){$("b_altRow").appendChild(alts);alts.addEventListener("change",e=>{const v=String(e.target.value||"").trim();if(!cur())return;setTimeout(()=>{try{typeof fetchWx=="function"&&fetchWx(false)}catch{}const na=$("b_notamAuto");na&&!na.disabled&&v&&na.click();chips()},350)})}
   // print / PDF buttons go under the summary
-  const pr=$("b_print")?.parentElement;if(pr){prep.appendChild(pr);const m=$("b_printMsg");m&&prep.appendChild(m)}
+  const pr=$("b_print")?.parentElement;if(pr){const lay=$("b_layout");lay&&prep.appendChild(lay);prep.appendChild(pr);const m=$("b_printMsg");m&&prep.appendChild(m)}
   // the five detail cards fold away
   const det=document.createElement("details");det.id="b_tools";det.className="more";
   det.innerHTML=`<summary><span>🔧 แก้เอง / ใส่ข้อมูลเพิ่ม<small>MEL ที่ต้องรู้ · วาง TAF/METAR หรือ NOTAM เอง · ALT · radar · เครื่องขาเข้า</small></span><span class="chev">▾</span></summary>`;
