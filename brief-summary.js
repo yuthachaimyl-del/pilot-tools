@@ -20,6 +20,13 @@ const CSS=`
 #b_chips button.busy{border-color:var(--info);background:var(--info-soft)}
 #b_chips button.bad{border-color:var(--amber);background:var(--amber-soft)}
 #b_chips button .spin{width:11px;height:11px;border-width:2px}
+#b_altRow{display:flex;align-items:flex-start;gap:8px;flex-wrap:wrap;font-size:.82rem}
+#b_altRow .lbl{font-weight:600;color:var(--muted);padding-top:7px;white-space:nowrap}
+#b_altRow .grid2{display:flex!important;flex-wrap:wrap;gap:6px 12px;flex:1 1 auto}
+#b_altRow label.f{flex-direction:row;align-items:center;gap:6px;font-size:.8rem;font-weight:500;white-space:nowrap}
+#b_altRow label.f small{display:none}
+#b_altRow input{width:72px;padding:5px 6px;font-size:.88rem;text-transform:uppercase;font-family:var(--f-mono)}
+#b_altHint{font-size:.76rem;color:var(--muted);width:100%;margin-top:-4px}
 #b_sum{display:block;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface)}
 #b_sumEmpty{color:var(--muted);font-size:.88rem}
 #b_legs{display:none}
@@ -71,8 +78,10 @@ function layout(){
   const prep=document.createElement("div");prep.id="b_prep";
   prep.innerHTML=`<div id="b_prepRow"><button class="btn primary" type="button" id="b_prepBtn">⚡ เตรียม brief อัตโนมัติ</button><span id="b_prepWhen"></span></div>
 <div id="b_chips"><button type="button" data-go="b_ops">เครื่อง / gate <b>—</b></button><button type="button" data-go="b_fetch">TAF / METAR <b>—</b></button><button type="button" data-go="b_notamBtn">NOTAM <b>—</b></button></div>
+<div id="b_altRow"></div><div id="b_altHint">ใส่ alternate ของแต่ละขาตาม OFP (ICAO หรือ IATA) แล้วระบบดึง TAF/METAR และ NOTAM ของ ALT ให้ด้วย · จำไว้ให้ปลายทางเดิมครั้งหน้า</div>
 <div id="b_sum"></div><div id="b_sumEmpty" hidden></div>`;
   const legs=$("b_legs");legs?legs.insertAdjacentElement("beforebegin",prep):top.appendChild(prep);
+  const alts=$("b_alts");if(alts){$("b_altRow").appendChild(alts);alts.addEventListener("change",e=>{const v=String(e.target.value||"").trim();if(!cur())return;setTimeout(()=>{try{typeof fetchWx=="function"&&fetchWx(false)}catch{}const na=$("b_notamAuto");na&&!na.disabled&&v&&na.click();chips()},350)})}
   // print / PDF buttons go under the summary
   const pr=$("b_print")?.parentElement;if(pr){prep.appendChild(pr);const m=$("b_printMsg");m&&prep.appendChild(m)}
   // the five detail cards fold away
@@ -87,7 +96,9 @@ function layout(){
 function hostVars(){const cs=getComputedStyle(document.documentElement);VARS.forEach(v=>box.style.setProperty("--p-"+v,cs.getPropertyValue("--"+v).trim()||""))}
 
 let melWaiting=false;
+function relabelAlts(){document.querySelectorAll("#b_altRow #b_alts label.f").forEach(l=>{const t=l.firstChild;t&&t.nodeType===3&&(t.nodeValue=t.nodeValue.replace(/^\s*ALT ขา (\d+) \(ปลายทาง ([A-Z]{3})\)\s*$/,"ขา $1 → $2 · ALT"))})}
 function render(){
+  relabelAlts();
   if(!root||!window.ccBrief)return;
   let html=null;
   try{html=window.ccBrief.build(window.ccBrief.cached())}catch(e){console.warn("brief summary",e)}
