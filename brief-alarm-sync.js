@@ -29,13 +29,15 @@ No action may ask the user for input when the shortcut runs.`;
 .alst .k{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:.92em;white-space:nowrap}
 .alst .why{display:block;color:var(--muted);font-size:.9em;margin-top:4px}
 .alst .ok{color:var(--green);font-weight:600}
+.alst .seq{line-height:2.1}
+.alst .btn.ib{display:inline-block;vertical-align:middle;padding:4px 12px;margin:2px 0;font-size:.95em}
 </style>
 <p class="small muted" style="margin:6px 0 0">ทำครั้งเดียว ประมาณ 3 นาที · ต้องการ iOS 17 ขึ้นไป · หน้าจอ Shortcuts รุ่นใหม่ <b>ไม่มีแท็บ Automation</b> ตั้งเวลาด้วยการพิมพ์บอกในข้อ 4</p>
 <ol class="alst">
-<li><b>สร้าง Shortcut</b><br>กดคัดลอกคำสั่ง → เปิด Shortcuts → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง<div class="row" style="gap:8px;margin-top:8px"><button class="btn primary" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button><a class="btn" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a></div><span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>
+<li><b>สร้าง Shortcut</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button> → <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง</span><span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>
 <li><b>เช็คผล</b> แตะเปิดดู ต้องมี: Find Alarms → Delete → Get contents of <b>(มีลิงก์ยาวอยู่ในช่อง)</b> → Get Dictionary Value <b>alarms</b> → Repeat → Create Alarm <b>CoolCrew</b> → Show notification<span class="why">ถ้าเห็น <b>Use Cloud model</b> หรือ <b>Ask Each Time</b> = AI สร้างผิด ให้ลบ Shortcut ทิ้ง (กลับหน้ารวม → แตะค้าง → Delete) แล้วทำข้อ 1 ใหม่</span></li>
-<li><b>ทดสอบ</b> ใน Shortcuts กด <span class="k">▶</span> 1 ครั้ง → iPhone ถามสิทธิ์ ตอบ <b>Always Allow</b> และ <b>Delete Always</b><span class="why">ควรเด้งแจ้งเตือน "ตั้งปลุก …" หรือเด้งว่างๆ ถ้า 24 ชม. นี้ไม่มี duty</span><div class="row" style="gap:8px;margin-top:8px;align-items:center"><button class="btn" type="button" id="al_test">🔍 ทดสอบลิงก์จากที่นี่</button></div><div class="small" id="al_testOut"></div><span class="why">กดแล้วสถานะด้านบนจะเปลี่ยนเป็น "iPhone เรียกล่าสุด …" แปลว่าลิงก์ใช้ได้</span></li>
-<li><b>ตั้งให้รันเองทุกวัน</b> ในหน้า Shortcut แตะช่อง <b>Describe a change</b> ด้านล่าง → วางข้อความนี้ → ส่ง<br><div class="row" style="gap:8px;margin-top:6px;align-items:center"><button class="btn" type="button" id="al_copyAuto">📋 คัดลอกข้อความตั้งเวลา</button></div><span class="why">สำเร็จเมื่อหัวการ์ดขึ้นว่า <b class="ok">"When it is 08:00 or 20:00 daily"</b> · จบแล้ว ไม่ต้องกดอะไรอีก</span></li>
+<li><b>ทดสอบ</b> ใน Shortcuts กด <span class="k">▶</span> 1 ครั้ง → iPhone ถามสิทธิ์ ตอบ <b>Always Allow</b> และ <b>Delete Always</b><span class="why">ควรเด้งแจ้งเตือน "ตั้งปลุก …" หรือเด้งว่างๆ ถ้า 24 ชม. นี้ไม่มี duty</span><span class="seq" style="display:block;margin-top:8px">แล้วกลับมากด <button class="btn ib" type="button" id="al_test">🔍 ทดสอบลิงก์</button> ที่นี่ สถานะด้านบนจะเปลี่ยนเป็น "iPhone เรียกล่าสุด …"</span><div class="small" id="al_testOut"></div></li>
+<li><b>ตั้งให้รันเองทุกวัน</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyAuto">📋 คัดลอกข้อความตั้งเวลา</button> → ในหน้า Shortcut แตะช่อง <b>Describe a change</b> ด้านล่าง → วาง → ส่ง</span><span class="why">สำเร็จเมื่อหัวการ์ดขึ้นว่า <b class="ok">"When it is 08:00 or 20:00 daily"</b> · จบแล้ว ไม่ต้องกดอะไรอีก</span></li>
 </ol>
 <details class="more" style="margin-top:8px"><summary>ถ้า Shortcuts ของคุณยังมีแท็บ Automation (iOS รุ่นเก่ากว่า) ›</summary><div class="small" style="margin-top:6px;line-height:1.6">แท็บ <b>Automation</b> ด้านล่าง → ＋ → <b>Time of Day</b> → 08:00 · Daily → <b>Run Immediately</b> → เลือก CoolCrew Alarm Sync → Done · ทำซ้ำอีกอันที่ 20:00</div></details>
 <details class="more" style="margin-top:6px"><summary>ถ้ารอบ 20:00 ไม่ทำงานตอนจอล็อก ›</summary><div class="small" style="margin-top:6px;line-height:1.6">เปิด Shortcut → <b>Edit</b> → <b>ⓘ</b> → <b>Privacy</b> → เปิด <b>Allow Running When Locked</b></div></details>
@@ -73,7 +75,7 @@ ${err ? `<div class="note err small">${H(err)}</div>` : ""}
 <span class="small al_status">${st ? statusLine(st) : "<b>ยังไม่มีลิงก์ส่วนตัว</b>"}</span>
 </div>
 <div class="row" style="gap:8px">
-<button class="btn primary" type="button" id="al_make">${st ? "🔄 สร้างลิงก์ใหม่ (ลิงก์เก่าใช้ไม่ได้ทันที)" : "🔗 สร้างลิงก์ส่วนตัว"}</button>
+<button class="btn ${st ? "ghost" : "primary"}" type="button" id="al_make">${st ? "🔄 สร้างลิงก์ใหม่" : "🔗 สร้างลิงก์ส่วนตัว"}</button>
 ${st ? '<button class="btn ghost" type="button" id="al_revoke">ยกเลิกลิงก์</button>' : ""}
 </div>
 <div class="small" id="al_msg" style="min-height:1.2em">${msg || ""}</div>
@@ -87,13 +89,14 @@ ${st && link ? `<details class="more" ${st.last_used_at ? "" : "open"}><summary>
     if (t.id === "al_copyLink") e.preventDefault();
     const m = document.getElementById("al_msg");
     if (t.id === "al_make") {
-      if (t.dataset.arm !== "1" && t.textContent.includes("ใหม่")) { t.dataset.arm = "1"; t.textContent = "ยืนยันสร้างลิงก์ใหม่"; setTimeout(() => { if (t.isConnected) { t.dataset.arm = ""; render(); } }, 4000); return; }
+      if (t.dataset.arm !== "1" && t.textContent.includes("ใหม่")) { t.dataset.arm = "1"; t.textContent = "⚠️ Shortcut ที่ตั้งไว้จะหยุดทำงาน ต้องทำข้อ 1 ใหม่ · กดอีกครั้งเพื่อยืนยัน"; setTimeout(() => { if (t.isConnected) { t.dataset.arm = ""; render(); } }, 6000); return; }
       t.disabled = true;
+      const hadLink = !!(await status().catch(() => null));
       try {
         const { data, error } = await sb().rpc("create_alarm_token");
         if (error) throw error;
         keep(data);
-        await render('<span style="color:var(--green)">สร้างลิงก์แล้ว · ทำตามขั้นตอนด้านล่าง</span>');
+        await render('<span style="color:var(--green)">สร้างลิงก์แล้ว · ทำตามขั้นตอนด้านล่าง</span>' + (hadLink ? ' <span style="color:var(--amber)">· Shortcut เดิมใช้ลิงก์เก่าแล้วจะไม่ทำงาน ให้ลบ Shortcut เดิมใน iPhone แล้วทำข้อ 1–4 ใหม่</span>' : ""));
       } catch (err) { t.disabled = false; if (m) m.innerHTML = `<span style="color:var(--red)">สร้างไม่ได้: ${H(err?.message || err)}</span>`; }
       return;
     }
