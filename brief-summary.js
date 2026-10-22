@@ -42,6 +42,7 @@ const CSS=`
 #b_tools>summary small{display:block;font-weight:400;color:var(--muted);font-size:.8rem;margin-top:2px}
 #b_tools>summary .chev{transition:transform .2s;color:var(--muted)}
 #b_tools[open]>summary .chev{transform:rotate(180deg)}
+#b_melAuto,#b_tafOut,#b_tools .srcbox,#b_wxM1,#b_wxM2,#b_wxM2+.small,#b_notamM1,#b_notamM2,#b_notamM2+.small,#b_opsOut>.small.muted,#b_notamOut>.leg,#b_notamOut>.note.warn,#b_tools .card>p.small.muted{display:none!important}
 #b_tools details.sub{border:1px dashed var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:8px}#b_tools details.sub>summary{font-size:.86rem;font-weight:600;color:var(--info)}#b_tools details.sub:not([open])>summary{margin:0}
 #b_tools>.card{border-radius:0;border:0;border-top:1px solid var(--line)}
 #b_tools>.card:last-child{border-radius:0 0 12px 12px}
@@ -119,24 +120,15 @@ function layout(){
 // the folded cards: everything the summary already shows is hidden, the manual AeroWeather paste flows fold once more
 function tidyTools(det){
   const cardOf=id=>$(id)?.closest(".card");
-  const hide=el=>{el&&(el.hidden=true)};
   const fold=(fromEl,toEl,title)=>{if(!fromEl||fromEl.closest("details.sub"))return;const d=document.createElement("details");d.className="more sub";d.innerHTML=`<summary>${title}</summary>`;
     let n=fromEl;const list=[];while(n){list.push(n);if(n===toEl)break;n=n.nextElementSibling}fromEl.before(d);list.forEach(x=>d.appendChild(x));return d};
-  // 1 · aircraft: the automatic MEL list and the sheet footnote are in the summary; per-flight FR24 links join this card
-  hide($("b_melAuto"));
-  const ops=$("b_opsOut");ops&&new MutationObserver(()=>{ops.querySelectorAll(":scope > .small.muted").forEach(hide)}).observe(ops,{childList:true});
-  const fr=$("b_fr24");if(fr&&ops){const c5=fr.closest(".card");const lab=document.createElement("div");lab.className="small muted";lab.textContent="FR24 รายไฟลท์:";ops.after(lab,fr);c5&&c5!==fr.closest(".card")&&c5.remove()}
-  // 2 · weather: intro text, per-leg TAF windows and the OM-A quotes are in the summary
-  const c2=cardOf("b_fetch");if(c2){hide(c2.querySelector(":scope > p"));hide($("b_tafOut"));hide(c2.querySelector("details.srcbox"))}
-  // 3 · NOTAM: the per-aerodrome list is in the summary
-  const out=$("b_notamOut");if(out){const h=()=>out.querySelectorAll(":scope > .leg, :scope > .note.warn").forEach(hide);new MutationObserver(h).observe(out,{childList:true});h()}
+  // 1 · aircraft: per-flight FR24 links join this card (card 5 goes)
+  const ops=$("b_opsOut"),fr=$("b_fr24");if(fr&&ops){const c5=fr.closest(".card");const lab=document.createElement("div");lab.className="small muted";lab.textContent="FR24 รายไฟลท์:";ops.after(lab,fr);c5&&c5!==fr.closest(".card")&&c5.remove()}
   // the "วิธี 1 / วิธี 2" blocks are added by brief-shim a moment later: once they exist, the manual flows fold
   let tries=0;const late=()=>{
     const w2=$("b_wxM2"),n2=$("b_notamM2");
     if(!w2||!n2){if(tries++<20)setTimeout(late,400);return}
-    hide($("b_wxM1"));hide(w2);w2.nextElementSibling?.matches(".small")&&hide(w2.nextElementSibling);
     fold(w2,$("b_wxImgMsg")||$("b_taf")?.closest("label"),"📋 วาง METAR/TAF เองจาก AeroWeather (แม่นยำกว่า) ›");
-    hide($("b_notamM1"));hide(n2);n2.nextElementSibling?.matches(".small")&&hide(n2.nextElementSibling);
     const c3=cardOf("b_notamAuto"),faa=c3?.querySelector(":scope > .row"),autoRow=$("b_notamAuto")?.closest(".row"),sumRow=$("b_notamBtn")?.closest(".row");
     const d=fold(n2,sumRow||$("b_notamImgMsg"),"📋 ค้นเอง / วาง NOTAM เองจาก AeroWeather หรือ FAA ›");
     if(d&&faa&&faa!==autoRow)d.insertBefore(faa,d.children[1]||null);
