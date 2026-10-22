@@ -106,7 +106,24 @@ function layoutUpload(){
   $("#rfile")?.addEventListener("change",()=>fold(true));
   const draft=$("#draftCard");draft&&new MutationObserver(()=>{draft.hidden||fold(true)}).observe(draft,{attributes:true,attributeFilter:["hidden"]});
 }
+// main menu (#menuView): one line under the name — next duty and how far the roster goes, or a nudge to add one
+const TH_D=["อา.","จ.","อ.","พ.","พฤ.","ศ.","ส."],TH_M=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+function thDate(iso){const [y,m,d]=iso.split("-").map(Number);const w=new Date(Date.UTC(y,m-1,d)).getUTCDay();return `${TH_D[w]} ${d} ${TH_M[m-1]}`}
+function menuLine(){
+  const brand=$("#menuView .brand");if(!brand)return;
+  let el=$("#menuNext");if(!el){el=document.createElement("div");el.id="menuNext";el.style.cssText="font-size:13px;line-height:1.5;color:var(--muted);margin:-4px 0 2px";brand.insertAdjacentElement("afterend",el)}
+  const s=S();if(!s||!s.me||!s.rostersLoaded){el.textContent="";return}
+  const days=myDays().filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d.date||"")).sort((a,b)=>a.date<b.date?-1:1);
+  if(!days.length){el.innerHTML='ยังไม่มีตาราง · <a href="'+BRIEF+'" style="color:var(--accent)">ใส่ roster ใน Crew Brief →</a>';return}
+  const now=new Date(Date.now()+7*36e5),today=now.toISOString().slice(0,10);
+  const nx=days.find(d=>d.date>=today&&["FLT","SBY","TRN","RSV"].includes(d.type)&&(d.report||d.type!=="FLT"));
+  const last=days[days.length-1].date;
+  const tail=`roster ถึง ${thDate(last)}`+(last<today?' <span style="color:var(--accent)">· หมดแล้ว ใส่เดือนใหม่</span>':"");
+  el.innerHTML=nx?`ถัดไป <b style="color:var(--ink)">${thDate(nx.date)} · ${esc_(nx.code||nx.type)}${nx.report?" · report "+esc_(nx.report):""}</b> · ${tail}`:`ไม่มี duty ที่จะถึง · ${tail}`;
+}
+const esc_=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[c]);
 function sync(){
+  try{menuLine()}catch{}
   if(exited||!ready())return;
   const n=myDays().length;
   if(n>0){
