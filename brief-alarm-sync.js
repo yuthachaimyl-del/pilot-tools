@@ -9,16 +9,19 @@
   let link = ""; try { link = localStorage.getItem(LS_KEY) || ""; } catch {}
   const keep = (v) => { link = v || ""; try { v ? localStorage.setItem(LS_KEY, v) : localStorage.removeItem(LS_KEY); } catch {} };
 
-  const PROMPT = (url) => `Name it CoolCrew Alarm Sync. Do these steps in order and never ask me anything:
-1. Find all alarms whose label is CoolCrew, then delete those alarms.
-2. Get the contents of this URL as JSON: ${url}
-3. If the "ok" field is not true, show a notification with the "message" field and stop.
-4. Repeat with each item in the "alarms" list: create an alarm at that time with the label CoolCrew (the item is a date-time string; use only its time of day).
-5. If the "summary" field is not empty, show a notification with the "summary" text; otherwise show a notification saying "CoolCrew: พรุ่งนี้ไม่มีปลุก".`;
+  const PROMPT = (url) => `Create a shortcut named CoolCrew Alarm Sync with exactly these actions, in this order, using only built-in Shortcuts actions. Do not use any AI model, Cloud model, or "Ask Each Time" anywhere.
+1. Find Alarms where Label is CoolCrew.
+2. If Alarms has any value: Delete Alarms (the found alarms). End If.
+3. Get Contents of URL with this exact URL typed in as a fixed value: ${url}
+4. Get Dictionary Value for key "alarms" in Contents of URL.
+5. Repeat with each item in Dictionary Value: Create Alarm at Repeat Item with label CoolCrew. End Repeat.
+6. Get Dictionary Value for key "summary" in Contents of URL.
+7. Show Notification with the text from step 6.
+No action may ask the user for input when the shortcut runs.`;
 
   const STEPS = (url) => `
 <ol class="small" style="margin:6px 0 0;padding-left:20px;line-height:1.7">
-<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">ถ้า Shortcuts ถาม <b>Enter URL</b>: กด <b>คัดลอกลิงก์</b> ด้านล่าง แล้ววางในช่องนั้น → Done · iOS 17 ขึ้นไป · ถ้าไม่มีช่อง Describe ให้สร้างเอง: Find Alarms (label is CoolCrew) → Delete Alarms → Get Contents of URL → Get Dictionary Value "alarms" → Repeat: Create Alarm (label CoolCrew)</span></li>
+<li>กด <b>คัดลอกคำสั่ง</b> ด้านล่าง → เปิดแอป <b>Shortcuts</b> → แตะ <b>＋</b> → วางในช่อง <b>Describe a shortcut</b> แล้วส่ง<br><span class="muted">ถ้า Shortcuts ถาม <b>Enter URL</b>: กด <b>คัดลอกลิงก์</b> แล้ววาง → Done · ถ้าผลที่ได้มีขั้น "Use Cloud model" หรือ "Ask Each Time" ให้ลบ shortcut นั้นทิ้ง (แตะค้าง → Delete) แล้วสั่งใหม่ด้วยคำสั่งเดิม · iOS 17 ขึ้นไป</span></li>
 <li>เช็กว่าชื่อเป็น <b>CoolCrew Alarm Sync</b> แล้วกด <b>▶ ทดสอบ</b> 1 ครั้ง · iPhone จะถามสิทธิ์ ให้ตอบ <b>Always Allow</b> / <b>Delete Always</b></li>
 <li>ให้รันเองทุกวัน: แท็บ <b>Automation</b> → <b>＋</b> → <b>Time of Day</b> → ตั้ง <b>08:00</b> · Daily → เลือก <b>Run Immediately</b> (ปิด Ask Before Running) → เลือก shortcut <b>CoolCrew Alarm Sync</b> → Done</li>
 <li>ทำข้อ 3 ซ้ำอีกครั้งที่ <b>20:00</b> (รอบเย็นจับตารางที่เพิ่งเปลี่ยนในวันนั้น)</li>
