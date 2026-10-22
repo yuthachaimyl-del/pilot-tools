@@ -421,7 +421,7 @@ For each airport above, list the NOTAMs from the text below that matter for thes
 Write "summary" in Thai, max 25 words, keep technical terms in English (RWY, TWY, ILS, etc.).
 impact: "high" if it can change the approach/runway/ performance/ alternate decision, "medium" if it affects taxi or procedures, "low" otherwise.
 Return ONLY JSON: {"airports":[{"icao":"VTBS","items":[{"id":"A1234/26","summary":"...","active_in_window":true,"impact":"high","when":"24/0000Z-30/1200Z","legs":["ARR 1","ALT 2"]}]}]}
-"when": the NOTAM's effective period in short UTC form from its B)/C)/D) fields (e.g. "24/0000Z-30/1200Z", "DAILY 1700-2300Z", "PERM", "until 20/1159Z"); "" if unknown.
+"when": the NOTAM's effective period in short readable UTC form built from its B)/C)/D) fields: "24 OCT 0000Z–30 OCT 1200Z", "until 18 JAN 1659Z", "DAILY 1700–2300Z", or "PERM". Convert raw YYMMDDHHMM values (e.g. 2701181659) into "18 JAN 1659Z" — never output the raw digits. "" if unknown.
 "legs": the windows listed above that this NOTAM overlaps, as "<DEP|ARR|ALT> <leg number>" (e.g. ["ARR 1","ALT 2"]); [] if none or unclear.
 Never invent NOTAMs; use only the text given. Include every airport from the windows even if it has no items.
 NOTAM TEXT:

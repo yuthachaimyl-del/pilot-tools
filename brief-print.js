@@ -242,6 +242,7 @@
     const iataOf = {}; try { Object.keys(ST).forEach((k) => { iataOf[ST[k][0]] = k; }); } catch {}
     const roleOf = (i) => [...merged.values()].filter((w) => w.icao === i).map((w) => w.label).join(", ");
     const winByLabel = {}; wins.filter(Boolean).forEach((w) => { winByLabel[w.label] = w; });
+    legs.forEach((l, k) => { const lbl = `DEP ขา ${k + 1}`; if (!winByLabel[lbl]) winByLabel[lbl] = { label: lbl, s: l.dep - HR, n: (l.nt ? l.arr : l.dep) + HR }; });   // the summariser also gets a DEP window for every leg
     const order = [...new Set([...usedIcao, ...nItems.map((x) => x.icao)])].filter((i) => nItems.some((x) => x.icao === i));
     const ntRows = order.map((i) => {
       const rows = nItems.filter((x) => x.icao === i), on = rows.filter((x) => x.active_in_window !== false).length;
