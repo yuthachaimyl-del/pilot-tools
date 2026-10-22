@@ -125,7 +125,7 @@ function tidyTools(det){
     let n=fromEl;const list=[];while(n){list.push(n);if(n===toEl)break;n=n.nextElementSibling}fromEl.before(d);list.forEach(x=>d.appendChild(x));return d};
   // brief-shim opens the closest <details> around #b_melAuto when a MEL is about to expire (the summary shows that
   // itself now): give the hidden block its own wrapper so the whole tools section does not pop open
-  const ma=$("b_melAuto");if(ma&&!ma.closest("details.sub")){const w=document.createElement("details");w.hidden=true;ma.before(w);w.appendChild(ma)}
+  let maTries=0;const wrapMel=()=>{const ma=$("b_melAuto");if(!ma){if(maTries++<40)setTimeout(wrapMel,500);return}if(ma.parentElement?.tagName!=="DETAILS"){const w=document.createElement("details");w.hidden=true;ma.before(w);w.appendChild(ma)}};wrapMel();
   // 1 · aircraft: per-flight FR24 links join this card (card 5 goes)
   const ops=$("b_opsOut"),fr=$("b_fr24");if(fr&&ops){const c5=fr.closest(".card");const lab=document.createElement("div");lab.className="small muted";lab.textContent="FR24 รายไฟลท์:";ops.after(lab,fr);c5&&c5!==fr.closest(".card")&&c5.remove()}
   // the "วิธี 1 / วิธี 2" blocks are added by brief-shim a moment later: once they exist, the manual flows fold
