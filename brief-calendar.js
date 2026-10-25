@@ -72,7 +72,7 @@
 
   /* ---------- Google Calendar (Android / anyone): Sign in with Google, then the page writes the events itself ----------
      Scope calendar.app.created: the app can only see and change calendars it created (the "CoolCrew" calendar). */
-  const GCLIENT = window.CC_GOOGLE_CLIENT_ID || "";
+  const GCLIENT = window.CC_GOOGLE_CLIENT_ID || "152625331284-e0v1k98e3r4i4kiiafeeq6skkr8ol16a.apps.googleusercontent.com";   // OAuth client "CoolCrew Calendar" (project crew-brief), public id
   const GSCOPE = "https://www.googleapis.com/auth/calendar.app.created";
   const LS_GID = "cb_gcal_id", LS_GSYNC = "cb_gcal_sync";
   let gTok = null, gTokExp = 0, gClient = null, gBusy = false, gMsg = "";
