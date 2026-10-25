@@ -106,8 +106,10 @@
 
   /* ---------- setup card (ตั้งเวลา) ---------- */
   const PROMPT = `Create a shortcut named exactly "${NAME}".
-It receives text (the shortcut input) that is a JSON dictionary with keys "from", "to" and "events".
+In the shortcut details, set it to receive Text input (Receive Text input; if there is no input: Continue).
+The input is text that is a JSON dictionary with keys "from", "to" and "events". It is sent from a web page through the shortcuts:// URL.
 Use only these built-in Shortcuts actions, in this exact order, and nothing else:
+0. "If" Shortcut Input does not have any value: "Show Notification" with text "CoolCrew: no data. Open CoolCrew and tap the calendar button there.", then "Stop This Shortcut". "End If".
 1. "Get Dictionary from Input" using Shortcut Input.
 2. "Get Dictionary Value" for key "from" in Dictionary. Then "Get Dates from Input" using that value; name it Start Range.
 3. "Get Dictionary Value" for key "to" in Dictionary. Then "Get Dates from Input" using that value; name it End Range.
