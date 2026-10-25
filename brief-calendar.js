@@ -96,7 +96,7 @@
       if (gTok && Date.now() < gTokExp - 60000) return res(gTok);
       gInit(); if (!gClient) return rej(new Error("โหลดระบบ Google ไม่ทัน ลองกดอีกครั้ง"));
       gClient.callback = (t) => { if (t?.error || !t?.access_token) return rej(new Error(t?.error_description || t?.error || "ยกเลิกการเข้าสู่ระบบ")); gTok = t.access_token; gTokExp = Date.now() + (+t.expires_in || 3000) * 1000; res(gTok); };
-      gClient.error_callback = (e) => rej(new Error(e?.type === "popup_closed" ? "ปิดหน้าต่าง Google ก่อนเสร็จ" : e?.message || "เข้าสู่ระบบไม่สำเร็จ"));
+      gClient.error_callback = (e) => rej(new Error(e?.type === "popup_closed" ? "ปิดหน้าต่าง Google ก่อนเสร็จ · กดใหม่ได้เลย" : e?.type === "popup_failed_to_open" ? "เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ Google · อนุญาต pop-up ของ coolcrew.web.app แล้วกดใหม่" : e?.message || "เข้าสู่ระบบไม่สำเร็จ"));
       gClient.requestAccessToken({ prompt: gTok ? "" : "" });
     });
   }
