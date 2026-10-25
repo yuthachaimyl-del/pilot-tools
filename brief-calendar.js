@@ -31,7 +31,7 @@
       const st = (d.from || base).toUpperCase(), to = (d.to || st).toUpperCase();
       const end = b.relAbs || b.repAbs + 36e5;
       const route = typeof stationName === "function" ? stationName(d) : "";
-      const ic = d.type === "FLT" ? "✈" : d.type === "SIM" ? "🎓" : "⏳";
+      const ic = d.type === "FLT" ? "✈️" : d.type === "SIM" ? "🎓" : "⏳";
       const notes = [
         `Report ${d.report} ${st}${d.release ? ` · Release ${d.release} ${to}` : ""}`,
         b.wakeAbs ? `Wake ${local(b.wakeAbs, b.away ? st : base).hm}` : "",
