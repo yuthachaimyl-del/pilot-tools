@@ -69,6 +69,82 @@
     return { from: isoAt(t - 6e4, "BKK"), to: isoAt(e + 6e4, "BKK"), range: [], events: [{ t: "✈ CoolCrew test · ลบได้", s: isoAt(t, "BKK"), e: isoAt(e, "BKK"), n: "ทดสอบจาก CoolCrew · จะถูกลบเมื่ออัปเดตปฏิทินครั้งถัดไปในช่วงเวลานี้" }] };
   }
 
+
+  /* ---------- Google Calendar (Android / anyone): Sign in with Google, then the page writes the events itself ----------
+     Scope calendar.app.created: the app can only see and change calendars it created (the "CoolCrew" calendar). */
+  const GCLIENT = window.CC_GOOGLE_CLIENT_ID || "";
+  const GSCOPE = "https://www.googleapis.com/auth/calendar.app.created";
+  const LS_GID = "cb_gcal_id", LS_GSYNC = "cb_gcal_sync";
+  let gTok = null, gTokExp = 0, gClient = null, gBusy = false, gMsg = "";
+  function gLoad() {
+    if (!GCLIENT || window.google?.accounts?.oauth2 || $("gsiJs")) return;
+    const sc = document.createElement("script"); sc.id = "gsiJs"; sc.src = "https://accounts.google.com/gsi/client"; sc.async = true; sc.onload = gInit; document.head.appendChild(sc);
+  }
+  function gInit() {
+    if (gClient || !window.google?.accounts?.oauth2) return;
+    gClient = google.accounts.oauth2.initTokenClient({ client_id: GCLIENT, scope: GSCOPE, callback: () => {} });
+  }
+  const gApi = async (path, opt = {}) => {
+    const r = await fetch("https://www.googleapis.com/calendar/v3" + path, { ...opt, headers: { Authorization: "Bearer " + gTok, "Content-Type": "application/json", ...(opt.headers || {}) } });
+    if (r.status === 204) return null;
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j?.error?.message || "HTTP " + r.status); e.status = r.status; throw e; }
+    return j;
+  };
+  function gToken() {
+    return new Promise((res, rej) => {
+      if (gTok && Date.now() < gTokExp - 60000) return res(gTok);
+      gInit(); if (!gClient) return rej(new Error("โหลดระบบ Google ไม่ทัน ลองกดอีกครั้ง"));
+      gClient.callback = (t) => { if (t?.error || !t?.access_token) return rej(new Error(t?.error_description || t?.error || "ยกเลิกการเข้าสู่ระบบ")); gTok = t.access_token; gTokExp = Date.now() + (+t.expires_in || 3000) * 1000; res(gTok); };
+      gClient.error_callback = (e) => rej(new Error(e?.type === "popup_closed" ? "ปิดหน้าต่าง Google ก่อนเสร็จ" : e?.message || "เข้าสู่ระบบไม่สำเร็จ"));
+      gClient.requestAccessToken({ prompt: gTok ? "" : "" });
+    });
+  }
+  async function gCalendarId() {
+    let id = get(LS_GID, null);
+    if (id) { try { await gApi("/calendars/" + encodeURIComponent(id)); return id; } catch (e) { if (e.status !== 404 && e.status !== 403) throw e; } }
+    try { const l = await gApi("/users/me/calendarList?minAccessRole=owner"); const f = (l.items || []).find((c) => c.summary === CAL); if (f) { set(LS_GID, f.id); return f.id; } } catch {}
+    const c = await gApi("/calendars", { method: "POST", body: JSON.stringify({ summary: CAL, description: "ตารางบินจาก CoolCrew · อัปเดตเมื่อกดในแอป", timeZone: "Asia/Bangkok" }) });
+    set(LS_GID, c.id); return c.id;
+  }
+  async function pool(items, n, fn) { let i = 0; await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => { while (i < items.length) { const k = i++; await fn(items[k], k); } })); }
+  async function gSend() {
+    if (gBusy) return;
+    const p = payload();
+    if (!p || !p.events.length) { gMsg = "ไม่มี duty ในตาราง · ไม่ได้ส่งอะไรไปที่ปฏิทิน"; paint(); return; }
+    gBusy = true; gMsg = "กำลังเข้าสู่ระบบ Google…"; paint();
+    try {
+      await gToken();
+      gMsg = "กำลังอัปเดต Google Calendar…"; paint();
+      const id = await gCalendarId(), cid = encodeURIComponent(id);
+      // remove the old CoolCrew events in the roster's range
+      let old = [], tok = "";
+      do {
+        const q = new URLSearchParams({ timeMin: new Date(p.from).toISOString(), timeMax: new Date(p.to).toISOString(), singleEvents: "true", maxResults: "2500", privateExtendedProperty: "src=coolcrew" });
+        if (tok) q.set("pageToken", tok);
+        const j = await gApi(`/calendars/${cid}/events?` + q); old = old.concat(j.items || []); tok = j.nextPageToken || "";
+      } while (tok);
+      await pool(old, 4, (e) => gApi(`/calendars/${cid}/events/${encodeURIComponent(e.id)}`, { method: "DELETE" }).catch((x) => { if (x.status !== 410 && x.status !== 404) throw x; }));
+      let done = 0;
+      await pool(p.events, 4, async (e) => {
+        await gApi(`/calendars/${cid}/events`, { method: "POST", body: JSON.stringify({ summary: e.t, description: e.n, start: { dateTime: e.s }, end: { dateTime: e.e }, reminders: { useDefault: false, overrides: [] }, extendedProperties: { private: { src: "coolcrew" } } }) });
+        done++; if (done % 5 === 0) { gMsg = `กำลังใส่ ${done}/${p.events.length}…`; paint(); }
+      });
+      set(LS_GSYNC, { at: Date.now(), h: hash(body(p)), n: p.events.length, range: p.range });
+      gMsg = `✓ อัปเดต Google Calendar แล้ว · ${p.events.length} duty (ลบของเดิม ${old.length})`;
+    } catch (e) {
+      gMsg = "⚠ " + (e?.message || e);
+      if (e?.status === 401) { gTok = null; }
+    } finally { gBusy = false; paint(); setTimeout(() => { if (!gBusy) { gMsg = ""; paint(); } }, 15000); }
+  }
+  function gRowHtml(s) {
+    if (!GCLIENT) return "";
+    const sync = get(LS_GSYNC, null);
+    const cur = s.p && s.p.events.length ? hash(body(s.p)) : null, changed = !!(cur && (!sync || sync.h !== cur));
+    const st = gMsg || (sync ? (changed ? `⚠ ตารางเปลี่ยนหลังอัปเดตครั้งล่าสุด (${when(sync.at)})` : `✓ ตรงกับตาราง · อัปเดตล่าสุด ${when(sync.at)}`) : "กดครั้งแรกจะให้เข้าสู่ระบบ Google แล้วสร้างปฏิทิน CoolCrew ให้เอง");
+    return `<div class="row"><b style="font-size:.92rem">📅 Google Calendar</b><button class="btn ${changed ? "primary" : ""} small" type="button" data-cal="gsend" ${gBusy ? "disabled" : ""}>${gBusy ? "กำลังอัปเดต…" : "อัปเดต Google Calendar"}</button></div>
+<div class="st">${H(st)}</div>`;
+  }
   /* ---------- status + bars ---------- */
   function state() {
     const p = payload(), sync = get(LS_SYNC, null), setup = get(LS_SETUP, null);
@@ -111,6 +187,10 @@
   const flash = (m, ms = 5000) => { flashMsg = m; clearTimeout(flashT); flashT = setTimeout(() => { flashMsg = ""; paint(); }, ms); paint(); };
   function barHtml(s) {
     if (s.empty) return "";
+    const ios = isIOS() || s.setup, g = gRowHtml(s);
+    return (ios ? iosRow(s) : "") + (ios && g ? '<div style="border-top:1px solid var(--line);margin:4px 0"></div>' : "") + g;
+  }
+  function iosRow(s) {
     const rng = s.p.range.length ? `${fmtDay(s.p.range[0])} – ${fmtDay(s.p.range[1])}` : "";
     const st = !s.setup ? "ยังไม่ได้ตั้งค่า · ตั้งครั้งเดียวในเมนูตั้งเวลา"
       : s.sync ? (s.changed ? `⚠ ตารางเปลี่ยนหลังอัปเดตปฏิทินครั้งล่าสุด (${when(s.sync.at)})` : `✓ ปฏิทินตรงกับตาราง · อัปเดตล่าสุด ${when(s.sync.at)}`)
@@ -123,7 +203,8 @@
     let b = $(id);
     if (!b) { b = document.createElement("div"); b.id = id; b.className = "calbar"; anchor.insertAdjacentElement(where, b); }
     const s = state(), h = barHtml(s);
-    b.hidden = !h; b.classList.toggle("hot", !!(s.setup && s.changed));
+    const gs = get(LS_GSYNC, null), gch = GCLIENT && gs && s.p && gs.h !== hash(body(s.p));
+    b.hidden = !h; b.classList.toggle("hot", !!((s.setup && s.changed && (isIOS() || s.setup)) || gch));
     if (b.dataset.h !== h) { b.innerHTML = h; b.dataset.h = h; }
   }
 
@@ -207,6 +288,7 @@ ${setup ? `<div class="note ok small" style="margin-top:8px">✓ ตั้งค
     else if (a === "copy") copy(t, PROMPT);
     else if (a === "ok") { set(LS_SETUP, { at: Date.now() }); paint(); }
     else if (a === "unsetup") { set(LS_SETUP, null); set(LS_SYNC, null); paint(); }
+    else if (a === "gsend") gSend();
     else if (a === "redo") { set(LS_SETUP, null); redo = true; paint(); setTimeout(() => $("calSteps")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }
     else if (a === "setup") { if (typeof showTab === "function") showTab("settings"); setTimeout(() => $("calSetup")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
   });
@@ -225,6 +307,6 @@ ${setup ? `<div class="note ok small" style="margin-top:8px">✓ ตั้งค
   try { const u = new URL(location.href); const cv = u.searchParams.get("cal"); if (cv === "ok" || cv === "err") { u.searchParams.delete("cal"); history.replaceState(null, "", u.pathname + u.search + u.hash);
       if (cv === "ok") flash("✓ อัปเดตปฏิทิน iPhone แล้ว");
       else { set(LS_SYNC, null); flash("⚠ Shortcut ทำงานไม่สำเร็จ หรือหา Shortcut \"" + NAME + "\" ไม่เจอ · กด 🔧 ตั้ง Shortcut ใหม่ ในอื่นๆ → ตั้งเวลา", 30000); } } } catch {}
-  const start = () => { paint(); setInterval(paint, 2000); window.addEventListener("storage", paint); };
+  const start = () => { gLoad(); paint(); setInterval(paint, 2000); window.addEventListener("storage", paint); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();
