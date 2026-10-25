@@ -54,7 +54,7 @@
 
   function runUrl(text) {
     const back = location.origin + location.pathname + "?cal=ok";
-    return `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(NAME)}&input=text&text=${encodeURIComponent(text)}&x-success=${encodeURIComponent(back)}`;
+    return `shortcuts://x-callback-url/run-shortcut?name=${encodeURIComponent(NAME)}&input=text&text=${encodeURIComponent(text)}&x-success=${encodeURIComponent(back)}&x-error=${encodeURIComponent(back.replace("cal=ok", "cal=err"))}`;
   }
   function send(test) {
     const p = test ? testPayload() : payload();
@@ -107,8 +107,8 @@
 #calSetup .ph-menu div{padding:7px 8px;border-radius:8px}
 #calSetup .ph-in{background:#2c2c2e;border-radius:10px;padding:8px 10px;font-weight:600}
 #calSetup .ph .cur{display:inline-block;width:2px;height:14px;background:#0a84ff;vertical-align:-2px;margin-left:1px}`;
-  let flashMsg = "", flashT = 0;
-  const flash = (m) => { flashMsg = m; clearTimeout(flashT); flashT = setTimeout(() => { flashMsg = ""; paint(); }, 5000); paint(); };
+  let flashMsg = "", flashT = 0, redo = false;
+  const flash = (m, ms = 5000) => { flashMsg = m; clearTimeout(flashT); flashT = setTimeout(() => { flashMsg = ""; paint(); }, ms); paint(); };
   function barHtml(s) {
     if (s.empty) return "";
     const rng = s.p.range.length ? `${fmtDay(s.p.range[0])} – ${fmtDay(s.p.range[1])}` : "";
@@ -116,7 +116,7 @@
       : s.sync ? (s.changed ? `⚠ ตารางเปลี่ยนหลังอัปเดตปฏิทินครั้งล่าสุด (${when(s.sync.at)})` : `✓ ปฏิทินตรงกับตาราง · อัปเดตล่าสุด ${when(s.sync.at)}`)
       : "ยังไม่เคยอัปเดตปฏิทิน";
     return `<div class="row"><b style="font-size:.92rem">📅 ปฏิทิน iPhone</b><button class="btn ${s.setup && (s.changed || !s.sync) ? "primary" : ""} small" type="button" data-cal="${s.setup ? "send" : "setup"}">${s.setup ? "อัปเดตปฏิทิน iPhone" : "ตั้งค่าปฏิทิน iPhone"}</button></div>
-<div class="st">${H(flashMsg || st)}${!flashMsg && s.setup ? ` · ${s.p.events.length} duty${rng ? " · " + rng : ""} · ลบของเดิมช่วงนี้ในปฏิทิน CoolCrew ก่อนใส่ใหม่` : ""}</div>`;
+<div class="st">${H(flashMsg || st)}${s.setup ? ' · <a href="#" data-cal="setup" style="color:inherit">Shortcut หาย / ตั้งใหม่</a>' : ""}${!flashMsg && s.setup ? ` · ${s.p.events.length} duty${rng ? " · " + rng : ""} · ลบของเดิมช่วงนี้ในปฏิทิน CoolCrew ก่อนใส่ใหม่` : ""}</div>`;
   }
   function placeBar(id, anchor, where) {
     if (!anchor) return;
@@ -160,9 +160,13 @@ Rules: do not add, remove, rename or reorder any action. Do not use "Use Model",
   function paintSetup() {
     const c = setupCard(); if (!c) return;
     const setup = get(LS_SETUP, null);
-    const h = `<h2>ปฏิทิน iPhone</h2>
+    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone</h2>
 <p class="small" style="margin:0;line-height:1.6">ส่งตารางบินเข้าแอป <b>ปฏิทิน</b> บน iPhone <b>เฉพาะตอนคุณกด "อัปเดตปฏิทิน iPhone"</b> (หลังใส่ roster หรือที่แท็บตาราง) · ทุกครั้งที่อัปเดต จะลบ event เดิมของ CoolCrew ในช่วงวันที่ของตารางก่อน แล้วใส่ใหม่ ไม่มีซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
 ${isIOS() ? "" : '<div class="note warn small">ใช้ได้บน iPhone / iPad เท่านั้น · เปิดหน้านี้บน iPhone เพื่อตั้งค่า</div>'}
+${setup ? `<div class="note ok small" style="margin-top:8px">✓ ตั้งค่าแล้ว · กด <b>อัปเดตปฏิทิน iPhone</b> ได้เลย</div>
+<div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap"><button class="btn primary" type="button" data-cal="send">📅 อัปเดตปฏิทิน iPhone ตอนนี้</button><button class="btn" type="button" data-cal="redo">🔧 ตั้ง Shortcut ใหม่</button></div>
+<div class="small muted" style="margin-top:4px">เผลอลบ Shortcut, ลบปฏิทิน ${CAL}, หรือเปลี่ยน iPhone → กด <b>ตั้ง Shortcut ใหม่</b> แล้วทำตามขั้นตอนอีกครั้ง</div>` : ""}
+<details id="calSteps" class="more" style="margin-top:8px" ${setup && !redo ? "" : "open"}><summary>${setup ? "ขั้นตอนตั้งค่า (ทำใหม่ได้ทุกเมื่อ) ›" : "ขั้นตอนตั้งค่า ›"}</summary>
 <ol class="alst">
 <li><b>สร้างปฏิทินชื่อ ${CAL}</b> <span class="why">ทำครั้งเดียว · event ของ CoolCrew จะอยู่ในปฏิทินนี้เท่านั้น แยกจากนัดส่วนตัว ซ่อนหรือเปลี่ยนสีได้ทีหลัง</span>
 <div class="cg">
@@ -182,8 +186,7 @@ ${isIOS() ? "" : '<div class="note warn small">ใช้ได้บน iPhone /
 <span class="why">⚠ อย่ากด ▶ ใน Shortcuts เพื่อทดสอบ จะได้ "0 duties" เพราะไม่มีตารางส่งเข้าไป ให้ทดสอบจากปุ่มในข้อ 3</span></li>
 <li><b>ทดสอบจากหน้านี้</b> <button class="btn ib" type="button" data-cal="test">ส่ง event ทดสอบ</button><span class="why">หน้านี้จะเปิด Shortcuts ให้เอง · ครั้งแรก iPhone ถามสิทธิ์เข้าถึงปฏิทิน ตอบ <b>อนุญาต / Always Allow</b> และถ้าถามเรื่องลบ event ตอบ <b>Always Allow</b> · ควรขึ้นแจ้งเตือน "updated calendar, 1 duties" และเห็น "✈️ CoolCrew test" ในปฏิทิน ${CAL} อีกราว 1 ชม. ข้างหน้า (ลบทิ้งได้)</span></li>
 <li class="${setup ? "done" : ""}"><b>${setup ? "✓ ตั้งค่าแล้ว" : "ใช้ได้แล้ว?"}</b> <button class="btn ${setup ? "ghost" : "primary"} ib" type="button" data-cal="${setup ? "unsetup" : "ok"}">${setup ? "ยกเลิกการตั้งค่า" : "✓ เห็น event ทดสอบแล้ว"}</button><span class="why">จากนั้นกด <b>อัปเดตปฏิทิน iPhone</b> ที่แท็บตารางได้เลย</span></li>
-</ol>
-${setup ? `<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-cal="send">📅 อัปเดตปฏิทิน iPhone ตอนนี้</button></div>` : ""}
+</ol></details>
 <details class="more" style="margin-top:8px"><summary>ข้อความคำสั่ง / ถ้าไม่ทำงาน ›</summary><div class="small" style="margin-top:6px;line-height:1.7">
 <div>ถ้ากดแล้วขึ้น "ไม่พบ Shortcut" = ชื่อ Shortcut ไม่ตรง <b>${NAME}</b> · ถ้า event ไม่เข้า = ชื่อปฏิทินไม่ตรง <b>${CAL}</b></div>
 <div>อยากลบทั้งหมด: ลบปฏิทิน ${CAL} ในแอปปฏิทิน</div>
@@ -197,12 +200,14 @@ ${setup ? `<div class="row" style="margin-top:8px"><button class="btn primary" t
   }
   document.addEventListener("click", (e) => {
     const t = e.target.closest("[data-cal]"); if (!t) return;
+    if (t.tagName === "A") e.preventDefault();
     const a = t.dataset.cal;
     if (a === "send") send(false);
     else if (a === "test") send(true);
     else if (a === "copy") copy(t, PROMPT);
     else if (a === "ok") { set(LS_SETUP, { at: Date.now() }); paint(); }
     else if (a === "unsetup") { set(LS_SETUP, null); set(LS_SYNC, null); paint(); }
+    else if (a === "redo") { set(LS_SETUP, null); redo = true; paint(); setTimeout(() => $("calSteps")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }
     else if (a === "setup") { if (typeof showTab === "function") showTab("settings"); setTimeout(() => $("calSetup")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
   });
 
@@ -217,7 +222,9 @@ ${setup ? `<div class="row" style="margin-top:8px"><button class="btn primary" t
     } catch (e) { console.warn("calendar", e); }
   }
   // back from the Shortcut (x-success): confirm and clean the URL
-  try { const u = new URL(location.href); if (u.searchParams.get("cal") === "ok") { u.searchParams.delete("cal"); history.replaceState(null, "", u.pathname + u.search + u.hash); flash("✓ อัปเดตปฏิทิน iPhone แล้ว"); } } catch {}
+  try { const u = new URL(location.href); const cv = u.searchParams.get("cal"); if (cv === "ok" || cv === "err") { u.searchParams.delete("cal"); history.replaceState(null, "", u.pathname + u.search + u.hash);
+      if (cv === "ok") flash("✓ อัปเดตปฏิทิน iPhone แล้ว");
+      else { set(LS_SYNC, null); flash("⚠ Shortcut ทำงานไม่สำเร็จ หรือหา Shortcut \"" + NAME + "\" ไม่เจอ · กด 🔧 ตั้ง Shortcut ใหม่ ในอื่นๆ → ตั้งเวลา", 30000); } } } catch {}
   const start = () => { paint(); setInterval(paint, 2000); window.addEventListener("storage", paint); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();
