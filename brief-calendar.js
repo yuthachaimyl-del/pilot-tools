@@ -8,6 +8,9 @@
   const $ = (id) => document.getElementById(id);
   const H = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const NAME = "CoolCrew Calendar", CAL = "CoolCrew";
+  const IC_CAL = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" stroke-width="2.4" stroke-linecap="round"/></svg>';
+  const IC_BOX = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></svg>';
+  const IC_ADD = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-2px"><rect x="3" y="5" width="15" height="14" rx="2"/><path d="M3 9h15"/><circle cx="18" cy="17" r="4" fill="currentColor"/><path d="M18 15v4M16 17h4" stroke="#1c1c1e"/></svg>';
   const LS_SYNC = "cb_cal_sync", LS_SETUP = "cb_cal_setup";
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const set = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
@@ -83,7 +86,27 @@
 #calSetup .alst .why{display:block;color:var(--muted);font-size:.9em;margin-top:4px}
 #calSetup .k{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:.92em;white-space:nowrap}
 #calSetup .ib{display:inline-block;vertical-align:middle;padding:4px 12px;margin:2px 0;font-size:.95em}
-#calSetup .done{border-color:var(--green)!important}`;
+#calSetup .done{border-color:var(--green)!important}
+#calSetup .cg{display:grid;gap:10px;margin-top:8px}
+#calSetup .cg-s{display:grid;gap:6px}
+#calSetup .cg-t{line-height:1.55}#calSetup .cg-t .n{display:inline-flex;width:20px;height:20px;border-radius:50%;background:var(--sunk);border:1px solid var(--line);align-items:center;justify-content:center;font-size:.78em;font-weight:700;margin-right:6px}
+#calSetup .ph{background:#1c1c1e;color:#f2f2f7;border-radius:14px;padding:10px 12px;font:500 13px -apple-system,system-ui,sans-serif;display:grid;gap:6px;max-width:300px;border:1px solid #3a3a3c}
+#calSetup .ph-days{display:flex;justify-content:space-around;font-weight:600;color:#f2f2f7}
+#calSetup .ph-bar{display:flex;justify-content:space-between;align-items:center}
+#calSetup .ph .pill{background:#2c2c2e;border-radius:999px;padding:6px 14px}
+#calSetup .ph .pill2{display:flex;gap:16px;background:#3a3a3c;border-radius:999px;padding:6px 14px}
+#calSetup .ph .ico{display:inline-flex;border-radius:8px;padding:2px}
+#calSetup .ph .hl{outline:2.5px solid #ff9f0a;outline-offset:2px;border-radius:10px}
+#calSetup .ph-h{font-weight:700;text-align:center;font-size:14px}
+#calSetup .ph-h2{display:flex;justify-content:space-between;align-items:center}
+#calSetup .ph-h2 .hl2{outline:2.5px solid #ff9f0a;outline-offset:2px;border-radius:50%;padding:0 5px}
+#calSetup .ph-row{display:flex;gap:8px;align-items:center;background:#2c2c2e;border-radius:10px;padding:7px 10px}
+#calSetup .ph .dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+#calSetup .ph-btn{background:#2c2c2e;border-radius:10px;padding:8px 10px}
+#calSetup .ph-menu{display:grid;gap:2px;background:#2c2c2e;border-radius:12px;padding:6px}
+#calSetup .ph-menu div{padding:7px 8px;border-radius:8px}
+#calSetup .ph-in{background:#2c2c2e;border-radius:10px;padding:8px 10px;font-weight:600}
+#calSetup .ph .cur{display:inline-block;width:2px;height:14px;background:#0a84ff;vertical-align:-2px;margin-left:1px}`;
   let flashMsg = "", flashT = 0;
   const flash = (m) => { flashMsg = m; clearTimeout(flashT); flashT = setTimeout(() => { flashMsg = ""; paint(); }, 5000); paint(); };
   function barHtml(s) {
@@ -141,9 +164,23 @@ Rules: do not add, remove, rename or reorder any action. Do not use "Use Model",
 <p class="small" style="margin:0;line-height:1.6">ส่งตารางบินเข้าแอป <b>ปฏิทิน</b> บน iPhone <b>เฉพาะตอนคุณกด "อัปเดตปฏิทิน iPhone"</b> (หลังใส่ roster หรือที่แท็บตาราง) · ทุกครั้งที่อัปเดต จะลบ event เดิมของ CoolCrew ในช่วงวันที่ของตารางก่อน แล้วใส่ใหม่ ไม่มีซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
 ${isIOS() ? "" : '<div class="note warn small">ใช้ได้บน iPhone / iPad เท่านั้น · เปิดหน้านี้บน iPhone เพื่อตั้งค่า</div>'}
 <ol class="alst">
-<li><b>สร้างปฏิทินชื่อ ${CAL}</b><br>เปิดแอป <b>ปฏิทิน</b> → <span class="k">ปฏิทิน</span> ด้านล่าง → <span class="k">เพิ่มปฏิทิน</span> → ตั้งชื่อ <b>${CAL}</b> (ตัวพิมพ์ตามนี้) → เสร็จสิ้น<span class="why">event ของ CoolCrew จะอยู่ในปฏิทินนี้เท่านั้น ซ่อน/เปลี่ยนสีได้</span></li>
-<li><b>สร้าง Shortcut</b><br>กด <button class="btn primary ib" type="button" data-cal="copy">📋 คัดลอกคำสั่ง</button> → <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง<span class="why">ต้องได้ชื่อ <b>${NAME}</b> ตรงตัว · เช็คว่ามี Find Calendar Events → Remove Events → Repeat → Add New Event ในปฏิทิน ${CAL}</span></li>
-<li><b>ทดสอบ</b> <button class="btn ib" type="button" data-cal="test">ส่ง event ทดสอบ</button><span class="why">iPhone จะถามสิทธิ์ปฏิทิน ตอบ <b>อนุญาตเสมอ</b> · ควรเห็น "✈ CoolCrew test" ในอีก 1 ชม. ข้างหน้า (ลบเองได้) · ถ้าถาม "Remove events?" ให้ตอบ <b>Always Allow</b></span></li>
+<li><b>สร้างปฏิทินชื่อ ${CAL}</b> <span class="why">ทำครั้งเดียว · event ของ CoolCrew จะอยู่ในปฏิทินนี้เท่านั้น แยกจากนัดส่วนตัว ซ่อนหรือเปลี่ยนสีได้ทีหลัง</span>
+<div class="cg">
+<div class="cg-s"><div class="cg-t"><span class="n">ก</span>เปิดแอป <b>ปฏิทิน</b> ที่มุมล่างขวามีปุ่มกลมยาว 2 ไอคอน แตะไอคอน<b>รูปปฏิทิน</b> (อันซ้าย)</div>
+<div class="ph"><div class="ph-days"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div><div class="ph-bar"><span class="pill">Today</span><span class="pill2"><span class="ico hl">${IC_CAL}</span><span class="ico">${IC_BOX}</span></span></div></div></div>
+<div class="cg-s"><div class="cg-t"><span class="n">ข</span>จะขึ้นหน้า <b>Calendars</b> รายชื่อปฏิทินทั้งหมด เลื่อน<b>ลงล่างสุด</b> แตะ <b>Add Calendar</b></div>
+<div class="ph"><div class="ph-h">Calendars</div><div class="ph-row"><i class="dot" style="background:#5ac8fa"></i>iCloud / Gmail ของคุณ</div><div class="ph-row"><i class="dot" style="background:#34c759"></i>วันหยุดไทย</div><div class="ph-row"><i class="dot" style="background:#8e8e93"></i>Birthdays</div><div class="ph-btn hl">${IC_ADD} Add Calendar</div></div></div>
+<div class="cg-s"><div class="cg-t"><span class="n">ค</span>มีเมนูเด้งขึ้น 4 อย่าง เลือก <b>Add Calendar</b> อันล่างสุด<span class="why">ไม่ใช่ Add Subscription / Holiday / Family Calendar</span></div>
+<div class="ph"><div class="ph-menu"><div>${IC_ADD} Add Holiday Calendar</div><div>((·)) Add Subscription Calendar</div><div>☁ Add Family Calendar</div><div class="hl">${IC_ADD} Add Calendar</div></div></div></div>
+<div class="cg-s"><div class="cg-t"><span class="n">ง</span>ตั้งชื่อ <b>${CAL}</b> พิมพ์ตามนี้ตรงตัว (C ใหญ่ทั้ง 2 ตัว ไม่มีเว้นวรรค) เลือกสีได้ตามชอบ ถ้าถามว่าเก็บที่บัญชีไหนให้เลือก <b>iCloud</b> แล้วแตะ <b>Done</b> / ✓ มุมขวาบน</div>
+<div class="ph"><div class="ph-h2"><span>✕</span><b>New Calendar</b><span class="hl2">✓</span></div><div class="ph-in">${CAL}<i class="cur"></i></div><div class="ph-row"><i class="dot" style="background:#ffcc00"></i>Colour</div><div class="ph-row">Account <span style="margin-left:auto;color:#8e8e93">iCloud ›</span></div></div></div>
+</div><span class="why">เสร็จแล้วกลับมาหน้านี้ ทำข้อ 2 ต่อ · ถ้ามีปฏิทินชื่อ ${CAL} อยู่แล้ว ข้ามข้อนี้ได้</span></li>
+<li><b>สร้าง Shortcut "${NAME}"</b> <span class="why">Shortcut คือตัวกลางที่รับตารางจากหน้านี้ไปใส่ปฏิทิน (เว็บเขียนปฏิทิน iPhone เองไม่ได้) · ทำครั้งเดียว</span>
+<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n">ก</span>กด <button class="btn primary ib" type="button" data-cal="copy">📋 คัดลอกคำสั่ง</button> ข้อความคำสั่งยาวๆ จะถูกคัดลอกไว้</div></div>
+<div class="cg-s"><div class="cg-t"><span class="n">ข</span>กด <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> มุมขวาบน → แตะช่อง <b>Describe a shortcut</b> ด้านล่าง → <b>วาง</b> → กดส่ง แล้วรอให้ iPhone สร้างเสร็จ</div></div>
+<div class="cg-s"><div class="cg-t"><span class="n">ค</span>เช็คชื่อด้านบนต้องเป็น <b>${NAME}</b> ตรงตัว (ถ้าไม่ตรง แตะชื่อแล้วแก้) · การ์ดควรเขียนประมาณ <i>Get dictionary from input · Find and remove old events · Add new events · Show notification</i></div></div></div>
+<span class="why">⚠ อย่ากด ▶ ใน Shortcuts เพื่อทดสอบ จะได้ "0 duties" เพราะไม่มีตารางส่งเข้าไป ให้ทดสอบจากปุ่มในข้อ 3</span></li>
+<li><b>ทดสอบจากหน้านี้</b> <button class="btn ib" type="button" data-cal="test">ส่ง event ทดสอบ</button><span class="why">หน้านี้จะเปิด Shortcuts ให้เอง · ครั้งแรก iPhone ถามสิทธิ์เข้าถึงปฏิทิน ตอบ <b>อนุญาต / Always Allow</b> และถ้าถามเรื่องลบ event ตอบ <b>Always Allow</b> · ควรขึ้นแจ้งเตือน "updated calendar, 1 duties" และเห็น "✈️ CoolCrew test" ในปฏิทิน ${CAL} อีกราว 1 ชม. ข้างหน้า (ลบทิ้งได้)</span></li>
 <li class="${setup ? "done" : ""}"><b>${setup ? "✓ ตั้งค่าแล้ว" : "ใช้ได้แล้ว?"}</b> <button class="btn ${setup ? "ghost" : "primary"} ib" type="button" data-cal="${setup ? "unsetup" : "ok"}">${setup ? "ยกเลิกการตั้งค่า" : "✓ เห็น event ทดสอบแล้ว"}</button><span class="why">จากนั้นกด <b>อัปเดตปฏิทิน iPhone</b> ที่แท็บตารางได้เลย</span></li>
 </ol>
 ${setup ? `<div class="row" style="margin-top:8px"><button class="btn primary" type="button" data-cal="send">📅 อัปเดตปฏิทิน iPhone ตอนนี้</button></div>` : ""}
