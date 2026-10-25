@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>วิธีใช้ CoolCrew</title>
+<meta name="description" content="วิธีใช้ CoolCrew ตั้งแต่เริ่ม: ล็อกอิน ใส่ roster ตั้งปลุก ปฏิทิน iPhone / Google Calendar">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EDF1F5;--surface:#fff;--sunk:#F5F7FA;--ink:#14202B;--muted:#5A6878;--line:#D4DBE3;--green:#2F7D4F;--green-soft:#E3F3EA;--amber:#B86E00;--amber-soft:#FDF1DC;--red:#B42318;--info:#0B6E8A;--hl:#ff9f0a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#11161C;--surface:#1A2129;--sunk:#141A21;--ink:#E8EEF3;--muted:#93A1AF;--line:#2B3540;--green:#4FB880;--green-soft:#173326;--amber:#E0A040;--amber-soft:#33270F;--red:#F07060;--info:#5CC0DD}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 "IBM Plex Sans Thai",system-ui,-apple-system,sans-serif;-webkit-text-size-adjust:100%}
+main{max-width:720px;margin:0 auto;padding:16px 16px 60px}
+h1{font-size:1.6rem;line-height:1.25;margin:8px 0 4px}
+h2{font-size:1.2rem;margin:0 0 6px;display:flex;gap:10px;align-items:center}
+h2 .num{flex:none;width:30px;height:30px;border-radius:50%;background:var(--green);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:.95rem}
+.lead{color:var(--muted);margin:0 0 14px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin:14px 0}
+.toc{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.toc a{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:6px 12px;font-size:.88rem}
+.os{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0;display:flex;gap:8px}
+.os button{flex:1;appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:600 1rem "IBM Plex Sans Thai",sans-serif;padding:10px;border-radius:12px;cursor:pointer}
+.os button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+body[data-os=ios] .android,body[data-os=android] .ios{display:none!important}
+ol.steps{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:14px;counter-reset:s}
+ol.steps>li{counter-increment:s;position:relative;padding-left:36px}
+ol.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--sunk);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem}
+.why{display:block;color:var(--muted);font-size:.9rem;margin-top:2px}
+.k{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 6px;font-size:.92em;background:var(--sunk);white-space:nowrap}
+.tip{border-left:4px solid var(--green);background:var(--green-soft);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:.95rem}
+.warn{border-left:4px solid var(--amber);background:var(--amber-soft);border-radius:8px;padding:8px 12px;margin-top:10px;font-size:.95rem}
+a.go{display:inline-block;background:var(--green);color:#fff;text-decoration:none;font-weight:600;border-radius:10px;padding:8px 14px;margin-top:6px}
+/* phone mock */
+.ph{background:#1c1c1e;color:#f2f2f7;border-radius:18px;padding:10px 12px;font:500 13px -apple-system,system-ui,sans-serif;display:grid;gap:7px;max-width:300px;margin-top:8px;border:1px solid #3a3a3c}
+.ph.light{background:#f2f2f7;color:#1c1c1e;border-color:#d1d1d6}
+.ph .bar{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.ph .row{display:flex;gap:8px;align-items:center;background:#2c2c2e;border-radius:10px;padding:8px 10px}
+.ph.light .row{background:#fff}
+.ph .hl{outline:2.5px solid var(--hl);outline-offset:2px;border-radius:10px}
+.ph .btn{background:#4fb880;color:#fff;border-radius:10px;padding:8px 10px;text-align:center;font-weight:600}
+.ph .btn.g{background:#3a3a3c}
+.ph .tabs{display:flex;justify-content:space-around;background:#2c2c2e;border-radius:999px;padding:6px 4px;font-size:11px;text-align:center}
+.ph .tabs span{padding:4px 8px;border-radius:999px}
+.ph .tabs .on{background:#4fb880;color:#0b1a12;font-weight:700}
+.ph .h{font-weight:700;font-size:14px;text-align:center}
+.ph .dot{width:12px;height:12px;border-radius:50%;display:inline-block;flex:none}
+.ph .muted{color:#8e8e93;font-size:12px}
+.ph .pill{background:#3a3a3c;border-radius:999px;padding:6px 14px}
+.ph .menu div{padding:7px 8px;border-radius:8px}
+footer{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
+@media print{.os,.toc{display:none}.card{break-inside:avoid}body[data-os] .ios,body[data-os] .android{display:block!important}}
+</style>
+</head>
+<body data-os="ios">
+<main>
+<h1>วิธีใช้ CoolCrew</h1>
+<p class="lead">สำหรับนักบิน TVJ ที่เพิ่งเริ่มใช้ · ทำตามทีละข้อ ตั้งค่าครั้งเดียวใช้ได้ตลอด · รูปในหน้านี้เป็นภาพจำลอง วงสีส้มคือจุดที่ต้องแตะ</p>
+
+<div class="os" role="group" aria-label="เลือกมือถือ">
+<button type="button" data-os="ios" aria-pressed="true"> iPhone</button>
+<button type="button" data-os="android" aria-pressed="false">🤖 Android</button>
+</div>
+
+<nav class="toc">
+<a href="#s1">1 · เปิดแอป</a><a href="#s2">2 · ล็อกอิน</a><a href="#s3">3 · ใส่ roster</a><a href="#s4">4 · ดู brief</a><a href="#s5">5 · ปลุก</a><a href="#s6">6 · ปฏิทิน</a><a href="#s7">7 · แลกตาราง</a>
+</nav>
+
+<!-- 1 -->
+<section class="card" id="s1">
+<h2><span class="num">1</span>เปิดแอปและเพิ่มไว้หน้าโฮม</h2>
+<p style="margin:0">CoolCrew เป็นเว็บแอป ไม่ต้องโหลดจาก App Store / Play Store</p>
+<ol class="steps">
+<li class="ios">เปิด <b>Safari</b> แล้วเข้า <b>coolcrew.web.app</b><br><a class="go" href="https://coolcrew.web.app">เปิด coolcrew.web.app</a></li>
+<li class="ios">แตะปุ่ม <b>แชร์</b> (สี่เหลี่ยมมีลูกศรชี้ขึ้น) ด้านล่าง → เลื่อนหา <b>เพิ่มไปยังหน้าจอโฮม</b> → <b>เพิ่ม</b>
+<div class="ph"><div class="bar muted"><span>‹</span><span>coolcrew.web.app</span><span></span></div><div class="row">แชร์ ⤴</div><div class="row hl">＋ เพิ่มไปยังหน้าจอโฮม</div></div>
+<span class="why">จะได้ไอคอน CoolCrew บนหน้าจอ เปิดเต็มจอเหมือนแอป และใช้การแจ้งเตือนได้</span></li>
+<li class="android">เปิด <b>Chrome</b> แล้วเข้า <b>coolcrew.web.app</b><br><a class="go" href="https://coolcrew.web.app">เปิด coolcrew.web.app</a></li>
+<li class="android">แตะ <b>⋮</b> มุมขวาบน → <b>เพิ่มลงในหน้าจอหลัก</b> (หรือ <b>ติดตั้งแอป</b>) → <b>เพิ่ม</b>
+<div class="ph"><div class="bar muted"><span>coolcrew.web.app</span><span class="hl" style="padding:0 6px">⋮</span></div><div class="row">แท็บใหม่</div><div class="row hl">📲 เพิ่มลงในหน้าจอหลัก</div></div></li>
+</ol>
+</section>
+
+<!-- 2 -->
+<section class="card" id="s2">
+<h2><span class="num">2</span>ล็อกอินและขอเข้ากลุ่ม</h2>
+<ol class="steps">
+<li>แตะ <b>เข้าสู่ระบบด้วย Google</b> หรือใส่อีเมลแล้วกดลิงก์เข้าสู่ระบบที่ส่งไปทางอีเมล
+<div class="ph light"><div class="h">Pilot Swap Board</div><div class="btn hl">เข้าสู่ระบบด้วย Google</div><div class="muted" style="text-align:center">หรือ</div><div class="row">อีเมล</div></div></li>
+<li>เลือกฝูงบิน (A320/A321 หรือ B737) ตำแหน่ง (First Officer / Captain) กรอกชื่อ-นามสกุลภาษาอังกฤษตามระบบบริษัทและรหัสพนักงาน แล้วกด <b>ส่งคำขอเข้ากลุ่ม</b><span class="why">ผู้ดูแลใช้ข้อมูลนี้ยืนยันตัวตน และใช้กรอกฟอร์มขอแลกของบริษัท</span></li>
+<li>รอผู้ดูแลอนุมัติ (หน้าจอขึ้น <b>รออนุมัติ</b>) พออนุมัติแล้วกด <b>ตรวจสถานะอีกครั้ง</b> เพื่อเข้าใช้</li>
+</ol>
+</section>
+
+<!-- 3 -->
+<section class="card" id="s3">
+<h2><span class="num">3</span>ใส่ตารางบิน (roster)</h2>
+<p style="margin:0">ทำทุกครั้งที่ตารางออกใหม่หรือมีเปลี่ยน · แอปอ่านจากรูปแคปหน้าจอให้เอง</p>
+<ol class="steps">
+<li>แคปหน้าจอตารางจาก <b>เว็บ vzportal.merlot.aero</b> (Employee Roster Report · ได้เลขไฟลต์และเวลาทุก sector) <b>หรือ</b> หน้า <b>Duties</b> ของแอป crew (ได้แค่เวลา report / release)<span class="why">แคปหลายรูปได้ ให้เห็นหัวรายงาน (ชื่อ ช่วงวันที่) ในรูปแรก</span></li>
+<li>เปิด CoolCrew → แตะเมนู <b>Crew Brief</b> → แท็บ <b>อื่นๆ</b> (ขวาล่าง) → <b>ใส่ roster</b>
+<div class="ph"><div class="row">📷 ใส่ roster <span class="muted" style="margin-left:auto">›</span></div><div class="row">⏰ ตั้งเวลา</div><div class="row">😴 PSWM</div><div class="row">📄 เอกสาร</div><div class="tabs"><span>ถัดไป</span><span>Brief</span><span>ตาราง</span><span class="on hl">อื่นๆ</span></div></div></li>
+<li>แตะ <b>เลือกรูป</b> → เลือกรูปแคปทั้งหมด → รอระบบอ่าน (ไม่เกิน 1 นาที)</li>
+<li><b>ตรวจทาน</b> วันที่และเวลาให้ตรงกับของจริง แก้ได้ถ้าผิด แล้วกด <b>บันทึก</b><div class="tip">วันที่ซ้ำกับของเดิมจะถูกแทนที่ ใส่เดือนใหม่ทับได้เลย</div></li>
+</ol>
+</section>
+
+<!-- 4 -->
+<section class="card" id="s4">
+<h2><span class="num">4</span>ดู brief ก่อนบิน</h2>
+<ol class="steps">
+<li>แท็บ <b>ถัดไป</b>: duty ถัดไป เวลาปลุก ออกจากบ้าน งดแอลกอฮอล์ และเช็คลิสต์ก่อนออกจากบ้าน</li>
+<li>แท็บ <b>Brief</b>: กด <b>⚡ เตรียม brief</b> แอปดึงเครื่อง/gate จากชีต OMC, TAF/METAR และ NOTAM ให้พร้อมกัน แล้วสรุปเป็นหน้าเดียว (เวลา UTC ตัวใหญ่, threats, MEL, weather, NOTAM แยกตามสนามบิน)<span class="why">ใส่ ALT ของแต่ละขาได้ แตะเลข MEL เพื่อคัดลอกไปค้นในคู่มือ</span></li>
+<li>อยากได้กระดาษ: เลือก <b>A4 เต็มหน้า</b> หรือ <b>พับ 4</b> แล้วกด <b>🖨 พิมพ์</b> หรือ <b>📄 PDF</b></li>
+</ol>
+</section>
+
+<!-- 5 -->
+<section class="card" id="s5">
+<h2><span class="num">5</span>ปลุกก่อน report อัตโนมัติ</h2>
+<div class="ios">
+<p style="margin:0">iPhone ตั้ง<b>นาฬิกาปลุกจริง</b>ให้เองทุกวัน 08:00 และ 20:00 (ดังแม้เปิดโหมดเงียบ)</p>
+<ol class="steps">
+<li>แท็บ <b>อื่นๆ</b> → <b>ตั้งเวลา</b> → ใส่เวลาเดินทาง เวลาเตรียมตัว เวลาที่ใช้ที่โรงแรม</li>
+<li>การ์ด <b>ปลุกอัตโนมัติบน iPhone</b> → กด <b>🔗 สร้างลิงก์ส่วนตัว</b> แล้วทำตามข้อ 2–4 ในการ์ด (คัดลอกคำสั่ง → สร้าง Shortcut → ทดสอบ)</li>
+</ol>
+</div>
+<div class="android">
+<p style="margin:0">Android ใช้<b>การแจ้งเตือน</b>ของ CoolCrew (ยังตั้งนาฬิกาปลุกเองไม่ได้)</p>
+<ol class="steps">
+<li>แท็บ <b>อื่นๆ</b> → <b>ตั้งเวลา</b> → ใส่เวลาเดินทาง เวลาเตรียมตัว เวลาที่ใช้ที่โรงแรม</li>
+<li>แตะปุ่ม <b>🔕 แจ้งเตือน</b> มุมขวาบน → <b>เปิดแจ้งเตือน</b> → อนุญาต<span class="why">แอปจะเตือนเมื่อถึงเวลาปลุก · early start ควรตั้งนาฬิกาปลุกของเครื่องไว้อีกชั้นตามเวลาที่แท็บ "ถัดไป" บอก</span></li>
+</ol>
+</div>
+</section>
+
+<!-- 6 -->
+<section class="card" id="s6">
+<h2><span class="num">6</span>ใส่ตารางบินลงปฏิทินมือถือ</h2>
+<p style="margin:0">ปฏิทินอัปเดต<b>เฉพาะตอนคุณกดปุ่ม</b> · ทุกครั้งจะลบ event เดิมของ CoolCrew ในช่วงวันของตารางแล้วใส่ใหม่ ไม่ซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
+
+<div class="ios">
+<h3 style="margin:14px 0 4px">ตั้งค่าครั้งแรก (iPhone)</h3>
+<ol class="steps">
+<li><b>สร้างปฏิทินชื่อ CoolCrew</b> ในแอป <b>ปฏิทิน</b>: แตะไอคอนรูปปฏิทินมุมล่างขวา
+<div class="ph"><div class="bar"><span class="pill">Today</span><span class="pill" style="display:flex;gap:14px"><span class="hl" style="padding:0 4px">📅</span><span>📥</span></span></div></div></li>
+<li>เลื่อนลงล่างสุด แตะ <b>Add Calendar</b> → เลือก <b>Add Calendar</b> (อันล่างสุด)
+<div class="ph"><div class="h">Calendars</div><div class="row"><i class="dot" style="background:#34c759"></i>วันหยุดไทย</div><div class="row hl">＋ Add Calendar</div></div>
+<div class="ph menu"><div>Add Holiday Calendar</div><div>Add Subscription Calendar</div><div>Add Family Calendar</div><div class="hl">Add Calendar</div></div></li>
+<li>ตั้งชื่อ <b>CoolCrew</b> (พิมพ์ตรงตัว) บัญชีเลือก <b>iCloud</b> → แตะ ✓<span class="why">ถ้าอยากให้ขึ้นใน Google Calendar ด้วย เลือกบัญชี Gmail แทน iCloud</span>
+<div class="ph"><div class="bar"><span>✕</span><b>New Calendar</b><span class="hl" style="padding:0 5px">✓</span></div><div class="row">CoolCrew</div><div class="row">Account <span class="muted" style="margin-left:auto">iCloud ›</span></div></div></li>
+<li>ใน CoolCrew: แท็บ <b>อื่นๆ</b> → <b>ตั้งเวลา</b> → การ์ด <b>ปฏิทิน iPhone</b> → กด <b>📋 คัดลอกคำสั่ง</b> → <b>เปิด Shortcuts</b> → แตะ <span class="k">＋</span> → วางในช่อง <b>Describe a shortcut</b> → ส่ง<span class="why">ต้องได้ Shortcut ชื่อ <b>CoolCrew Calendar</b> ตรงตัว</span></li>
+<li>กลับมาที่การ์ด กด <b>ส่ง event ทดสอบ</b> → อนุญาตสิทธิ์ปฏิทิน → ต้องเห็น "✈️ CoolCrew test" ในปฏิทิน → กด <b>✓ เห็น event ทดสอบแล้ว</b></li>
+</ol>
+<div class="warn">อย่ากด ▶ ในแอป Shortcuts เอง จะได้ "0 duties" เพราะไม่มีตารางส่งเข้าไป ต้องกดปุ่มจากในแอป CoolCrew เสมอ</div>
+<h3 style="margin:14px 0 4px">ใช้งาน</h3>
+<p style="margin:0">หลังใส่ roster ใหม่ ไปแท็บ <b>ตาราง</b> → แถบ <b>📅 ปฏิทิน iPhone</b> → กด <b>อัปเดตปฏิทิน iPhone</b> · แถบเป็นสีส้มแปลว่าตารางเปลี่ยนแล้วยังไม่ได้อัปเดต</p>
+<div class="tip">เผลอลบ Shortcut / เปลี่ยนเครื่อง: การ์ด <b>ปฏิทิน iPhone</b> → <b>🔧 ตั้ง Shortcut ใหม่</b></div>
+</div>
+
+<div class="android">
+<ol class="steps">
+<li>ใส่ roster ให้เรียบร้อยก่อน (ข้อ 3)</li>
+<li>แท็บ <b>ตาราง</b> → แถบ <b>📅 Google Calendar</b> ด้านบน → กด <b>อัปเดต Google Calendar</b>
+<div class="ph"><div class="row" style="justify-content:space-between"><b>📅 Google Calendar</b><span class="btn hl" style="padding:5px 10px">อัปเดต Google Calendar</span></div><div class="tabs"><span>ถัดไป</span><span>Brief</span><span class="on">ตาราง</span><span>อื่นๆ</span></div></div></li>
+<li>ครั้งแรกจะเด้งหน้า Google ให้<b>เลือกบัญชี</b>แล้วกด <b>อนุญาต / Continue</b> · แอปจะสร้างปฏิทินชื่อ <b>CoolCrew</b> ให้เองแล้วใส่ไฟลต์ทั้งหมด<span class="why">สิทธิ์นี้ให้แอปจัดการได้แค่ปฏิทิน CoolCrew ที่แอปสร้างเอง ไม่เห็นปฏิทินอื่น · ถ้าขึ้น "Google hasn't verified this app" แตะ Advanced → Go to coolcrew.web.app</span></li>
+<li>เปิดแอป <b>Google Calendar</b> จะเห็น event สีของปฏิทิน CoolCrew · ถ้าไม่เห็น แตะ <b>☰</b> แล้วติ๊ก <b>CoolCrew</b></li>
+</ol>
+<div class="warn">ถ้าขึ้นว่า "เบราว์เซอร์บล็อกหน้าต่าง" ให้อนุญาต pop-up ของ coolcrew.web.app ใน Chrome แล้วกดใหม่</div>
+<div class="tip">หลังใส่ roster ใหม่ กด <b>อัปเดต Google Calendar</b> อีกครั้ง ของเก่าลบแล้วใส่ใหม่ให้เอง</div>
+</div>
+</section>
+
+<!-- 7 -->
+<section class="card" id="s7">
+<h2><span class="num">7</span>แลกตารางกับเพื่อน (Pilot Swap Board)</h2>
+<ol class="steps">
+<li>เมนู <b>Pilot Swap Board</b> → แท็บ <b>บอร์ดแลก</b>: เห็นไฟลต์ที่เพื่อนปล่อยหรืออยากได้ (รวมโพสต์จากกลุ่ม LINE)</li>
+<li>กด <b>ตรวจ TCAR</b> ดูว่าแลกแล้วชั่วโมงพักยังผ่านไหม · ถ้าโอเคกด <b>เสนอแลก</b></li>
+<li>อยากปล่อยไฟลต์เอง กด <b>+ โพสต์</b> มุมขวาบน · แท็บ <b>ใครว่าง</b> ดูว่าวันนั้นใครว่าง</li>
+</ol>
+<div class="tip">ตกลงแลกกันแล้ว อย่าลืมยื่นขออนุญาตแลกกับบริษัทตามขั้นตอนปกติ</div>
+</section>
+
+<footer>มีปัญหาหรืออยากเสนอ: กด 💬 ติชม ในแอป · CoolCrew ช่วยเตรียมตัว ไม่ใช่เอกสารทางการ ตรวจกับเอกสารบริษัทเสมอ</footer>
+</main>
+<script>
+(function(){
+  var b=document.body,btns=document.querySelectorAll('.os button');
+  function set(os){b.dataset.os=os;btns.forEach(function(x){x.setAttribute('aria-pressed',String(x.dataset.os===os))});try{localStorage.setItem('cc_guide_os',os)}catch(e){}}
+  var q=new URLSearchParams(location.search).get('os'),saved=null;try{saved=localStorage.getItem('cc_guide_os')}catch(e){}
+  var guess=/android/i.test(navigator.userAgent)?'android':'ios';
+  set(q==='android'||q==='ios'?q:saved||guess);
+  btns.forEach(function(x){x.addEventListener('click',function(){set(x.dataset.os)})});
+})();
+</script>
+</body>
+</html>

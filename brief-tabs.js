@@ -42,6 +42,7 @@ function build(){
   nav.querySelectorAll("button").forEach(b=>b.onclick=()=>{typeof showTab=="function"&&showTab(b.dataset.tab)});
   more=document.createElement("section");more.className="panel";more.id="p-more";more.hidden=true;
   more.innerHTML=`<div class="menu">${MENU.map(([k,ic,t,d])=>`<button type="button" class="tile" data-open="${k}"><span class="ic">${ic}</span><span><b>${t}</b><small>${d}</small></span><span class="chev">›</span></button>`).join("")}</div>
+<a class="tile" href="guide.html" style="text-decoration:none;margin-top:10px"><span class="ic">📖</span><span><b>วิธีใช้</b><small>สอนตั้งแต่เริ่ม: ใส่ roster · ตั้งปลุก · ปฏิทิน iPhone / Google</small></span><span class="chev">›</span></a>
 <div class="small muted" style="text-align:center"><a href="index.html#menu" style="color:var(--muted)">เมนูหลัก · Pilot Swap Board</a></div>`;
   const last=$("p-docs")||$("p-settings");last?last.insertAdjacentElement("afterend",more):nav.insertAdjacentElement("afterend",more);
   more.addEventListener("click",e=>{const b=e.target.closest("[data-open]");b&&typeof showTab=="function"&&showTab(b.dataset.open)});
