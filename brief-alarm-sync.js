@@ -2,6 +2,8 @@
 // Makes a personal link that the Shortcut "CoolCrew Alarm Sync" reads twice a day to set iPhone alarms.
 (() => {
   const FEED = "https://devbnbshwsibjupesywi.supabase.co/functions/v1/alarm-feed?t=";
+  // iCloud link of the ready-made "CoolCrew Alarm Sync" (asks for the personal link on install). Empty = use the Describe-a-shortcut path only.
+  const SC_LINK = "";
   const H = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   const sb = () => window.SB;
   // the plain link is kept on this device only (like the roster), so the setup steps stay usable; the server has just its hash
@@ -36,9 +38,14 @@ Then add a personal automation for this shortcut: trigger "Time of Day", 08:00, 
 .alst .seq{line-height:2.1}
 .alst .btn.ib{display:inline-block;vertical-align:middle;padding:4px 12px;margin:2px 0;font-size:.95em}
 </style>`;
+  const AI_STEP = `<li><b>สร้าง Shortcut</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button> → <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง</span><span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> และหัวการ์ดขึ้น <b class="ok">"When it is 08:00 or 20:00 daily"</b> = ตั้งเวลาให้แล้ว · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>`;
+  const EASY_STEPS = `
+<li><b>คัดลอกลิงก์ของคุณ</b><br><span class="seq"><button class="btn primary ib" type="button" id="al_copyMine">📋 คัดลอกลิงก์ของฉัน</button></span><span class="why">ลิงก์นี้เป็นของบัญชีคุณ ใช้ดึงเวลาปลุกของคุณเอง</span></li>
+<li><b>ติดตั้ง Shortcut</b><br><span class="seq"><a class="btn primary ib" href="${SC_LINK}" target="_blank" rel="noopener">⬇ ติดตั้ง Shortcut</a></span><span class="why">iPhone จะถามให้ใส่ลิงก์ → แตะช่อง → <b>วาง</b> → กด <b>Add Shortcut</b> (เพิ่มคำสั่งลัด)</span></li>
+<li><b>ตั้งให้ทำงานเองทุกวัน</b><span class="why" style="color:var(--ink)">ในแอป Shortcuts:<br>• <b>iOS 26 หรือต่ำกว่า:</b> แท็บ <b>Automation</b> → ＋ → <b>Time of Day</b> → 08:00 · Daily → เลือก <b>Run Immediately</b> → Next → เลือก <b>CoolCrew Alarm Sync</b> → ทำซ้ำอีกอันที่ 20:00<br>• <b>iOS 27:</b> เปิด Shortcut <b>CoolCrew Alarm Sync</b> → แตะ ＋ เพิ่ม action → พิมพ์ค้น <b>Time of Day</b> → ตั้ง 08:00 และ 20:00 · Daily</span></li>`;
   const STEPS = (url) => `
-<li><b>สร้าง Shortcut</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_copyPrompt">📋 คัดลอกคำสั่ง</button> → <a class="btn ib" href="shortcuts://" rel="noopener">เปิด Shortcuts ↗</a> → แตะ <span class="k">＋</span> → วางลงช่อง <b>Describe a shortcut</b> → ส่ง</span><span class="why">รอสักครู่ จะได้ Shortcut ชื่อ <b>CoolCrew Alarm Sync</b> และหัวการ์ดขึ้น <b class="ok">"When it is 08:00 or 20:00 daily"</b> = ตั้งเวลาให้แล้ว · ถ้าขึ้นช่อง <b>Enter URL</b> ให้กด <a href="#" id="al_copyLink">คัดลอกลิงก์</a> แล้ววาง → Done</span></li>
-<li><b>เช็คผล</b> แตะเปิดดู ต้องมี: Find Alarms → Delete → Get contents of <b>(มีลิงก์ยาวอยู่ในช่อง)</b> → Get Dictionary Value <b>alarms</b> → Repeat → Create Alarm <b>CoolCrew</b> → Show notification<span class="why">ถ้าเห็น <b>Use Cloud model</b> หรือ <b>Ask Each Time</b> = AI สร้างผิด ให้ลบ Shortcut ทิ้ง (กลับหน้ารวม → แตะค้าง → Delete) แล้วทำข้อ 2 ใหม่</span></li>
+${SC_LINK ? EASY_STEPS : AI_STEP}
+${SC_LINK ? "" : `<li><b>เช็คผล</b> แตะเปิดดู ต้องมี: Find Alarms → Delete → Get contents of <b>(มีลิงก์ยาวอยู่ในช่อง)</b> → Get Dictionary Value <b>alarms</b> → Repeat → Create Alarm <b>CoolCrew</b> → Show notification<span class="why">ถ้าเห็น <b>Use Cloud model</b> หรือ <b>Ask Each Time</b> = AI สร้างผิด ให้ลบ Shortcut ทิ้ง (กลับหน้ารวม → แตะค้าง → Delete) แล้วทำข้อ 2 ใหม่</span></li>`}
 <li><b>ทดสอบ</b> ใน Shortcuts กด <span class="k">▶</span> 1 ครั้ง → iPhone ถามสิทธิ์ ตอบ <b>Always Allow</b> และ <b>Delete Always</b><span class="why">ควรเด้งแจ้งเตือน "ตั้งปลุก …" หรือเด้งว่างๆ ถ้า 24 ชม. นี้ไม่มี duty</span><span class="seq" style="display:block;margin-top:8px">แล้วกลับมากด <button class="btn ib" type="button" id="al_test">🔍 ทดสอบลิงก์</button> ที่นี่ ข้อ 1 จะขึ้น "iPhone เรียกล่าสุด …" = <b class="ok">จบแล้ว ไม่ต้องกดอะไรอีก</b></span><div class="small" id="al_testOut"></div></li>
 
 `;
@@ -75,13 +82,14 @@ Then add a personal automation for this shortcut: trigger "Time of Day", 08:00, 
     const rest = ready ? STEPS(FEED + link) : `<li class="dim"><b>สร้าง Shortcut</b> <span class="why">ทำข้อก่อนหน้าให้เสร็จก่อน</span></li><li class="dim"><b>เช็คผล</b></li><li class="dim"><b>ทดสอบ</b></li>`;
     c.innerHTML = `<h2>ปลุกอัตโนมัติบน iPhone</h2>
 <p class="small" style="margin:0;line-height:1.6"><b>ไม่ต้องกดตั้งปลุกเองอีก</b> · iPhone ดึงเวลาปลุกของ duty ถัดไปจากตารางคุณ <b>ทุกวัน 08:00 และ 20:00</b> แล้วตั้งนาฬิกาปลุกให้ (ตื่น + ปลุกซ้ำ ตามค่าในการ์ด "เวลาส่วนตัว") · ทำครั้งเดียว ~2 นาที</p>
-<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน ไฟล์มีแจ้งเตือนปลุกในตัว ใช้ได้ทุกเครื่อง</span></div>
+${SC_LINK ? `<div class="note ok small" style="margin-top:8px">📱 ใช้ได้ทุก iPhone ที่เป็น <b>iOS 17 ขึ้นไป</b></div>` : `<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน ไฟล์มีแจ้งเตือนปลุกในตัว ใช้ได้ทุกเครื่อง</span></div>`}
 ${err ? `<div class="note err small">${H(err)}</div>` : ""}
 <div class="small" id="al_msg" style="min-height:1.2em">${msg || ""}</div>
 ${STYLE}
 <ol class="alst">${step0}${rest}</ol>
 ${st ? `<details class="more" style="margin-top:8px"><summary>อื่นๆ: สร้างลิงก์ใหม่ / ยกเลิก / iOS รุ่นเก่า / จอล็อก ›</summary>
 <div class="small" style="margin-top:6px;line-height:1.7">
+${SC_LINK && ready ? `<div><b>ทางสำรอง (เครื่องที่มี Apple Intelligence):</b><ol class="alst" style="margin-top:4px">${AI_STEP}</ol></div>` : ""}
 <div><b>ลิงก์หลุดหรือเปลี่ยนเครื่อง:</b> <button class="btn ghost ib" type="button" id="al_make2">🔄 สร้างลิงก์ใหม่</button> ลิงก์เก่าใช้ไม่ได้ทันที ต้องทำข้อ 2–4 ใหม่</div>
 <div><b>เลิกใช้:</b> <button class="btn ghost ib" type="button" id="al_revoke">ยกเลิกลิงก์</button> แล้วลบ Shortcut ใน iPhone ด้วย</div>
 <div><b>Shortcut ไม่ขึ้น "When it is 08:00 or 20:00 daily":</b> กด <button class="btn ghost ib" type="button" id="al_copyAuto">📋 คัดลอกข้อความตั้งเวลา</button> → ในหน้า Shortcut แตะช่อง Describe a change → วาง → ส่ง</div>
@@ -123,6 +131,11 @@ ${ready ? `<div><b>ข้อความคำสั่ง (ข้อ 2):</b><te
       } catch (e) { o.innerHTML = `<span style="color:var(--red)">เรียกไม่ได้: ${H(e?.message || e)}</span>`; }
       t.disabled = false;
       const out = document.getElementById("al_testOut")?.innerHTML || ""; await render(); const o2 = document.getElementById("al_testOut"); if (o2) o2.innerHTML = out;
+      return;
+    }
+    if (t.id === "al_copyMine") {
+      const v = FEED + link, ok = () => { t.textContent = "✓ คัดลอกแล้ว ไปกดติดตั้งได้เลย"; setTimeout(() => (t.textContent = "📋 คัดลอกลิงก์ของฉัน"), 3000); };
+      try { await navigator.clipboard.writeText(v); ok(); } catch { const ta = document.createElement("textarea"); ta.value = v; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); ok(); }
       return;
     }
     if (t.id === "al_copyLink") {
