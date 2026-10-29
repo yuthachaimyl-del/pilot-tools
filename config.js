@@ -47,10 +47,36 @@
   }
   window.FO_CONFIG = Object.assign({}, COMMON, TENANTS[id], { TENANTS: Object.keys(TENANTS), TENANT_SITES: Object.fromEntries(Object.entries(TENANTS).map(([k, v]) => [k, v.SITE_URL])) });
   try { document.documentElement.dataset.airline = id; } catch {}
+  // "A320/A321 Captain" (TVJ) or "Air Purser" (TG) for a profile row
+  window.FO_CONFIG.roleOf = (p) => {
+    p = p || {};
+    const T = TENANTS[p.airline || (TENANTS.TG.RANKS.some((x) => x[0] === p.rank) ? "TG" : "TVJ")] || TENANTS[id];
+    if (T.AIRLINE === "TVJ") return (p.fleet === "B737" ? "B737" : "A320/A321") + " " + (p.rank === "CPT" ? "Captain" : "First Officer");
+    const r = T.RANKS.find((x) => x[0] === p.rank); return r ? r[1] : (p.rank || "");
+  };
+  // profile form: build the fleet/rank choices of this airline (TVJ keeps the radios written in index.html)
+  window.FO_CONFIG.buildProfileForm = () => {
+    try {
+      const C = window.FO_CONFIG; if (C.AIRLINE === "TVJ") return;
+      const fl = document.getElementById("pfFleetA320")?.closest(".seg"), rk = document.getElementById("pfRankFO")?.closest(".seg");
+      if (!fl || !rk || rk.dataset.built) return;
+      const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      fl.innerHTML = C.FLEETS.map((f, i) => `<label><input type="radio" name="pff" value="${esc(f[0])}"${i ? "" : " checked"}>${esc(f[1])}</label>`).join("");
+      fl.hidden = C.FLEETS.length < 2;
+      rk.innerHTML = C.RANKS.map((r) => `<label><input type="radio" name="pfr" value="${esc(r[0])}">${esc(r[1])}</label>`).join("");
+      rk.dataset.built = "1";
+      const code = document.getElementById("pfCode"); if (code) code.placeholder = C.STAFF_ID.placeholder;
+      const name = document.getElementById("pfName"); if (name) name.placeholder = "FIRSTNAME LASTNAME";
+    } catch {}
+  };
+  // value of the checked radio (fleet "pff" / rank "pfr"); TVJ falls back to its original A320 / FO defaults
+  window.FO_CONFIG.picked = (name, def) => { const el = document.querySelector(`input[name="${name}"]:checked`); return el ? el.value : def; };
+  window.FO_CONFIG.pick = (name, val) => { const el = [...document.querySelectorAll(`input[name="${name}"]`)].find((x) => x.value === val); if (el) el.checked = true; };
   // per-airline texts: <el data-t-TG="…"> shows that text on the TG site
   const apply = () => {
     try {
       document.querySelectorAll("[data-t-" + id + "]").forEach((el) => { el.textContent = el.getAttribute("data-t-" + id); });
+      window.FO_CONFIG.buildProfileForm();
       let preview = false;
       try { if (new URLSearchParams(location.search).get("preview") === "1") localStorage.setItem("cc_preview", "1"); preview = localStorage.getItem("cc_preview") === "1"; } catch {}
       if (!window.FO_CONFIG.LAUNCHED && !preview) {

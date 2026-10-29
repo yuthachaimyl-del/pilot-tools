@@ -33,7 +33,9 @@ select{appearance:none;padding-right:16px}.msg{font-size:14px}.msg.err{color:var
     const r = await fetch(URL0 + "/functions/v1/approve", { method: "POST", headers: { "Content-Type": "application/json", apikey: KEY }, body: JSON.stringify({ t, ...body }) });
     const j = await r.json().catch(() => ({})); return { ok: r.ok, ...j };
   };
-  const role = d => (d.fleet === "B737" ? "B737" : "A320/A321") + " " + (d.rank === "CPT" ? "Captain" : "First Officer");
+  const TG_RANK = { IM: "In-flight Manager", AP: "Air Purser", FA: "Flight Attendant" };
+  const role = d => d.airline === "TG" || TG_RANK[d.rank] ? "การบินไทย · " + (TG_RANK[d.rank] || d.rank || "")
+    : (d.fleet === "B737" ? "B737" : "A320/A321") + " " + (d.rank === "CPT" ? "Captain" : "First Officer");
   const statusTh = s => s === "approved" ? "อนุมัติแล้ว" : s === "rejected" ? "ปฏิเสธแล้ว" : "รออนุมัติ";
   const show = d => {
     $("#box").className = "";
@@ -44,7 +46,7 @@ select{appearance:none;padding-right:16px}.msg{font-size:14px}.msg.err{color:var
     const d = await call({});
     if(d.error){ $("#box").textContent = d.error === "not_found" ? "ไม่พบคำขอนี้" : "โหลดไม่สำเร็จ (" + d.error + ")"; return; }
     show(d); REQ = d;
-    $("#okBtn").dataset.do = d.rank === "CPT" ? "CPT" : "FO"; $("#okBtn").textContent = "อนุมัติ " + role(d);
+    $("#okBtn").dataset.do = d.rank === "CPT" ? "CPT" : d.rank === "FO" || d.rank === "SFO" ? "FO" : "approve"; $("#okBtn").textContent = "อนุมัติ " + role(d);
     if(d.used){ $("#msg").textContent = "ลิงก์นี้ใช้ไปแล้ว ถ้าต้องการแก้ ให้ใช้หน้าแอดมิน"; return; }
     if(d.expired){ $("#msg").textContent = "ลิงก์หมดอายุ (เกิน 7 วัน) ให้ใช้หน้าแอดมิน"; return; }
     $("#acts").hidden = false;
