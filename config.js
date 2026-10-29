@@ -29,7 +29,7 @@
       FLIGHT_PREFIX: "TG",
       STAFF_ID: { placeholder: "รหัสพนักงาน", re: "^[A-Z0-9-]{3,12}$", hint: "ตัวเลข/ตัวอักษร 3–12 ตัว" },
       FLEETS: [["TG", "Thai Airways"]],
-      RANKS: [["IM", "In-flight Manager"], ["AP", "Air Purser"], ["FA", "Flight Attendant"]],
+      RANKS: [["FA", "Economy TG Crew"]],   // one rank, no choice on the form; add IM/AP rows here to ask for a position
       ROOM_BY: "all",    // one room for every rank for now; "rank" = IM/AP/FA rooms later
       ROOM_NAME: "Economy TG Crew",
       ROSTER_SOURCE: "cabinconnect",
@@ -63,8 +63,9 @@
       if (!fl || !rk || rk.dataset.built) return;
       const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
       fl.innerHTML = C.FLEETS.map((f, i) => `<label><input type="radio" name="pff" value="${esc(f[0])}"${i ? "" : " checked"}>${esc(f[1])}</label>`).join("");
-      fl.hidden = C.FLEETS.length < 2;
-      rk.innerHTML = C.RANKS.map((r) => `<label><input type="radio" name="pfr" value="${esc(r[0])}">${esc(r[1])}</label>`).join("");
+      if (C.FLEETS.length < 2) fl.style.display = "none";
+      rk.innerHTML = C.RANKS.map((r, i) => `<label><input type="radio" name="pfr" value="${esc(r[0])}"${C.RANKS.length < 2 && !i ? " checked" : ""}>${esc(r[1])}</label>`).join("");
+      if (C.RANKS.length < 2) rk.style.display = "none";
       rk.dataset.built = "1";
       const code = document.getElementById("pfCode"); if (code) code.placeholder = C.STAFF_ID.placeholder;
       const name = document.getElementById("pfName"); if (name) name.placeholder = "FIRSTNAME LASTNAME";
