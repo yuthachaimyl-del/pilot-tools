@@ -20,6 +20,11 @@ const MENU=[
   ["fit","😴","PSWM","Prior Sleep–Wake score ก่อนออกจากบ้าน โดยเฉพาะ night duty"],
   ["docs","📄","เอกสาร","วันหมดอายุ license, medical, passport และเอกสารอื่น"]
 ];
+// cabin crew (TG) site: no Brief / PSWM / pilot documents; roster comes from Cabin Connect
+const FC=window.FO_CONFIG||{},FT=FC.FEATURES||{},CABIN=FC.ROSTER_SOURCE==="cabinconnect";
+const HIDE=new Set([FT.briefOps===false&&"brief",FT.pswm===false&&"fit",FT.pilotDocs===false&&"docs"].filter(Boolean));
+if(CABIN)MENU[0][3]="อัปโหลดรูป Roster จาก Cabin Connect · เพิ่มหรือแก้ duty เอง · ล้างตาราง";
+const TABS_V=TABS.filter(([k])=>!HIDE.has(k)),MENU_V=MENU.filter(([k])=>!HIDE.has(k));
 const CSS=`
 nav.tabs{gap:2px;padding:4px}
 nav.tabs button{flex:1 1 0;min-width:0;padding:6px 4px 5px;font-size:.74rem;line-height:1.2;display:flex;flex-direction:column;align-items:center;gap:2px}
@@ -38,12 +43,12 @@ let nav=null,more=null;
 function build(){
   nav=document.querySelector("nav.tabs");if(!nav||nav.dataset.four)return false;nav.dataset.four="1";
   const st=document.createElement("style");st.textContent=CSS;document.head.appendChild(st);
-  nav.innerHTML=TABS.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="false" type="button">${ICON[k]}<span>${l}</span></button>`).join("");
+  nav.innerHTML=TABS_V.map(([k,l])=>`<button role="tab" data-tab="${k}" aria-selected="false" type="button">${ICON[k]}<span>${l}</span></button>`).join("");
   nav.querySelectorAll("button").forEach(b=>b.onclick=()=>{typeof showTab=="function"&&showTab(b.dataset.tab)});
   more=document.createElement("section");more.className="panel";more.id="p-more";more.hidden=true;
-  more.innerHTML=`<div class="menu">${MENU.map(([k,ic,t,d])=>`<button type="button" class="tile" data-open="${k}"><span class="ic">${ic}</span><span><b>${t}</b><small>${d}</small></span><span class="chev">›</span></button>`).join("")}</div>
+  more.innerHTML=`<div class="menu">${MENU_V.map(([k,ic,t,d])=>`<button type="button" class="tile" data-open="${k}"><span class="ic">${ic}</span><span><b>${t}</b><small>${d}</small></span><span class="chev">›</span></button>`).join("")}</div>
 <a class="tile" href="guide.html" style="text-decoration:none;margin-top:10px"><span class="ic">📖</span><span><b>วิธีใช้</b><small>สอนตั้งแต่เริ่ม: ใส่ roster · ตั้งปลุก · ปฏิทิน iPhone / Google</small></span><span class="chev">›</span></a>
-<div class="small muted" style="text-align:center"><a href="index.html#menu" style="color:var(--muted)">เมนูหลัก · Pilot Swap Board</a></div>`;
+<div class="small muted" style="text-align:center"><a href="index.html#menu" style="color:var(--muted)">เมนูหลัก · ${(FC.BRAND&&FC.BRAND.board)||"Pilot Swap Board"}</a></div>`;
   const last=$("p-docs")||$("p-settings");last?last.insertAdjacentElement("afterend",more):nav.insertAdjacentElement("afterend",more);
   more.addEventListener("click",e=>{const b=e.target.closest("[data-open]");b&&typeof showTab=="function"&&showTab(b.dataset.open)});
   SUB.forEach(k=>{const p=$("p-"+k);if(!p||p.querySelector(".subBack"))return;const d=document.createElement("div");d.className="subBack";d.innerHTML='<button type="button">‹ อื่นๆ</button>';d.querySelector("button").onclick=()=>showTab("more");p.prepend(d)});
@@ -69,10 +74,11 @@ function light(e){
 function init(){
   if(!build())return;
   docBadge();setTimeout(docBadge,1500);
-  if(typeof window.showTab=="function"){const o=window.showTab;window.showTab=function(e){const r=o.apply(this,arguments);try{light(e)}catch{}return r}}
+  if(typeof window.showTab=="function"){const o=window.showTab;window.showTab=function(e){if(HIDE.has(e))e="next";const r=o.apply(this,[e]);try{light(e)}catch{}return r}}
   // light the tab the page opened on (the inline script restored it from localStorage before this ran)
   let cur="next";try{cur=localStorage.getItem("cb_tab")||"next"}catch{}
   const shown=["next","brief","month",...SUB].find(k=>{const p=$("p-"+k);return p&&!p.hidden});
+  if(HIDE.has(shown||cur)){window.showTab("next");return}
   light(shown||cur);
   if(cur==="more"&&!shown)light("more");
 }

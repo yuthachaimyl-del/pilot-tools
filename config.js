@@ -79,6 +79,12 @@
     try {
       document.querySelectorAll("[data-t-" + id + "]").forEach((el) => { el.textContent = el.getAttribute("data-t-" + id); });
       window.FO_CONFIG.buildProfileForm();
+      // pilot-only board parts (TCAR check, company swap form, Merlot screenshot guides) on sites that switch them off
+      if (window.FO_CONFIG.FEATURES && window.FO_CONFIG.FEATURES.tcar === false && !document.getElementById("ccHidePilot")) {
+        const st = document.createElement("style"); st.id = "ccHidePilot";
+        st.textContent = '[data-act="chk"],.post .chk,.formbox,[data-guide]{display:none!important}';
+        document.head.appendChild(st);
+      }
       let preview = false;
       try { if (new URLSearchParams(location.search).get("preview") === "1") localStorage.setItem("cc_preview", "1"); preview = localStorage.getItem("cc_preview") === "1"; } catch {}
       if (!window.FO_CONFIG.LAUNCHED && !preview) {

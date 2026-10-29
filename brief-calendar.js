@@ -21,7 +21,7 @@
   /* ---------- payload: the duties of the current roster ---------- */
   const pad = (n) => String(n).padStart(2, "0");
   function isoAt(ms, st) {   // 2026-11-01T05:20:00+07:00 in the station's local time
-    const o = (typeof tzOf === "function" ? tzOf(st).off : 420), d = new Date(ms + o * 6e4), a = Math.abs(o);
+    const o = (window.CCTZ && CCTZ.known(st) ? CCTZ.offAt(st, ms) : typeof tzOf === "function" ? tzOf(st).off : 420), d = new Date(ms + o * 6e4), a = Math.abs(o);
     return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:00${o < 0 ? "-" : "+"}${pad(Math.floor(a / 60))}:${pad(a % 60)}`;
   }
   const dayIso = (date, h) => `${date}T${h}:00+07:00`;
