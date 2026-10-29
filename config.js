@@ -30,7 +30,8 @@
       STAFF_ID: { placeholder: "รหัสพนักงาน", re: "^[A-Z0-9-]{3,12}$", hint: "ตัวเลข/ตัวอักษร 3–12 ตัว" },
       FLEETS: [["TG", "Thai Airways"]],
       RANKS: [["IM", "In-flight Manager"], ["AP", "Air Purser"], ["FA", "Flight Attendant"]],
-      ROOM_BY: "rank",   // undecided with TG crew: "rank" (IM/AP/FA separate) or "all" (one room)
+      ROOM_BY: "all",    // one room for every rank for now; "rank" = IM/AP/FA rooms later
+      ROOM_NAME: "Economy TG Crew",
       ROSTER_SOURCE: "cabinconnect",
       FEATURES: { tcar: false, swapForm: false, lineFeed: false, briefOps: false, pswm: false, mel: false, pilotDocs: false },
     },

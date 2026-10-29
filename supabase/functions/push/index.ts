@@ -160,8 +160,8 @@ function absT(date: string, hhmm: string, st: string, dayOff = 0) {
 }
 const fmtL = (ms: number, st: string) => { const d = new Date(ms + offAt(st, ms) * 60000); return String(d.getUTCHours()).padStart(2, "0") + ":" + String(d.getUTCMinutes()).padStart(2, "0"); };
 const DEF = { base: "BKK", commute: 45, prep: 45, hotel: 75, snooze: 5, buffer: 15 };
-// swap-board rooms: TVJ = same fleet and Captain vs First Officer; TG = same rank (change here if TG crew prefer one room)
-const ROOM_BY: Record<string, string> = { TVJ: "fleet+rank", TG: "rank" };
+// swap-board rooms: TVJ = same fleet and Captain vs First Officer; TG = one room "Economy TG Crew" for every rank (set "rank" to split)
+const ROOM_BY: Record<string, string> = { TVJ: "fleet+rank", TG: "all" };
 function sameRoom(a: any, b: any) {
   const air = airOf(a);
   if (air !== airOf(b)) return false;
