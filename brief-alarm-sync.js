@@ -1,7 +1,7 @@
 // Crew Brief: "ปลุกอัตโนมัติบน iPhone" card (ตั้งเวลา tab).
 // Makes a personal link that the Shortcut "CoolCrew Alarm Sync" reads twice a day to set iPhone alarms.
 (() => {
-  const FEED = "https://devbnbshwsibjupesywi.supabase.co/functions/v1/alarm-feed?t=";
+  const FEED = (window.FO_CONFIG?.SUPABASE_URL || "https://devbnbshwsibjupesywi.supabase.co") + "/functions/v1/alarm-feed?t=";
   // iCloud link of the ready-made "CoolCrew Alarm Sync" (asks for the personal link on install). Empty = use the Describe-a-shortcut path only.
   const SC_LINK = "";
   const H = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);

@@ -40,7 +40,7 @@
       const notes = [
         `Report ${d.report} ${st}${d.release ? ` · Release ${d.release} ${to}` : ""}`,
         b.wakeAbs ? `Wake ${local(b.wakeAbs, b.away ? st : base).hm}` : "",
-        ...(d.sectors || []).map((x) => `${x.flt ? "VZ" + x.flt + " " : ""}${x.dep || ""} ${x.std || ""} > ${x.arr || ""} ${x.sta || ""}`.replace(/\s+/g, " ").trim()),
+        ...(d.sectors || []).map((x) => `${x.flt ? (window.FO_CONFIG?.FLIGHT_PREFIX || "VZ") + x.flt + " " : ""}${x.dep || ""} ${x.std || ""} > ${x.arr || ""} ${x.sta || ""}`.replace(/\s+/g, " ").trim()),
         "CoolCrew",
       ].filter(Boolean).join("\n");
       ev.push({ t: `${ic} ${d.code || d.type}${route && route !== st ? " " + route : ""} · R ${d.report}`, s: isoAt(b.repAbs, st), e: isoAt(end, to), n: notes });
@@ -74,7 +74,7 @@
 
   /* ---------- Google Calendar (Android / anyone): Sign in with Google, then the page writes the events itself ----------
      Scope calendar.app.created: the app can only see and change calendars it created (the "CoolCrew" calendar). */
-  const GCLIENT = window.CC_GOOGLE_CLIENT_ID || "152625331284-e0v1k98e3r4i4kiiafeeq6skkr8ol16a.apps.googleusercontent.com";   // OAuth client "CoolCrew Calendar" (project crew-brief), public id
+  const GCLIENT = window.CC_GOOGLE_CLIENT_ID || window.FO_CONFIG?.GOOGLE_CAL_CLIENT || "152625331284-e0v1k98e3r4i4kiiafeeq6skkr8ol16a.apps.googleusercontent.com";   // OAuth client "CoolCrew Calendar" (project crew-brief), public id
   const GSCOPE = "https://www.googleapis.com/auth/calendar.app.created";
   const LS_GID = "cb_gcal_id", LS_GSYNC = "cb_gcal_sync";
   let gTok = null, gTokExp = 0, gClient = null, gBusy = false, gMsg = "";
@@ -98,7 +98,7 @@
       if (gTok && Date.now() < gTokExp - 60000) return res(gTok);
       gInit(); if (!gClient) return rej(new Error("โหลดระบบ Google ไม่ทัน ลองกดอีกครั้ง"));
       gClient.callback = (t) => { if (t?.error || !t?.access_token) return rej(new Error(t?.error_description || t?.error || "ยกเลิกการเข้าสู่ระบบ")); gTok = t.access_token; gTokExp = Date.now() + (+t.expires_in || 3000) * 1000; res(gTok); };
-      gClient.error_callback = (e) => rej(new Error(e?.type === "popup_closed" ? "ปิดหน้าต่าง Google ก่อนเสร็จ · กดใหม่ได้เลย" : e?.type === "popup_failed_to_open" ? "เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ Google · อนุญาต pop-up ของ coolcrew.web.app แล้วกดใหม่" : e?.message || "เข้าสู่ระบบไม่สำเร็จ"));
+      gClient.error_callback = (e) => rej(new Error(e?.type === "popup_closed" ? "ปิดหน้าต่าง Google ก่อนเสร็จ · กดใหม่ได้เลย" : e?.type === "popup_failed_to_open" ? "เบราว์เซอร์บล็อกหน้าต่างเข้าสู่ระบบ Google · อนุญาต pop-up ของ " + location.host + " แล้วกดใหม่" : e?.message || "เข้าสู่ระบบไม่สำเร็จ"));
       gClient.requestAccessToken({ prompt: gTok ? "" : "" });
     });
   }

@@ -9,8 +9,15 @@ SRC=$(cd "$(dirname "$0")/.." && pwd)
 rm -rf "$OUT" && mkdir -p "$OUT/public"
 cp "$SRC"/*.html "$SRC"/*.js "$OUT/public/"
 cp "$SRC"/*.png "$SRC"/*.webmanifest "$OUT/public/" 2>/dev/null || true
-# installable app: manifest + icons on every page
-for f in "$OUT"/public/*.html; do grep -q "manifest.webmanifest" "$f" || sed -i 's#</head>#<link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="CoolCrew"><meta name="theme-color" content="\#1b1e2b"></head>#' "$f"; done
+# per-site overlay (icons, manifest, ...) and settings: sites/<SITE>/ (TG = tgcrew); coolcrew uses the repo root files
+APP_TITLE="CoolCrew"; THEME="#1b1e2b"; SW_CACHE="coolcrew-v1"
+if [ -d "$SRC/sites/$SITE" ]; then
+  find "$SRC/sites/$SITE" -maxdepth 1 -type f ! -name site.env -exec cp {} "$OUT/public/" \;
+  [ -f "$SRC/sites/$SITE/site.env" ] && . "$SRC/sites/$SITE/site.env"
+fi
+sed -i "s#const CACHE=\"coolcrew-v1\"#const CACHE=\"$SW_CACHE\"#" "$OUT/public/sw.js"
+# installable app: manifest + icons on every page (scan.html has its own manifest)
+for f in "$OUT"/public/*.html; do [ "$(basename "$f")" = scan.html ] && continue; grep -q 'href="manifest.webmanifest"' "$f" || sed -i "s|</head>|<link rel=\"manifest\" href=\"manifest.webmanifest\"><link rel=\"apple-touch-icon\" href=\"apple-touch-icon.png\"><meta name=\"apple-mobile-web-app-capable\" content=\"yes\"><meta name=\"apple-mobile-web-app-title\" content=\"$APP_TITLE\"><meta name=\"theme-color\" content=\"$THEME\"></head>|" "$f"; done
 # donate + feedback buttons on every page (not the scanner: they cover its crop screen)
 for f in "$OUT"/public/*.html; do [ "$(basename "$f")" = scan.html ] && continue; grep -q 'src="extras.js"' "$f" || sed -i 's#</body>#<script src="extras.js" defer></script></body>#' "$f"; done
 cat > "$OUT/firebase.json" <<JSON

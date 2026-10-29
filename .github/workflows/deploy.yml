@@ -8,14 +8,20 @@ on:
 permissions:
   contents: read
   id-token: write
-concurrency: deploy
 env:
   PROJECT: crew-brief
-  SITE: coolcrew
   # Printed by tools/setup-auto-deploy.sh. Deploys are skipped until it is filled in.
   PROJECT_NUMBER: "152625331284"
 jobs:
   deploy:
+    # one code base, one Firebase site per airline (config.js picks the airline by hostname)
+    strategy:
+      fail-fast: false
+      matrix:
+        site: [coolcrew, tgcrew]
+    concurrency: deploy-${{ matrix.site }}
+    env:
+      SITE: ${{ matrix.site }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -43,9 +49,15 @@ jobs:
         with:
           node-version: 20
       - if: steps.setup.outputs.ready == 'true'
-        run: bash tools/build-hosting.sh "$RUNNER_TEMP/fbdeploy" "$SITE"
+        run: bash tools/build-hosting.sh "$RUNNER_TEMP/fbdeploy-$SITE" "$SITE"
       - if: steps.setup.outputs.ready == 'true'
-        working-directory: ${{ runner.temp }}/fbdeploy
+        name: create the hosting site if it does not exist yet
+        working-directory: ${{ runner.temp }}/fbdeploy-${{ matrix.site }}
+        run: |
+          npx --yes firebase-tools@13.29.1 hosting:sites:get "$SITE" --project "$PROJECT" >/dev/null 2>&1 \
+            || npx --yes firebase-tools@13.29.1 hosting:sites:create "$SITE" --project "$PROJECT" --non-interactive
+      - if: steps.setup.outputs.ready == 'true'
+        working-directory: ${{ runner.temp }}/fbdeploy-${{ matrix.site }}
         run: npx --yes firebase-tools@13.29.1 deploy --only hosting --project "$PROJECT" --non-interactive
       - if: steps.setup.outputs.ready == 'true'
         run: echo "::notice::Deployed https://$SITE.web.app"
