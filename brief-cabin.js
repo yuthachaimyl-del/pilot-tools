@@ -70,6 +70,17 @@ Do not include names, staff numbers, crew lists or anything about other people. 
     return { ...parsed, duties: out };
   };
 
+  // an account from another airline (the owner's pilot account) only gets the admin page here, not the roster tools
+  document.addEventListener("DOMContentLoaded", async () => {
+    try {
+      if (!window.SB) return;
+      const { data: { session } } = await window.SB.auth.getSession();
+      if (!session) return;
+      const { data: p } = await window.SB.from("profiles").select("*").eq("id", session.user.id).single();
+      if (p && (p.airline || "TVJ") !== C.AIRLINE) location.replace("index.html#stats");
+    } catch (e) { /* stay */ }
+  });
+
   // pilot-only parts of the page
   const css = document.createElement("style");
   css.textContent = `#p-brief,#p-fit,#goBrief,#e_omc,#e_omcDate,#e_omcList,#e_omcLoad,#e_omcMsg,[data-guide="roster"]{display:none!important}`;
