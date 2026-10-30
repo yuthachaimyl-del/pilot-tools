@@ -132,6 +132,7 @@ const esc_=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 function sync(){
   try{menuLine()}catch{}
   if(exited||!ready())return;
+  if(window.__ccOwnerOnly){if(entered){exited=true;sec&&(sec.hidden=true);document.body.classList.remove("wl")}return}   // owner on the other airline's site: admin page only
   const n=myDays().length;
   if(n>0){
     if(entered){exit("roster");note(n)}
