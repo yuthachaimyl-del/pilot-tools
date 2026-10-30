@@ -25,7 +25,7 @@
     },
     TG: {
       AIRLINE: "TG", AIRLINE_NAME: "Thai Airways", SITE_URL: "https://tgcrew.web.app", LAUNCHED: false,
-      BRAND: { app: "CoolCrew TG", tools: "Cabin Tools", board: "Cabin Swap Board", boardSub: "หาคู่แลกตารางบิน ลูกเรือการบินไทย", brief: "Crew Roster", who: "ลูกเรือ", group: "กลุ่มลูกเรือการบินไทย" },
+      BRAND: { app: "CoolCrew TG", tools: "Economy TG Crew", board: "Cabin Swap Board", boardSub: "หาคู่แลกตารางบิน ลูกเรือการบินไทย", brief: "Crew Roster", who: "ลูกเรือ", group: "กลุ่มลูกเรือการบินไทย" },
       FLIGHT_PREFIX: "TG",
       STAFF_ID: { placeholder: "รหัสพนักงาน", re: "^[A-Z0-9-]{3,12}$", hint: "ตัวเลข/ตัวอักษร 3–12 ตัว" },
       FLEETS: [["TG", "Thai Airways"]],
