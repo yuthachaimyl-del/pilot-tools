@@ -53,10 +53,12 @@ a.go{display:inline-block;background:var(--green);color:#fff;text-decoration:non
 .ph .menu div{padding:7px 8px;border-radius:8px}
 footer{color:var(--muted);font-size:.85rem;text-align:center;margin-top:24px}
 @media print{.os,.toc{display:none}.card{break-inside:avoid}body[data-os] .ios,body[data-os] .android{display:block!important}}
+.gback{position:sticky;top:0;z-index:5;display:inline-block;margin:0 0 6px;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--ink);font-weight:600;text-decoration:none;box-shadow:0 2px 8px #0002}
 </style>
 </head>
 <body data-os="ios">
 <main>
+<a class="gback" href="./" onclick="if(document.referrer&&new URL(document.referrer).origin===location.origin&&history.length>1){history.back();return false}">‹ กลับไปแอป</a>
 <h1>วิธีใช้ CoolCrew</h1>
 <p class="lead">สำหรับนักบิน TVJ ที่เพิ่งเริ่มใช้ · ทำตามทีละข้อ ตั้งค่าครั้งเดียวใช้ได้ตลอด · รูปในหน้านี้เป็นภาพจำลอง วงสีส้มคือจุดที่ต้องแตะ</p>
 
