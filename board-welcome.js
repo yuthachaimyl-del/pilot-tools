@@ -72,6 +72,7 @@ function enter(){
   if(entered)return;entered=true;
   mount();sec.innerHTML=SCREEN;sec.hidden=false;document.body.classList.add("wl");
   try{const g=window.CB_GUIDE&&window.CB_GUIDE.roster;g&&$("#wlEx").insertAdjacentHTML("beforeend",g)}catch{}
+  window.ccWelcomeCabin&&window.ccWelcomeCabin(sec);
   $("#wlSkip").onclick=e=>{e.preventDefault();exit("board")};
   $("#wlManual").onclick=e=>{e.preventDefault();exit("roster");setTimeout(()=>{fold(true);$("#addRowBtn")?.click()},50)};
   try{window.scrollTo(0,0)}catch{}

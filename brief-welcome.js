@@ -79,6 +79,7 @@ function enter(){
   }
   if(fromBoard){const h=sec.querySelector(".wl-h"),su=$("wlSub");h&&(h.textContent="ใส่ roster ครั้งเดียว ใช้ได้ทั้งบอร์ดแลกและ Crew Brief");su&&(su.textContent="อ่านเสร็จกด กลับไปบอร์ด ได้เลย · บอร์ดจะรู้ว่าคุณบินวันไหน ว่างวันไหน และ Crew Brief เตรียมเวลาปลุก brief FDP ให้จากตารางเดียวกัน")}
   try{const g=window.CB_GUIDE&&window.CB_GUIDE.roster;g&&$("wlEx").insertAdjacentHTML("beforeend",g)}catch{}
+  window.ccWelcomeCabin&&window.ccWelcomeCabin(sec);
   $("wlSample").onclick=e=>{e.preventDefault();const b=$("loadSample");b?b.click():exit("next")};
   $("wlManual").onclick=e=>{e.preventDefault();exit("roster");setTimeout(()=>{$("addManual")?.click();$("editCard")?.scrollIntoView({behavior:"smooth",block:"start"})},50)};
   try{window.scrollTo(0,0)}catch{}

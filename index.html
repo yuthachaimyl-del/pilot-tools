@@ -477,6 +477,7 @@ Never invent names.`;$("#crewBtn").disabled=!0,a("\u0E01\u0E33\u0E25\u0E31\u0E07
 ${s.length>1?`<div class="gd-tabs">${s.map(t=>`<button type="button" data-k="${t}">${t==="roster"?"Roster (merlot)":"Flight Detail (\u0E25\u0E39\u0E01\u0E40\u0E23\u0E37\u0E2D)"}</button>`).join("")}</div>`:""}
 <div class="gd-body" style="display:flex;flex-direction:column;gap:12px"></div></div>`;const e=t=>{d.querySelector(".gd-body").innerHTML=i[t],d.querySelectorAll(".gd-tabs button").forEach(a=>a.setAttribute("aria-pressed",a.dataset.k===t))};d.addEventListener("click",t=>{(t.target===d||t.target.closest(".gd-x"))&&d.remove();const a=t.target.closest(".gd-tabs button");a&&e(a.dataset.k)}),document.addEventListener("keydown",function t(a){a.key==="Escape"&&(d.remove(),document.removeEventListener("keydown",t))}),document.body.appendChild(d),e(l)}document.addEventListener("click",l=>{const s=l.target.closest("[data-guide]");s&&(l.preventDefault(),n(s.dataset.guide))})})();
 </script>
+<script src="cabin-guide.js"></script>
 <script src="board-welcome.js" defer></script>
 </body>
 </html>
