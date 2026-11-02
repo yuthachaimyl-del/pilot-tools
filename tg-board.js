@@ -32,7 +32,9 @@
   window.ccAcTag = (p) => {
     const t = typeOf(p), u = lineUrl(p);
     const ac = t ? `<span class="pill ac">${TYPES.find((x) => x[0] === t)[1]}</span>` : '<span class="pill ac unk">ไม่ระบุแบบเครื่อง</span>';
-    return ac + (u ? `<a class="pill line" href="${u.replace(/"/g, "&quot;")}" target="_blank" rel="noopener">💬 ทักไลน์</a>` : "");
+    const pic = /^tg\/[0-9a-f]{16,64}\.jpg$/.test(String(p?.pic || "")) ? p.pic : "";
+    return ac + (u ? `<a class="pill line" href="${u.replace(/"/g, "&quot;")}" target="_blank" rel="noopener">💬 ทักไลน์</a>` : "")
+      + (pic ? `<button type="button" class="pill pic" data-tgpic="${pic}">🖼 ดูรูป</button>` : "");
   };
 
   function bar() {
@@ -73,8 +75,21 @@
 .acbar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0 10px;font-size:13px}
 .acbar label{display:inline-flex;gap:4px;align-items:center;white-space:nowrap}
 .acbar .small{flex-basis:100%;font-size:11.5px}
-.pill.ac{background:#e8eefc;color:#1d3f8f}.pill.line{background:#06c755;color:#fff;text-decoration:none}.pill.ac.unk{background:#f1f1f1;color:#777}`;
+.pill.ac{background:#e8eefc;color:#1d3f8f}.pill.line{background:#06c755;color:#fff;text-decoration:none}.pill.pic{background:#fff3d6;color:#7a5200;border:0;cursor:pointer;font:inherit}.pill.ac.unk{background:#f1f1f1;color:#777}`;
   document.head.appendChild(css);
+
+  // the original LINE picture: a short-lived signed link (private bucket, TG members only)
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest && e.target.closest("[data-tgpic]");
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    const w = window.open("", "_blank");
+    try {
+      const { data, error } = await window.SB.storage.from("tg-pics").createSignedUrl(b.dataset.tgpic, 600);
+      if (error || !data?.signedUrl) throw error || new Error("no url");
+      if (w) w.location.href = data.signedUrl; else location.href = data.signedUrl;
+    } catch (err) { if (w) w.close(); alert("เปิดรูปไม่ได้ (รูปอาจถูกลบแล้วเพราะเลยวันไปแล้ว)"); }
+  }, true);
 
   function start() {
     bar();

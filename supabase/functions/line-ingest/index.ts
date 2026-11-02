@@ -1,4 +1,4 @@
-// Supabase Edge Function: line-ingest (v13)
+// Supabase Edge Function: line-ingest (v14)
 // Receives flights from the CoolCrew LINE bot (Google Apps Script):
 //   - "Flight Detail" screens: one flight with its CPT/FO
 //   - "Duty" screens: every flight of a duty, without crew
@@ -299,6 +299,9 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
   const offers = (Array.isArray(body.offers) ? body.offers : []).slice(0, TG_MAX_OFFERS).map(cleanOffer).filter(Boolean) as TgOffer[];
   const today = new Date(Date.now() + 7 * 36e5).toISOString().slice(0, 10);   // Bangkok date
   const done: Record<string, string>[] = [];
+  // the original picture (QR code, notes on it): stored once per picture while it has a post still ahead
+  const pic = offers.some((o) => o.date >= today) ? await tgSavePic(db, body) : "";
+  if (Math.random() < 0.05) await tgCleanPics(db, today);
   for (const o of offers) {
     if (o.date < today) continue;
     const detail = o.flights.length
@@ -313,7 +316,8 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
     ].filter(Boolean).join(" · ").slice(0, 300);
     const fields: Record<string, string> = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
     if (o.ac) fields.ac_type = o.ac;
-    if (contact) fields.contact = contact;   // aircraft type when the picture shows it (Cabin Connect "789"); unknown stays null
+    if (contact) fields.contact = contact;
+    if (pic) fields.pic = pic;   // aircraft type when the picture shows it (Cabin Connect "789"); unknown stays null
     let q = db.from("posts").select("id,status").eq("author", author).eq("kind", "give").eq("date", o.date).eq("code", o.code);
     q = from ? q.eq("line_from", from) : q.is("line_from", null);
     const { data: existing } = await q.limit(1).maybeSingle();
@@ -338,4 +342,29 @@ async function tgCheck(db: SupabaseClient, body: Record<string, unknown>) {
   const { data } = await db.from("posts").select("date,code,detail,report,release,status,note")
     .eq("author", author).eq("line_from", body.from as string).gte("date", today).order("date").limit(20);
   return { ok: true, posts: data ?? [] };
+}
+
+/** Upload the picture (base64 jpeg, up to ~4 MB) to the private bucket tg-pics; returns its path or "". */
+async function tgSavePic(db: SupabaseClient, body: Record<string, unknown>) {
+  const b64 = typeof body.image === "string" ? body.image.replace(/^data:[^,]*,/, "").replace(/\s+/g, "") : "";
+  if (!isHex(body.fp) || b64.length < 1000 || b64.length > 6e6) return "";
+  try {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const path = "tg/" + (body.fp as string) + ".jpg";
+    const { error } = await db.storage.from("tg-pics").upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+    if (error) { console.error("pic", error); return ""; }
+    return path;
+  } catch (e) { console.error("pic", e); return ""; }
+}
+
+/** Remove pictures whose posts are all in the past (and clear posts.pic). */
+async function tgCleanPics(db: SupabaseClient, today: string) {
+  const { data } = await db.from("posts").select("pic,date").not("pic", "is", null).limit(2000);
+  const last = new Map<string, string>();
+  for (const r of (data ?? []) as { pic: string; date: string }[]) if (!last.has(r.pic) || r.date > last.get(r.pic)!) last.set(r.pic, r.date);
+  const old = [...last].filter(([, d]) => d < today).map(([p]) => p).slice(0, 100);
+  if (!old.length) return;
+  const { error } = await db.storage.from("tg-pics").remove(old);
+  if (error) { console.error("clean", error); return; }
+  await db.from("posts").update({ pic: null }).in("pic", old);
 }
