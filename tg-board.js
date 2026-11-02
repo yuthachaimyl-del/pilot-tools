@@ -75,8 +75,8 @@
     const mine = ppbOf(m.code);
     if (mine.pay == null) return `<span class="pill pay">💰 ${baht(g.pay)} · ไฟลต์คุณ ${String(m.code).replace(/[<>&"]/g, "")} ไม่มีในตาราง</span>`;
     const diff = g.pay - mine.pay, t = `ไฟลต์นี้ ${baht(g.pay)} · ของคุณ ${baht(mine.pay)}`;
-    return diff > 0 ? `<span class="pill pay add" title="${t}">💸 ${t} → คุณจ่ายเพิ่ม ${baht(diff)}</span>`
-      : diff < 0 ? `<span class="pill pay get" title="${t}">💰 ${t} → คุณได้รับ ${baht(-diff)}</span>`
+    return diff > 0 ? `<span class="pill pay get" title="${t}">💰 ${t} → คุณได้เพิ่ม ${baht(diff)}</span>`
+      : diff < 0 ? `<span class="pill pay add" title="${t}">💸 ${t} → คุณเสียเปรียบ ${baht(-diff)}</span>`
       : `<span class="pill pay" title="${t}">💰 ${t} → เท่ากัน</span>`;
   }
   window.ccPayTag = payTag;
