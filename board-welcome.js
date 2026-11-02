@@ -132,6 +132,8 @@ const esc_=v=>String(v??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 function sync(){
   try{menuLine()}catch{}
   if(exited||!ready())return;
+  if(location.hash==="#stats"){if(entered&&sec&&!sec.hidden){sec.hidden=true;document.body.classList.remove("wl")}return}   // admin page wins over the first-run card
+  if(entered&&sec&&sec.hidden&&myDays().length===0){sec.hidden=false;document.body.classList.add("wl")}
   if(window.__ccOwnerOnly){if(entered){exited=true;sec&&(sec.hidden=true);document.body.classList.remove("wl")}return}   // owner on the other airline's site: admin page only
   const n=myDays().length;
   if(n>0){
@@ -142,6 +144,6 @@ function sync(){
   enter();
 }
 if(typeof window.render=="function"){const r=window.render;window.render=function(){const x=r.apply(this,arguments);try{sync()}catch{}return x};window.FORENDER=window.render}
-const boot=()=>{try{styles();layoutUpload()}catch{}try{sync()}catch{}const mt=setInterval(()=>{try{menuLine();const s=S();if(s&&s.me&&(s.rostersLoaded||menuDays))clearInterval(mt)}catch{}},800);window.addEventListener("hashchange",()=>setTimeout(()=>{try{menuLine()}catch{}},100))};
+const boot=()=>{try{styles();layoutUpload()}catch{}try{sync()}catch{}const mt=setInterval(()=>{try{menuLine();const s=S();if(s&&s.me&&(s.rostersLoaded||menuDays))clearInterval(mt)}catch{}},800);window.addEventListener("hashchange",()=>setTimeout(()=>{try{menuLine()}catch{}try{sync()}catch{}},100))};
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",boot):boot();
 })();
