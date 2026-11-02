@@ -11,7 +11,7 @@
 
   window.PROMPT_CABIN = `You are reading screenshots of the Thai Airways cabin crew app "Cabin Connect", screen "Roster". Each image is one whole phone screenshot (ignore any note below about slices).
 A screenshot shows (1) a month calendar grid, often scrolled so only some weeks are visible, with a header "MM-YYYY" or "DD-MM-YYYY" (day-month-year), and often (2) the details of the selected day below the legend "Normal / Delay / Cancel".
-CALENDAR GRID: under each day number there are 0, 1 or 2 chips. Green "OFF" = day off. Purple digits (e.g. "245") = Thai Airways flight TG245. No chip = no duty that day (layover or rest): output nothing for it. Grey day numbers belong to the previous or next month: ignore them.
+CALENDAR GRID: under each day number there are 0, 1 or 2 chips. Green "OFF" = day off. Purple digits (e.g. "245") = Thai Airways flight TG245. No chip = no duty that day (layover away from base, or rest): output nothing for it; the app works out layovers from the flight numbers. Grey day numbers belong to the previous or next month: ignore them.
 DAY DETAILS: a line "DD-Mon-YYYY" (the selected day); a bold line "DD-Mon HH:MM~DD-Mon HH:MM" = duty start (report, local time at the first departure station) and duty end (release, local time at the last arrival station); then one purple card per flight: "FLY | DEP +offset HH:MML | TGnnn | VIRTUAL-n | aircraft | ARR +offset HH:MML" (a small "+1" after the arrival time means it arrives the next day).
 OUTPUT
 - For every day-details section visible: one duty. "date" = the START date of the bold line (it is the day BEFORE the selected day when the duty began the evening before: selected 14-Nov with "13-Nov 19:55~14-Nov 06:40" gives date 13-Nov). type "FLT"; report and release from the bold line; releaseDayOffset 1 when the end date is after the start date, else 0; sectors from the cards: flt = digits only ("426"), dep, std, arr, sta exactly as printed without the "L" (24 h, "HH:MM"); from = first dep; to = last arr; accom = the last arrival station if it is not BKK, else ""; code = the flight numbers joined with "/" ("245/246"). If the bold line is visible but no flight card is, still output the duty with report/release, code = that day's chip numbers, sectors [].
@@ -23,6 +23,38 @@ Do not include names, staff numbers, crew lists or anything about other people. 
 
   const addDays = (iso, n) => { const [y, m, d] = iso.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, d + n)); return t.toISOString().slice(0, 10); };
   const hm = (s) => { const m = /(\d{1,2}):?(\d{2})/.exec(s || ""); return m ? String(+m[1]).padStart(2, "0") + ":" + m[2] : ""; };
+
+
+  // Multi-day trips. A TG outbound has an odd number and its return the next number (425 → 426). When the outbound has no
+  // return the same day, the crew stays away: the days with no chip until the return are LAYOVERS, not days off.
+  // As with the Merlot pairings, those days (and a return day that shows only the return flight) become "-->",
+  // and the whole trip's numbers go on its first day: day 6 "132/133/425", 7 (nothing), 8 "426" → "132/133/425/426", "-->", "-->".
+  const MAX_TRIP = 6;
+  function linkTrips(out) {
+    const by = new Map(out.map((d) => [d.date, d]));
+    const nums = (d) => String(d.code || "").split("/").map((x) => x.replace(/\D/g, "")).filter(Boolean);
+    const blank = (date) => ({ date, code: "-->", type: "FLT", from: "", to: "", report: "", release: "", releaseDayOffset: 0, accom: "", sectors: [] });
+    for (const d of [...out]) {
+      if (d.type !== "FLT" || d.code === "-->") continue;
+      const f = nums(d), last = f[f.length - 1];
+      if (!last || +last % 2 !== 1) continue;
+      const ret = String(+last + 1).padStart(last.length, "0");
+      if (f.includes(ret)) continue;
+      for (let i = 1; i <= MAX_TRIP; i++) {
+        const x = by.get(addDays(d.date, i));
+        if (!x) continue;                                  // no chip: layover (filled below once the return is found)
+        if (x.type !== "FLT" || x.code === "-->") break;   // OFF before any return: not a trip we can link
+        const xn = nums(x);
+        if (xn[0] !== ret) break;                          // another flight first: leave it as read
+        for (let j = 1; j < i; j++) { const g = addDays(d.date, j); if (!by.has(g)) { const b = blank(g); out.push(b); by.set(g, b); } }
+        if (xn.length === 1 && !hm(x.report)) {            // a return day with only the return chip: part of the trip
+          d.code = [...f, ret].join("/");
+          Object.assign(x, blank(x.date));
+        }
+        break;
+      }
+    }
+  }
 
   window.cabinMerge = function (parsed) {
     if (!parsed || !Array.isArray(parsed.duties)) return parsed;
@@ -66,6 +98,8 @@ Do not include names, staff numbers, crew lists or anything about other people. 
       gridSeen.add(g.date);
       out.push({ date: g.date, code: g.type === "OFF" ? "OFF" : String(g.code || ""), type: g.type === "OFF" ? "OFF" : "FLT", from: "", to: "", report: "", release: "", releaseDayOffset: 0, accom: "", sectors: [] });
     }
+    out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    linkTrips(out);
     out.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
     return { ...parsed, duties: out };
   };

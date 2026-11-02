@@ -54,6 +54,23 @@
   }
   const baht = (n) => "฿" + Math.round(n).toLocaleString("en-US");
   const prevIso = (d) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
+  const nextIso = (d) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); };
+  /** a day with no entry inside a trip (rosters read before trips were linked): outbound odd TGn on an earlier day,
+   *  return TG(n+1) on a later day → that day is a layover of the trip, not a day off */
+  function tripOver(days, date) {
+    const at = (iso) => days.find((y) => y.date === iso);
+    const nums = (x) => String(x?.code || "").split("/").map((v) => v.replace(/\D/g, "")).filter(Boolean);
+    let d = date, start = null;
+    for (let i = 0; i < 6; i++) { d = prevIso(d); const x = at(d); if (!x) continue; if (x.type === "FLT" && x.code !== "-->") start = x; break; }
+    if (!start) return null;
+    const f = nums(start), last = f[f.length - 1];
+    if (!last || +last % 2 !== 1) return null;
+    const ret = String(+last + 1).padStart(last.length, "0");
+    if (f.includes(ret)) return null;
+    d = date;
+    for (let i = 0; i < 6; i++) { d = nextIso(d); const x = at(d); if (!x) continue; return nums(x)[0] === ret ? { ...start, code: [...f, ret].join("/") } : null; }
+    return null;
+  }
   /** my duty on the post's date (a "-->" day is the tail of a trip that started earlier: use that trip) */
   function myDutyOn(date) {
     const S = window.FOSTATE; if (!S || !S.me) return null;
@@ -61,7 +78,7 @@
     if (!days.length || !days.some((y) => y.date >= date) || !days.some((y) => y.date <= date)) return null;   // outside the uploaded roster: unknown, not OFF
     let d = date, x = days.find((y) => y.date === d), k = 0;
     while (x && x.code === "-->" && k++ < 6) { d = prevIso(d); x = days.find((y) => y.date === d); }
-    return x || { date, type: "OFF", code: "" };
+    return x || tripOver(days, date) || { date, type: "OFF", code: "" };
   }
   /** money chip on someone else's give post: their trip's PPB against mine that day */
   function payTag(p) {
