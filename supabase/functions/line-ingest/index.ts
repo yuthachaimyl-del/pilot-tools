@@ -1,4 +1,4 @@
-// Supabase Edge Function: line-ingest (v14)
+// Supabase Edge Function: line-ingest (v15)
 // Receives flights from the CoolCrew LINE bot (Google Apps Script):
 //   - "Flight Detail" screens: one flight with its CPT/FO
 //   - "Duty" screens: every flight of a duty, without crew
@@ -242,7 +242,7 @@ async function upsertGivePost(db: SupabaseClient, author: string, dutyDate: stri
 // ───────────────────────── Thai Airways cabin crew group (v12) ─────────────────────────
 
 const TG_SEEN_DAYS = 7;      // the same picture (or the same roster) within this many days is not read again
-const TG_MAX_OFFERS = 12;    // days one picture may release
+const TG_MAX_OFFERS = 31;    // duties one picture may release (a whole-month roster with no marks = every flight)
 const isHex = (s: unknown) => typeof s === "string" && /^[0-9a-f]{16,64}$/.test(s);
 
 async function botAuthorTG(db: SupabaseClient) {
@@ -267,7 +267,7 @@ async function tgSeen(db: SupabaseClient, body: Record<string, unknown>) {
 }
 
 type TgFlight = { flt: string; dep: string; std: string; arr: string; sta: string };
-type TgOffer = { date: string; code: string; type: string; route: string; report: string; release: string; flights: TgFlight[]; note: string; ac: string };
+type TgOffer = { date: string; until: string; code: string; type: string; route: string; report: string; release: string; flights: TgFlight[]; note: string; ac: string };
 
 function cleanOffer(o: Record<string, unknown>): TgOffer | null {
   if (!o || !isDate(o.date)) return null;
@@ -279,7 +279,9 @@ function cleanOffer(o: Record<string, unknown>): TgOffer | null {
   const code = flights.length ? flights.map((f) => f.flt).join("/") : str(o.code, 20).replace(/[^A-Za-z0-9/ -]/g, "") || (type === "SBY" ? "SBY" : type === "OFF" ? "OFF" : "");
   if (!code) return null;
   return {
-    date: o.date as string, code, type, route: str(o.route, 40).toUpperCase().replace(/[^A-Z-]/g, ""),
+    date: o.date as string, code, type,
+    // multi-day trip (outbound … layover … return): until = the return day, at most 10 days on
+    until: isDate(o.until) && (o.until as string) > (o.date as string) && (o.until as string) <= addDays(o.date as string, 10) ? (o.until as string) : "", route: str(o.route, 40).toUpperCase().replace(/[^A-Z-]/g, ""),
     report: isTime(o.report) ? str(o.report) : "", release: isTime(o.release) ? str(o.release) : "",
     flights, note: str(o.note, 80), ac: str(o.ac, 6).toUpperCase().replace(/[^A-Z0-9]/g, ""),
   };
@@ -316,6 +318,7 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
     ].filter(Boolean).join(" · ").slice(0, 300);
     const fields: Record<string, string> = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
     if (o.ac) fields.ac_type = o.ac;
+    if (o.until) fields.until_date = o.until;
     if (contact) fields.contact = contact;
     if (pic) fields.pic = pic;   // aircraft type when the picture shows it (Cabin Connect "789"); unknown stays null
     let q = db.from("posts").select("id,status").eq("author", author).eq("kind", "give").eq("date", o.date).eq("code", o.code);
