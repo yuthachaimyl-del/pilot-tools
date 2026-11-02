@@ -33,7 +33,7 @@
       ROOM_BY: "all",    // one room for every rank for now; "rank" = IM/AP/FA rooms later
       ROOM_NAME: "Economy TG Crew",
       ROSTER_SOURCE: "cabinconnect",
-      FEATURES: { tcar: false, swapForm: false, lineFeed: false, briefOps: false, pswm: false, mel: false, pilotDocs: false },
+      FEATURES: { tcar: true, swapForm: false, lineFeed: false, briefOps: false, pswm: false, mel: false, pilotDocs: false },
     },
   };
   const HOSTS = { "coolcrew.web.app": "TVJ", "coolcrew.firebaseapp.com": "TVJ", "tgcrew.web.app": "TG", "tgcrew.firebaseapp.com": "TG" };
@@ -80,9 +80,12 @@
       document.querySelectorAll("[data-t-" + id + "]").forEach((el) => { el.textContent = el.getAttribute("data-t-" + id); });
       window.FO_CONFIG.buildProfileForm();
       // pilot-only board parts (TCAR check, company swap form, Merlot screenshot guides) on sites that switch them off
-      if (window.FO_CONFIG.FEATURES && window.FO_CONFIG.FEATURES.tcar === false && !document.getElementById("ccHidePilot")) {
+      const F = window.FO_CONFIG.FEATURES || {};
+      const hide = [F.tcar === false && '[data-act="chk"],.post .chk', F.swapForm === false && '.formbox',
+        window.FO_CONFIG.ROSTER_SOURCE !== "merlot" && '[data-guide]'].filter(Boolean).join(",");
+      if (hide && !document.getElementById("ccHidePilot")) {
         const st = document.createElement("style"); st.id = "ccHidePilot";
-        st.textContent = '[data-act="chk"],.post .chk,.formbox,[data-guide]{display:none!important}';
+        st.textContent = hide + '{display:none!important}';
         document.head.appendChild(st);
       }
       let preview = false;

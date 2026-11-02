@@ -1,4 +1,4 @@
-// Supabase Edge Function: line-ingest (v12)
+// Supabase Edge Function: line-ingest (v13)
 // Receives flights from the CoolCrew LINE bot (Google Apps Script):
 //   - "Flight Detail" screens: one flight with its CPT/FO
 //   - "Duty" screens: every flight of a duty, without crew
@@ -267,7 +267,7 @@ async function tgSeen(db: SupabaseClient, body: Record<string, unknown>) {
 }
 
 type TgFlight = { flt: string; dep: string; std: string; arr: string; sta: string };
-type TgOffer = { date: string; code: string; type: string; route: string; report: string; release: string; flights: TgFlight[]; note: string };
+type TgOffer = { date: string; code: string; type: string; route: string; report: string; release: string; flights: TgFlight[]; note: string; ac: string };
 
 function cleanOffer(o: Record<string, unknown>): TgOffer | null {
   if (!o || !isDate(o.date)) return null;
@@ -281,7 +281,7 @@ function cleanOffer(o: Record<string, unknown>): TgOffer | null {
   return {
     date: o.date as string, code, type, route: str(o.route, 40).toUpperCase().replace(/[^A-Z-]/g, ""),
     report: isTime(o.report) ? str(o.report) : "", release: isTime(o.release) ? str(o.release) : "",
-    flights, note: str(o.note, 80),
+    flights, note: str(o.note, 80), ac: str(o.ac, 6).toUpperCase().replace(/[^A-Z0-9]/g, ""),
   };
 }
 
@@ -307,7 +307,8 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
       avoid && "❌ " + avoid,
       "ติดต่อในกลุ่ม LINE",
     ].filter(Boolean).join(" · ").slice(0, 300);
-    const fields = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
+    const fields: Record<string, string> = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
+    if (o.ac) fields.ac_type = o.ac;   // aircraft type when the picture shows it (Cabin Connect "789"); unknown stays null
     let q = db.from("posts").select("id,status").eq("author", author).eq("kind", "give").eq("date", o.date).eq("code", o.code);
     q = from ? q.eq("line_from", from) : q.is("line_from", null);
     const { data: existing } = await q.limit(1).maybeSingle();
