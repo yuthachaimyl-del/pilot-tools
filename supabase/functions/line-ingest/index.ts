@@ -292,6 +292,10 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
   const from = isHex(body.from) ? (body.from as string) : "";
   const name = str(body.name, 40).replace(/[<>]/g, "");
   const wants = str(body.wants, 120), avoid = str(body.avoid, 80);
+  // LINE link of the poster: the QR code's URL (line.me / lin.ee only) or a LINE ID written on the picture
+  const qr = str(body.qr, 200), lid = str(body.line_id, 40).replace(/^@?\s*/, "");
+  const contact = /^https:\/\/(line\.me|lin\.ee)\/[\w\/~@.%?=&+-]+$/i.test(qr) ? qr
+    : /^[A-Za-z0-9._-]{3,30}$/.test(lid) ? "https://line.me/R/ti/p/~" + encodeURIComponent(lid) : "";
   const offers = (Array.isArray(body.offers) ? body.offers : []).slice(0, TG_MAX_OFFERS).map(cleanOffer).filter(Boolean) as TgOffer[];
   const today = new Date(Date.now() + 7 * 36e5).toISOString().slice(0, 10);   // Bangkok date
   const done: Record<string, string>[] = [];
@@ -305,10 +309,11 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
       o.note,
       wants && "ขอ: " + wants,
       avoid && "❌ " + avoid,
-      "ติดต่อในกลุ่ม LINE",
+      contact ? "" : "ติดต่อในกลุ่ม LINE",
     ].filter(Boolean).join(" · ").slice(0, 300);
     const fields: Record<string, string> = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
-    if (o.ac) fields.ac_type = o.ac;   // aircraft type when the picture shows it (Cabin Connect "789"); unknown stays null
+    if (o.ac) fields.ac_type = o.ac;
+    if (contact) fields.contact = contact;   // aircraft type when the picture shows it (Cabin Connect "789"); unknown stays null
     let q = db.from("posts").select("id,status").eq("author", author).eq("kind", "give").eq("date", o.date).eq("code", o.code);
     q = from ? q.eq("line_from", from) : q.is("line_from", null);
     const { data: existing } = await q.limit(1).maybeSingle();

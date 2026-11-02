@@ -28,10 +28,11 @@
     return t ? t[0] : null;
   };
   window.ccPostFilter = (p) => { if (!mine || !mine.length) return true; const t = typeOf(p); return !t || mine.includes(t); };
+  const lineUrl = (p) => { const u = String(p?.contact || ""); return /^https:\/\/(line\.me|lin\.ee)\/[\w\/~@.%?=&+-]+$/i.test(u) ? u : ""; };
   window.ccAcTag = (p) => {
-    const t = typeOf(p);
-    if (t) return `<span class="pill ac">${TYPES.find((x) => x[0] === t)[1]}</span>`;
-    return '<span class="pill ac unk">ไม่ระบุแบบเครื่อง</span>';
+    const t = typeOf(p), u = lineUrl(p);
+    const ac = t ? `<span class="pill ac">${TYPES.find((x) => x[0] === t)[1]}</span>` : '<span class="pill ac unk">ไม่ระบุแบบเครื่อง</span>';
+    return ac + (u ? `<a class="pill line" href="${u.replace(/"/g, "&quot;")}" target="_blank" rel="noopener">💬 ทักไลน์</a>` : "");
   };
 
   function bar() {
@@ -72,7 +73,7 @@
 .acbar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0 10px;font-size:13px}
 .acbar label{display:inline-flex;gap:4px;align-items:center;white-space:nowrap}
 .acbar .small{flex-basis:100%;font-size:11.5px}
-.pill.ac{background:#e8eefc;color:#1d3f8f}.pill.ac.unk{background:#f1f1f1;color:#777}`;
+.pill.ac{background:#e8eefc;color:#1d3f8f}.pill.line{background:#06c755;color:#fff;text-decoration:none}.pill.ac.unk{background:#f1f1f1;color:#777}`;
   document.head.appendChild(css);
 
   function start() {
