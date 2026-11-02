@@ -1,4 +1,4 @@
-// Supabase Edge Function: line-ingest (v15)
+// Supabase Edge Function: line-ingest (v16)
 // Receives flights from the CoolCrew LINE bot (Google Apps Script):
 //   - "Flight Detail" screens: one flight with its CPT/FO
 //   - "Duty" screens: every flight of a duty, without crew
@@ -287,7 +287,31 @@ function cleanOffer(o: Record<string, unknown>): TgOffer | null {
   };
 }
 
-/** tg_post {fp, from, name, offers[], wants, avoid}: one open give post per released day of this sender. */
+/**
+ * The poster's own schedule as the picture shows it (every visible day, offered or not), stored on each post as
+ * giver_days so the board can check whether the poster can take the viewer's duty back without a clash.
+ * "LAY" (a day inside a trip, away from base) becomes a "-->" continuation day like the Merlot pairings.
+ */
+function cleanRoster(body: Record<string, unknown>) {
+  const out: Record<string, string>[] = [];
+  const seen = new Set<string>();
+  for (const d of (Array.isArray(body.roster) ? body.roster : []).slice(0, 45) as Record<string, unknown>[]) {
+    if (!d || !isDate(d.date) || seen.has(d.date as string)) continue;
+    const t = String(d.type || "").toUpperCase();
+    if (!["FLT", "SBY", "OFF", "LAY", "LVE", "OTH"].includes(t)) continue;
+    seen.add(d.date as string);
+    const lay = t === "LAY";
+    out.push({
+      date: d.date as string, type: lay ? "FLT" : t,
+      code: lay ? "-->" : t === "OFF" ? "" : str(d.code, 30).replace(/[^A-Za-z0-9/ -]/g, ""),
+      route: str(d.route, 40).toUpperCase().replace(/[^A-Z-]/g, ""),
+      report: isTime(d.report) ? str(d.report) : "", release: isTime(d.release) ? str(d.release) : "",
+    });
+  }
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** tg_post {fp, from, name, offers[], wants, avoid, roster[]}: one open give post per released day of this sender. */
 async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
   const author = await botAuthorTG(db);
   if (!author) return { error: "no_tg_bot" };
@@ -299,6 +323,7 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
   const contact = /^https:\/\/(line\.me|lin\.ee)\/[\w\/~@.%?=&+-]+$/i.test(qr) ? qr
     : /^[A-Za-z0-9._-]{3,30}$/.test(lid) ? "https://line.me/R/ti/p/~" + encodeURIComponent(lid) : "";
   const offers = (Array.isArray(body.offers) ? body.offers : []).slice(0, TG_MAX_OFFERS).map(cleanOffer).filter(Boolean) as TgOffer[];
+  const roster = cleanRoster(body);
   const today = new Date(Date.now() + 7 * 36e5).toISOString().slice(0, 10);   // Bangkok date
   const done: Record<string, string>[] = [];
   // the original picture (QR code, notes on it): stored once per picture while it has a post still ahead
@@ -316,7 +341,8 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
       avoid && "❌ " + avoid,
       contact ? "" : "ติดต่อในกลุ่ม LINE",
     ].filter(Boolean).join(" · ").slice(0, 300);
-    const fields: Record<string, string> = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
+    const fields: Record<string, unknown> = { detail: detail.slice(0, 200), report: o.report, release: o.release, note };
+    if (roster.length) fields.giver_days = roster;
     if (o.ac) fields.ac_type = o.ac;
     if (o.until) fields.until_date = o.until;
     if (contact) fields.contact = contact;
@@ -330,7 +356,7 @@ async function tgPost(db: SupabaseClient, body: Record<string, unknown>) {
       const { error } = await db.from("posts").insert({ author, kind: "give", date: o.date, code: o.code, status: "open", line_from: from || null, ...fields });
       if (error) { console.error("tg post", error); continue; }
     }
-    done.push({ date: o.date, code: o.code, detail: fields.detail, report: o.report, release: o.release });
+    done.push({ date: o.date, code: o.code, detail: detail.slice(0, 200), report: o.report, release: o.release });
   }
   const result = { posts: done, wants, avoid, at: new Date().toISOString() };
   if (isHex(body.fp)) await db.from("line_seen").update({ result }).eq("fp", body.fp as string);

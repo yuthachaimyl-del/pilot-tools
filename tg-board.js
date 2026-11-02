@@ -2,7 +2,8 @@
 // 1. Aircraft types: the member ticks the types they are qualified on (saved on this device); the board hides
 //    posts of other types. Posts whose type is unknown stay, labelled "ไม่ระบุแบบเครื่อง".
 // 2. TCAR check: same rules as the TVJ site (tcar.js) but explained in plain words, without manual references.
-// 3. Pay: each give post shows its TPI pay (PPB) and the difference against the viewer's own duty that day.
+// 3. Pay: each give post shows its TPI pay (PPB) and the difference against the viewer's own duties on those dates.
+// 4. Two-way swap check: can I take their duty, and can they take mine back, without a clash (ccHint / ccCheckPanel).
 // index.html calls window.ccPostFilter(post) and window.ccAcTag(post) while drawing the board.
 (function () {
   "use strict";
@@ -55,43 +56,138 @@
   const baht = (n) => "฿" + Math.round(n).toLocaleString("en-US");
   const prevIso = (d) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() - 1); return t.toISOString().slice(0, 10); };
   const nextIso = (d) => { const t = new Date(d + "T00:00:00Z"); t.setUTCDate(t.getUTCDate() + 1); return t.toISOString().slice(0, 10); };
-  /** a day with no entry inside a trip (rosters read before trips were linked): outbound odd TGn on an earlier day,
-   *  return TG(n+1) on a later day → that day is a layover of the trip, not a day off */
-  function tripOver(days, date) {
-    const at = (iso) => days.find((y) => y.date === iso);
-    const nums = (x) => String(x?.code || "").split("/").map((v) => v.replace(/\D/g, "")).filter(Boolean);
-    let d = date, start = null;
-    for (let i = 0; i < 6; i++) { d = prevIso(d); const x = at(d); if (!x) continue; if (x.type === "FLT" && x.code !== "-->") start = x; break; }
-    if (!start) return null;
-    const f = nums(start), last = f[f.length - 1];
-    if (!last || +last % 2 !== 1) return null;
-    const ret = String(+last + 1).padStart(last.length, "0");
-    if (f.includes(ret)) return null;
-    d = date;
-    for (let i = 0; i < 6; i++) { d = nextIso(d); const x = at(d); if (!x) continue; return nums(x)[0] === ret ? { ...start, code: [...f, ret].join("/") } : null; }
-    return null;
+  const isIso = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || "");
+  const isMultiP = (e) => isIso(e?.until) && e.until > e.date;
+  const h = (x) => String(x ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+  const TH_MS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const dShort = (iso) => isIso(iso) ? `${+iso.slice(8)} ${TH_MS[+iso.slice(5, 7) - 1]}` : String(iso || "");
+  const DUTY = { SBY: "สแตนด์บาย", RSV: "Reserve", LVE: "วันลา", TRN: "ฝึก", OTH: "งานอื่น", FLT: "ไฟลต์" };
+  const WORKT = new Set(["FLT", "SBY", "RSV", "TRN", "OTH"]);
+  const codeOf = (d) => d.code || DUTY[d.type] || d.type;
+
+  // ── trips: outbound TGn (odd) whose return TG(n+1) is on a later day; the days between are layovers, not days off ──
+  // (rosters read before the reader linked trips, and the poster's roster from a LINE picture, are linked here)
+  function linkDays(days) {
+    const out = (days || []).filter((d) => d && isIso(d.date)).map((d) => ({ ...d }));
+    const by = new Map(out.map((d) => [d.date, d]));
+    const nums = (d) => String(d.code || "").split("/").map((x) => x.replace(/\D/g, "")).filter(Boolean);
+    for (const d of [...out].sort((a, b) => a.date.localeCompare(b.date))) {
+      if (d.type !== "FLT" || d.code === "-->") continue;
+      const f = nums(d), last = f[f.length - 1];
+      if (!last || +last % 2 !== 1) continue;
+      const ret = String(+last + 1).padStart(last.length, "0");
+      if (f.includes(ret)) continue;
+      let day = d.date;
+      for (let i = 1; i <= 6; i++) {
+        day = nextIso(day);
+        const x = by.get(day);
+        if (!x || x.code === "-->") continue;               // no entry / already a layover: still inside the trip
+        if (x.type !== "FLT" || nums(x)[0] !== ret) break;  // a day off or another flight first: not this trip
+        for (let g = nextIso(d.date); g < day; g = nextIso(g)) {
+          if (!by.has(g)) { const b = { date: g, type: "FLT", code: "-->", detail: "", report: "", release: "", block: "" }; out.push(b); by.set(g, b); }
+        }
+        if (nums(x).length === 1 && !x.report) { d.code = [...f, ret].join("/"); Object.assign(x, { code: "-->", detail: "", report: "", release: "" }); }
+        break;
+      }
+    }
+    return out.sort((a, b) => a.date.localeCompare(b.date));
   }
-  /** my duty on the post's date (a "-->" day is the tail of a trip that started earlier: use that trip) */
-  function myDutyOn(date) {
-    const S = window.FOSTATE; if (!S || !S.me) return null;
-    const days = S.rosters?.[S.me]?.days || [];
-    if (!days.length || !days.some((y) => y.date >= date) || !days.some((y) => y.date <= date)) return null;   // outside the uploaded roster: unknown, not OFF
-    let d = date, x = days.find((y) => y.date === d), k = 0;
-    while (x && x.code === "-->" && k++ < 6) { d = prevIso(d); x = days.find((y) => y.date === d); }
-    return x || tripOver(days, date) || { date, type: "OFF", code: "" };
+
+  // a LINE-bot post that covers several days (posts.until_date): day 1 carries the duty, the rest are "-->"
+  window.ccTripDays = (e) => {
+    const out = [{ date: e.date, type: "FLT", code: e.code || "", detail: e.detail || "", report: e.report || "", release: e.release || "", block: "" }];
+    for (let d = nextIso(e.date), k = 0; d <= e.until && k < 12; d = nextIso(d), k++) out.push({ date: d, type: "FLT", code: "-->", detail: "", report: "", release: "", block: "" });
+    return out;
+  };
+
+  /**
+   * Two-way check of someone else's give post, same-day swap:
+   *   x = my roster if I take their duty and hand over my duties on those dates (whole trips)
+   *   y = their roster (from the LINE picture, or a member's uploaded roster) if they take my duties back
+   * TC.evalSwap reports a date clash ("conf:") and the rest/duty rules when report/release times are known.
+   */
+  const vcache = new Map();
+  function verdict(r) {
+    const S = window.FOSTATE;
+    if (!S || !S.me || typeof TC === "undefined" || typeof postDays !== "function") return null;
+    const me = S.rosters?.[S.me] || {};
+    const key = [r.id, r.date, r.until, r.code, r.report, r.release, (r.giverDays || []).length, me.updatedAt, (me.days || []).length].join("|");
+    if (vcache.has(key)) return vcache.get(key);
+    const my = linkDays(me.days || []);
+    const take = postDays(r).map((x) => ({ ...x }));
+    const at = (iso) => my.find((y) => y.date === iso);
+    const mineMap = new Map();
+    for (const p of take) {
+      let d = p.date, k = 0;
+      while (at(d)?.code === "-->" && k++ < 6) d = prevIso(d);
+      for (const x of TC.pairOf(my, d)) if (x.code === "-->" || WORKT.has(x.type) || x.type === "LVE") mineMap.set(x.date, x);
+    }
+    const mine = [...mineMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+    const x = TC.evalSwap(my, me.base || "BKK", mine.map((m) => m.date), take);
+    let gr = typeof giverRoster === "function" ? giverRoster(r) : null;
+    if (!gr && (S.rosters?.[r.author]?.days || []).length) gr = S.rosters[r.author].days;   // a member's own post
+    gr = gr ? linkDays(gr) : null;
+    const y = mine.length && gr ? TC.evalSwap(gr, S.rosters?.[r.author]?.base || "BKK", take.map((t) => t.date), mine) : null;
+    const covered = my.length > 0 && take.some((t) => my[0].date <= t.date && my[my.length - 1].date >= t.date);
+    const v = { take, mine, x, y, gr, covered };
+    if (vcache.size > 400) vcache.clear();
+    vcache.set(key, v);
+    return v;
   }
-  /** money chip on someone else's give post: their trip's PPB against mine that day */
+  const bad = (e) => (e ? e.issues.filter((i) => i.level !== "appr") : []);
+  const why = (i) => /^conf:/.test(i.key || "") ? `ติดงาน ${dShort(i.date)}` : fixText(String(i.msg || "")).slice(0, 70);
+  const codesOf = (list) => list.filter((m) => m.code !== "-->").map(codeOf).join(", ");
+
+  // chip under someone else's give post (replaces the board's own one-sided chip on TG)
+  window.ccHint = (e) => {
+    if (e.kind !== "give") return undefined;
+    const S = window.FOSTATE;
+    if (!(S?.rosters?.[S.me]?.days || []).length) return undefined;   // the board asks to upload a roster first
+    const v = verdict(e);
+    if (!v) return undefined;
+    if (!v.covered) return "";
+    const multi = isMultiP(e);
+    const lbl = v.mine.length ? `คุณมี ${codesOf(v.mine) || "งาน"} ${multi ? "ในช่วงนั้น" : "วันนั้น"}` : multi ? "คุณว่างทั้งช่วง" : "คุณว่างวันนั้น";
+    const a = bad(v.x), b = bad(v.y);
+    if (a.length) return `<span class="hint bad">${h(lbl)} · คุณรับไม่ได้: ${h(why(a[0]))}</span>`;
+    if (b.length) return `<span class="hint bad">${h(lbl)} · เขารับของคุณไม่ได้: ${h(why(b[0]))}</span>`;
+    const tip = v.x.unknown || v.y?.unknown ? ' title="บางวันไม่มีเวลา report/release จึงตรวจได้แค่วันชนกัน ยังตรวจเวลาพักไม่ได้"' : "";
+    if (!v.mine.length) return `<span class="hint good"${tip}>${h(lbl)} · รับได้ ไม่ติด</span>`;
+    if (!v.y) return `<span class="hint warn">${h(lbl)} · คุณรับได้ · ฝั่งเขาไม่รู้ตาราง</span>`;
+    return `<span class="hint good"${tip}>${h(lbl)} · แลกได้ ไม่ติดทั้งสองฝั่ง</span>`;
+  };
+
+  // "ตรวจ" panel: both sides in full
+  window.ccCheckPanel = (r) => {
+    const v = verdict(r);
+    if (!v || typeof chkHtml !== "function") return "";
+    const theirs = codesOf(v.take) || "ไฟลต์นี้", mineC = codesOf(v.mine) || "งานของคุณ";
+    let out = chkHtml(v.x, v.mine.length ? `คุณ (รับ ${theirs} · ให้ ${mineC})` : `คุณ (รับ ${theirs})`);
+    if (!v.mine.length) out += '<div class="chk"><div class="chk-h muted">คุณว่างช่วงนั้น ไม่ต้องให้งานคืน ฝั่งคนปล่อยจึงไม่ต้องตรวจ</div></div>';
+    else if (v.y) out += chkHtml(v.y, `คนปล่อย (รับ ${mineC} ของคุณ)`) + '<div class="muted chk-note">ฝั่งคนปล่อยตรวจจากตารางในรูปที่เขาส่งมา (หรือตารางที่เขาอัปโหลด)</div>';
+    else out += '<div class="chk"><div class="chk-h muted">คนปล่อย: ไม่มีตารางของเขาในรูป ตรวจไม่ได้ว่ารับงานคุณแล้วจะติดไหม</div></div>';
+    return out;
+  };
+
+  /** money chip on someone else's give post: their trip's PPB against the duties I hand over on those dates */
   function payTag(p) {
     const S = window.FOSTATE;
     if (!p || p.kind !== "give" || !S || p.author === S.me) return "";
     const g = ppbOf(p.code);
     if (g.pay == null) return g.keys.length ? '<span class="pill pay unk">💰 ไม่มีตัวเลขในตาราง TPI</span>' : "";
-    const m = myDutyOn(p.date);
-    if (!m) return `<span class="pill pay">💰 ${baht(g.pay)}</span>`;
-    if (m.type !== "FLT") return `<span class="pill pay" title="ค่าเที่ยวของไฟลต์นี้ตามตาราง TPI">💰 ${baht(g.pay)} · วันนั้นคุณ${m.type === "OFF" ? "หยุด" : "ไม่มีไฟลต์"}</span>`;
-    const mine = ppbOf(m.code);
-    if (mine.pay == null) return `<span class="pill pay">💰 ${baht(g.pay)} · ไฟลต์คุณ ${String(m.code).replace(/[<>&"]/g, "")} ไม่มีในตาราง</span>`;
-    const diff = g.pay - mine.pay, t = `ไฟลต์นี้ ${baht(g.pay)} · ของคุณ ${baht(mine.pay)}`;
+    const v = verdict(p);
+    if (!v || !v.covered) return `<span class="pill pay">💰 ${baht(g.pay)}</span>`;
+    const work = v.mine.filter((m) => m.code !== "-->");
+    if (!work.length) return `<span class="pill pay" title="ค่าเที่ยวของไฟลต์นี้ตามตาราง TPI">💰 ${baht(g.pay)} · วันนั้นคุณว่าง</span>`;
+    let mine = 0;
+    for (const m of work) {
+      if (m.type !== "FLT") continue;   // standby / leave: no TPI figure
+      const q = ppbOf(m.code);
+      if (q.pay == null) return `<span class="pill pay">💰 ${baht(g.pay)} · ไฟลต์คุณ ${h(m.code)} ไม่มีในตาราง</span>`;
+      mine += q.pay;
+    }
+    if (!mine) return `<span class="pill pay">💰 ${baht(g.pay)} · วันนั้นคุณมี ${h(codesOf(work))}</span>`;
+    const diff = g.pay - mine, t = `ไฟลต์นี้ ${baht(g.pay)} · ของคุณ ${baht(mine)}`;
     return diff > 0 ? `<span class="pill pay get" title="${t}">💰 ${t} → คุณได้เงินเพิ่ม ${baht(diff)}</span>`
       : diff < 0 ? `<span class="pill pay add" title="${t}">💸 ${t} → คุณเสียเปรียบ ${baht(-diff)}</span>`
       : `<span class="pill pay" title="${t}">💰 ${t} → เท่ากัน</span>`;
