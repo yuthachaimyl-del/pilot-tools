@@ -1,6 +1,8 @@
 // Board "อ่านแล้ว" (read / not interested): tick someone else's post and it no longer shows on the board.
-// Kept per person on this device (localStorage, key per signed-in user). A chip above the board shows how many
-// are hidden and lets them be shown again; a toast right after hiding offers undo.
+// Saved per account in Supabase (table post_reads, each member sees only their own rows), so hiding on one
+// device hides on every device signed in to the same account; localStorage keeps a copy for a fast first paint
+// and for ticks made while offline (sent up on the next load). A chip above the board shows how many are
+// hidden and lets them be shown again; a toast right after hiding offers undo.
 // index.html calls window.ccHideFilter(post) while filtering the board and window.ccHideBtn(post) for the
 // card's button row. Loaded on both sites (TVJ coolcrew and TG tgcrew).
 (function () {
@@ -9,7 +11,8 @@
   const st = () => window.FOSTATE || (typeof S !== "undefined" ? S : null);
   const key = () => "cc_read_posts_" + (st()?.me || "anon");
   const today = () => new Date(Date.now() + 7 * 36e5).toISOString().slice(0, 10);
-  let showHidden = false, lastHidden = null;
+  let showHidden = false, lastHidden = null, syncedFor = null, syncing = false;
+  const sb = () => window.SB || null;
 
   function load() {
     try { const v = JSON.parse(localStorage.getItem(key()) || "{}"); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; }
@@ -22,8 +25,43 @@
   }
   const rerender = () => { try { typeof renderBoard === "function" && renderBoard(); } catch {} chip(); };
 
-  function hide(id, date) { const m = load(); m[id] = date || today(); save(m); lastHidden = id; rerender(); toast(); }
-  function unhide(id) { const m = load(); delete m[id]; save(m); rerender(); }
+  const isUuid = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(id || ""));
+  // ticks not yet saved to the account (offline, or made before this was synced): sent on the next sync
+  const pkey = () => key() + "_pending";
+  const pending = () => { try { const v = JSON.parse(localStorage.getItem(pkey()) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } };
+  const setPending = (a) => { try { localStorage.setItem(pkey(), JSON.stringify([...new Set(a)].slice(-500))); } catch {} };
+  async function put(id) {
+    if (!isUuid(id)) return;
+    try {
+      const { error } = await sb().from("post_reads").upsert({ post_id: id }, { onConflict: "user_id,post_id", ignoreDuplicates: true });
+      if (!error) setPending(pending().filter((x) => x !== id));
+    } catch {}
+  }
+  async function drop(id) { try { if (isUuid(id)) await sb()?.from("post_reads").delete().eq("post_id", id); } catch {} }
+
+  // the account's list is the truth; this device only adds the ticks it has not sent yet
+  async function sync() {
+    const me = st()?.me, c = sb();
+    if (!me || !c || syncing || syncedFor === me) return;
+    syncing = true;
+    try {
+      const mkey = key() + "_moved";
+      if (!localStorage.getItem(mkey)) { setPending([...pending(), ...Object.keys(load())]); try { localStorage.setItem(mkey, "1"); } catch {} }
+      for (const id of pending()) await put(id);
+      const { data, error } = await c.from("post_reads").select("post_id");
+      if (error) return;
+      const old = load(), dates = new Map((st()?.posts || []).map((p) => [p.id, String(p.date || "").slice(0, 10)]));
+      const m = {};
+      for (const r of data || []) m[r.post_id] = old[r.post_id] || dates.get(r.post_id) || today();
+      for (const id of pending()) m[id] = old[id] || today();
+      save(m);
+      syncedFor = me;
+      rerender();
+    } finally { syncing = false; }
+  }
+
+  function hide(id, date) { const m = load(); m[id] = date || today(); save(m); setPending([...pending(), id]); lastHidden = id; rerender(); toast(); put(id); }
+  function unhide(id) { const m = load(); delete m[id]; save(m); setPending(pending().filter((x) => x !== id)); rerender(); drop(id); }
 
   window.ccHideFilter = (p) => {
     if (!p || showHidden) return true;
@@ -52,6 +90,7 @@
 
   // chip above the board: how many of the posts still ahead are hidden, tap to show them again
   function chip() {
+    sync();
     const board = document.getElementById("tab-board");
     const chips = board && board.querySelector(".chips");
     if (!chips) return;
@@ -89,4 +128,6 @@ background:#222;color:#fff;padding:8px 10px 8px 14px;border-radius:12px;display:
   // keep the chip in step with the board (posts load after this script runs)
   const start = () => { const b = document.getElementById("boardList"); if (!b) return; chip(); new MutationObserver(() => chip()).observe(b, { childList: true }); };
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", start) : start();
+  // back to the app (e.g. after hiding on another device): fetch the account's list again
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { syncedFor = null; sync(); } });
 })();
