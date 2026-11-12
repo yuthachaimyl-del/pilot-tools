@@ -46,6 +46,7 @@ header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidd
 .camtop{display:flex;align-items:center;gap:8px;padding:10px 14px}
 .camtop .ib{background:rgba(255,255,255,.12)}
 .camtop .ib.on{background:#ffd34d;color:#000}
+#kAuto{font-size:13px;font-weight:700;width:auto;padding:0 12px}
 #kHint{flex:1;text-align:center;font-size:13px;color:var(--mut)}
 #kStage{flex:1;position:relative;overflow:hidden}
 #kVideo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#000}
@@ -101,6 +102,7 @@ header .t{flex:1;font-size:17px;font-weight:600;white-space:nowrap;overflow:hidd
   <div class="camtop">
     <button class="ib" id="kClose" aria-label="ปิดกล้อง">✕</button>
     <span id="kHint">เล็งให้เห็นเอกสารทั้งแผ่น</span>
+    <button class="ib" id="kAuto" aria-label="ถ่ายอัตโนมัติ">A</button>
     <button class="ib" id="kTorch" aria-label="แฟลช" hidden>⚡</button>
     <button class="ib" id="kNative" aria-label="ใช้กล้อง iPhone">📱</button>
   </div>
@@ -156,7 +158,7 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 const MAXS=2400; // ด้านยาวสุดของรูป (px) — พอสำหรับ A4 ที่ ~200dpi และไม่กินแรม iPhone
 
 // ---------- ตั้งค่า (เก็บในเครื่อง)
-const settings=(()=>{try{return Object.assign({size:"fit",filter:"enhance"},JSON.parse(localStorage.getItem("coolscan")||"{}"))}catch{return{size:"fit",filter:"enhance"}}})();
+const settings=(()=>{const def={size:"fit",filter:"enhance",auto:true};try{return Object.assign(def,JSON.parse(localStorage.getItem("coolscan")||"{}"))}catch{return def}})();
 const saveSettings=()=>{try{localStorage.setItem("coolscan",JSON.stringify(settings))}catch{}};
 
 // ---------- IndexedDB
@@ -217,63 +219,229 @@ function rotCanvas(img,rot){
   x.translate(c.width/2,c.height/2);x.rotate(r*Math.PI/180);x.drawImage(img,-w/2,-h/2);return c;
 }
 
-// หาขอบกระดาษอัตโนมัติ: กระดาษมักสว่างกว่าพื้นหลัง → Otsu threshold แล้วเอาก้อนสว่างที่ใหญ่สุด
-// มุมของก้อนนั้น = จุดที่ x+y และ x−y มากสุด/น้อยสุด
+// หาขอบเอกสารอัตโนมัติ — 2 วิธีประกอบกัน แล้วให้คะแนนด้วยเกณฑ์เดียวกัน:
+//  ก) เส้นขอบ: ลบตัวหนังสือออก (closing) → หาเส้นตรงด้วย Hough → ลองประกอบสี่เหลี่ยมจากเส้น 4 เส้น
+//     ให้คะแนนตาม "ขอบมีจริงตลอดแนวแค่ไหน" — ใช้ได้แม้กระดาษขาวบนโต๊ะขาว มีเงา หรือพื้นลาย
+//  ข) ก้อนสี: กระดาษสว่างกว่าพื้น (Otsu) / วัตถุที่ถูกเส้นขอบล้อมไว้ (flood fill) — ของเดิม
+// จากนั้นไล่ขอบซ้ำที่ความละเอียดสูง (refineQuad) ให้มุมตรงระดับพิกเซล
 function fullQuad(W,H,inset=0){const a=W*inset,b=H*inset;return[[a,b],[W-a,b],[W-a,H-b],[a,H-b]]}
 function quadArea(q){let s=0;for(let i=0;i<4;i++){const[a,b]=q[i],[c,d]=q[(i+1)%4];s+=a*d-b*c}return Math.abs(s)/2}
-// มุมทั้ง 4 อยู่ระหว่าง 55°–125° และเป็นรูปนูน (มองเอียงได้ แต่ไม่บิดเบี้ยว)
-function squareish(q){
+// มุมทั้ง 4 ไม่แหลม/ป้านเกิน (cos สูงสุด maxCos) และเป็นรูปนูน (มองเอียงได้ แต่ไม่บิดเบี้ยว)
+function squareish(q,maxCos=.574){
   let sign=0;
   for(let i=0;i<4;i++){
     const p=q[i],a=q[(i+3)%4],b=q[(i+1)%4],ux=a[0]-p[0],uy=a[1]-p[1],vx=b[0]-p[0],vy=b[1]-p[1];
     const lu=Math.hypot(ux,uy),lv=Math.hypot(vx,vy);if(!lu||!lv)return false;
-    const cos=(ux*vx+uy*vy)/(lu*lv);if(Math.abs(cos)>.574)return false; // cos55°
+    const cos=(ux*vx+uy*vy)/(lu*lv);if(Math.abs(cos)>maxCos)return false;
     const cr=Math.sign(ux*vy-uy*vx);if(sign&&cr!==sign)return false;sign=cr;
   }
   return true;
 }
-// คืน null ถ้าหาไม่เจอ (ใช้ตอนกล้องสด เพื่อไม่วาดกรอบมั่ว); src เป็น canvas หรือ video ก็ได้
-function findQuad(src,W=src.width,H=src.height,max=256){
-  const s=Math.min(1,max/Math.max(W,H));
-  const w=Math.max(2,Math.round(W*s)),h=Math.max(2,Math.round(H*s)),n=w*h;
-  const t=mkCanvas(w,h),x=t.getContext("2d",{willReadFrequently:true});
-  x.filter="blur(1.5px)";x.drawImage(src,0,0,w,h);
-  const d=x.getImageData(0,0,w,h).data;
-  // วิธี 1: กระดาษสว่างกว่าพื้น (Otsu บนความสว่าง)
-  const L=new Uint8Array(n),hist=new Float64Array(256);
-  for(let i=0;i<n;i++){const v=(d[i*4]*299+d[i*4+1]*587+d[i*4+2]*114)/1000|0;L[i]=v;hist[v]++}
-  const th=otsu(hist,n),bright=new Uint8Array(n);
-  for(let i=0;i<n;i++)bright[i]=L[i]>th?1:0;
-  // วิธี 2: ขอบสี — ไล่ท่วมพื้นหลังจากขอบภาพผ่านจุดที่ไม่มีเส้นขอบ ที่เหลือ (ถูกล้อมไว้) คือวัตถุ
-  // ใช้กับของที่สว่างพอ ๆ กับพื้นแต่ต่างสี เช่น ห่อ/กล่อง/ปก
-  const G=new Float32Array(n),gh=new Float64Array(256);
-  for(let y=1;y<h-1;y++)for(let xx=1;xx<w-1;xx++){
-    const p=y*w+xx;let m=0;
-    for(let k=0;k<3;k++){
-      const o=p*4+k,r=w*4;
-      const gx=d[o-r+4]+2*d[o+4]+d[o+r+4]-d[o-r-4]-2*d[o-4]-d[o+r-4];
-      const gy=d[o+r-4]+2*d[o+r]+d[o+r+4]-d[o-r-4]-2*d[o-r]-d[o-r+4];
-      const g=Math.abs(gx)+Math.abs(gy);if(g>m)m=g}
-    G[p]=m;gh[Math.min(255,m>>2)]++}
-  const gt=Math.max(12,otsu(gh,n))*4,E=new Uint8Array(n);
-  for(let y=1;y<h-1;y++)for(let xx=1;xx<w-1;xx++){const p=y*w+xx;if(G[p]>gt){E[p]=E[p-1]=E[p+1]=E[p-w]=E[p+w]=1}} // ขยายเส้น 1px ปิดรอยขาด
-  const bg=new Uint8Array(n),q=new Int32Array(n);let qt=0;
-  const seed=p=>{if(!bg[p]&&!E[p]){bg[p]=1;q[qt++]=p}},seed0=p=>{if(!bg[p]){bg[p]=1;q[qt++]=p}}; // ขอบภาพเป็นพื้นหลังเสมอ
-  for(let xx=0;xx<w;xx++){seed0(xx);seed0((h-1)*w+xx)}
-  for(let y=0;y<h;y++){seed0(y*w);seed0(y*w+w-1)}
-  for(let qh=0;qh<qt;qh++){const p=q[qh],px=p%w;
-    if(px>0)seed(p-1);if(px<w-1)seed(p+1);if(p>=w)seed(p-w);if(p<n-w)seed(p+w)}
-  let fg=new Uint8Array(n);for(let i=0;i<n;i++)fg[i]=bg[i]?0:1;
-  const EK=4;for(let i=0;i<EK;i++)fg=erode(fg,w,h); // ตัดเส้น/ส่วนยื่นบาง ๆ ที่ต่อวัตถุกับของข้าง ๆ ออก
-  let best=null;
-  for(const [mask,minFill,grow,maxEdge] of [[bright,.85,0,.12],[fg,.8,EK,.01]]){
-    const c=bestBlob(mask,w,h,minFill,maxEdge);
-    if(c&&(!best||c.area>best.area*1.3)){best=c; // ขอบสีชนะเฉพาะเมื่อได้วัตถุใหญ่กว่าชัดเจน (วิธีความสว่างแนบขอบกระดาษกว่า)
-      if(grow){const cx=c.quad.reduce((a,p)=>a+p[0],0)/4,cy=c.quad.reduce((a,p)=>a+p[1],0)/4; // ขยายกลับเท่าที่กัดไป
-        best.quad=c.quad.map(([px,py])=>{const dx=px-cx,dy=py-cy,l=Math.hypot(dx,dy)||1;return[px+dx/l*grow*1.4,py+dy/l*grow*1.4]})}}
-  }
-  return best?orderQuad(best.quad.map(([px,py])=>[Math.min(W,(px+.5)/s),Math.min(H,(py+.5)/s)])):null;
+// เรียงมุมให้เป็น บนซ้าย→บนขวา→ล่างขวา→ล่างซ้าย เผื่อผู้ใช้ลากมุมสลับกัน
+function orderQuad(q){
+  const cx=q.reduce((s,p)=>s+p[0],0)/4,cy=q.reduce((s,p)=>s+p[1],0)/4;
+  const s=[...q].sort((a,b)=>Math.atan2(a[1]-cy,a[0]-cx)-Math.atan2(b[1]-cy,b[0]-cx)); // เริ่มจากซ้ายบน วนตามเข็ม (แกน y ชี้ลง)
+  let i0=0,m=1e18;s.forEach((p,i)=>{const v=p[0]+p[1];if(v<m){m=v;i0=i}});
+  return[0,1,2,3].map(j=>s[(i0+j)%4]);
 }
+// ย่อภาพ (canvas/video) เป็น RGBA กว้างยาวไม่เกิน max
+function grab(src,W,H,max){
+  const s=Math.min(1,max/Math.max(W,H)),w=Math.max(2,Math.round(W*s)),h=Math.max(2,Math.round(H*s));
+  const t=mkCanvas(w,h),x=t.getContext("2d",{willReadFrequently:true});x.drawImage(src,0,0,w,h);
+  return{d:x.getImageData(0,0,w,h).data,w,h,s};
+}
+// เบลอ 3×3 สองรอบ (Safari ไม่มี ctx.filter จึงเบลอเอง) — คืน 3 ช่องสีแยกกัน
+function blurPlanes(d,w,h){
+  const n=w*h,out=[];
+  for(let k=0;k<3;k++){
+    let a=new Uint8Array(n),b=new Uint8Array(n);for(let i=0;i<n;i++)a[i]=d[i*4+k];
+    for(let it=0;it<2;it++){
+      for(let y=0;y<h;y++){const r=y*w;b[r]=(a[r]*2+a[r+1])/3;b[r+w-1]=(a[r+w-1]*2+a[r+w-2])/3;for(let x=1;x<w-1;x++)b[r+x]=(a[r+x-1]+a[r+x]+a[r+x+1])/3}
+      for(let x=0;x<w;x++){a[x]=(b[x]*2+b[x+w])/3;a[n-w+x]=(b[n-w+x]*2+b[n-2*w+x])/3}
+      for(let y=1;y<h-1;y++){const r=y*w;for(let x=0;x<w;x++)a[r+x]=(b[r+x-w]+b[r+x]+b[r+x+w])/3}
+    }
+    out.push(a);
+  }
+  return out;
+}
+// max/min filter แบบแยกแกน รัศมี r (ใช้ทำ closing ลบตัวหนังสือ)
+function morph(a,w,h,r,isMax){
+  const n=w*h,b=new Uint8Array(n),o=new Uint8Array(n);
+  for(let y=0;y<h;y++){const R=y*w;for(let x=0;x<w;x++){const x0=x-r<0?0:x-r,x1=x+r>=w?w-1:x+r;let m=a[R+x0];for(let k=x0+1;k<=x1;k++){const v=a[R+k];if(isMax?v>m:v<m)m=v}b[R+x]=m}}
+  for(let y=0;y<h;y++){const y0=y-r<0?0:y-r,y1=y+r>=h?h-1:y+r;for(let x=0;x<w;x++){let m=b[y0*w+x];for(let k=y0+1;k<=y1;k++){const v=b[k*w+x];if(isMax?v>m:v<m)m=v}o[y*w+x]=m}}
+  return o;
+}
+// แผนที่ขอบ: gradient (Sobel) ของช่องสีที่แรงสุด หลังลบตัวหนังสือ
+function edgeMap(planes,w,h){
+  const n=w*h,r=Math.max(2,Math.round(Math.max(w,h)/110));
+  const P=planes.map(a=>morph(morph(a,w,h,r,true),w,h,r,false));
+  const GX=new Float32Array(n),GY=new Float32Array(n),M=new Float32Array(n);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const p=y*w+x;let bm=0,bx=0,by=0;
+    for(let k=0;k<3;k++){const a=P[k];
+      const gx=a[p-w+1]+2*a[p+1]+a[p+w+1]-a[p-w-1]-2*a[p-1]-a[p+w-1];
+      const gy=a[p+w-1]+2*a[p+w]+a[p+w+1]-a[p-w-1]-2*a[p-w]-a[p-w+1];
+      const m=gx*gx+gy*gy;if(m>bm){bm=m;bx=gx;by=gy}}
+    GX[p]=bx;GY[p]=by;M[p]=Math.sqrt(bm)}
+  // เกณฑ์ขอบ: เปอร์เซ็นไทล์ 86 ของจุดที่มี gradient (ไม่ต่ำกว่า 18 ไม่เกิน 90)
+  const hist=new Uint32Array(512);let cnt=0;
+  for(let i=0;i<n;i++){const v=M[i];if(v>6){hist[v>1022?511:v>>1]++;cnt++}}
+  let acc=0,T=18;for(let k=0;k<512;k++){acc+=hist[k];if(acc>=cnt*.86){T=k*2;break}}
+  T=Math.max(18,Math.min(40,T));
+  return{GX,GY,M,T,w,h,P,sd:r+2};
+}
+// เส้นตรงเด่น ๆ ในภาพ (Hough แบบโหวตเฉพาะมุมใกล้ทิศ gradient) → [{c,s,rho}] : x·c + y·s = rho
+function houghLines(E,maxLines){
+  const{GX,GY,M,T,w,h}=E,NT=180,diag=Math.ceil(Math.hypot(w,h)),NR=2*diag+1,acc=new Float32Array(NT*NR);
+  const C=new Float32Array(NT),S=new Float32Array(NT);for(let t=0;t<NT;t++){C[t]=Math.cos(t*Math.PI/NT);S[t]=Math.sin(t*Math.PI/NT)}
+  for(let y=2;y<h-2;y++)for(let x=2;x<w-2;x++){
+    const p=y*w+x,m=M[p];if(m<T)continue;
+    const gx=GX[p],gy=GY[p],ax=Math.abs(gx),ay=Math.abs(gy); // เก็บเฉพาะสันขอบ (non-max suppression)
+    let q1,q2;if(ax>2.414*ay){q1=p-1;q2=p+1}else if(ay>2.414*ax){q1=p-w;q2=p+w}else if(gx*gy>0){q1=p-w-1;q2=p+w+1}else{q1=p-w+1;q2=p+w-1}
+    if(m<M[q1]||m<=M[q2])continue;
+    let t0=Math.round(Math.atan2(gy,gx)*NT/Math.PI);t0=((t0%NT)+NT)%NT;
+    for(let dt=-3;dt<=3;dt++){const t=(t0+dt+NT)%NT,r=Math.round(x*C[t]+y*S[t])+diag;acc[t*NR+r]+=dt?1:1.5}
+  }
+  // รวมช่องข้างเคียง (ρ±1) แล้วเก็บยอด
+  const peaks=[];
+  for(let t=0;t<NT;t++){const R=t*NR;for(let r=1;r<NR-1;r++){const v=acc[R+r-1]+acc[R+r]+acc[R+r+1];if(v>14&&acc[R+r]>=acc[R+r-1]&&acc[R+r]>=acc[R+r+1])peaks.push([v,t,r-diag])}}
+  peaks.sort((a,b)=>b[0]-a[0]);
+  const out=[];
+  for(const[v,t,rho]of peaks){
+    if(out.length>=maxLines||v<peaks[0][0]*.12)break;
+    let dup=false;
+    for(const o of out){let dt=Math.abs(o.t-t),dr=Math.abs(o.rho-rho);if(dt>NT/2){dt=NT-dt;dr=Math.abs(o.rho+rho)}if(dt<=6&&dr<=5+dt*w/120){dup=true;break}}
+    if(!dup)out.push({t,rho,c:C[t],s:S[t],v});
+  }
+  return out;
+}
+// สองฝั่งของขอบ (ห่างออกไป sd px) สีต่างกันจริงไหม — ขอบกระดาษเป็น "ขั้น" ส่วนเส้นตาราง/กรอบที่พิมพ์บนกระดาษไม่ใช่
+function isStep(E,px,py,nx,ny){
+  const{P,w,h,sd}=E,x0=Math.round(px-nx*sd),y0=Math.round(py-ny*sd),x1=Math.round(px+nx*sd),y1=Math.round(py+ny*sd);
+  if(x0<0||y0<0||x1<0||y1<0||x0>=w||x1>=w||y0>=h||y1>=h)return true; // ชิดขอบภาพ วัดไม่ได้ → ไม่หักคะแนน
+  const a=y0*w+x0,b=y1*w+x1;return Math.abs(P[0][a]-P[0][b])>=12||Math.abs(P[1][a]-P[1][b])>=12||Math.abs(P[2][a]-P[2][b])>=12;
+}
+// ขอบมีจริงตามแนว a→b กี่ส่วน (0–1) · pol>0 = ฝั่ง normal (nx,ny) สว่างกว่า · gap = ช่วงขาดยาวสุด
+function sideSupport(E,ax,ay,bx,by,f0=.05,f1=.95){
+  const{GX,GY,M,T,w,h}=E,dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy);if(len<3)return{cov:0,pol:0,gap:1};
+  const nx=-dy/len,ny=dx/len,lo=T*.55,N=Math.max(4,Math.round(len*(f1-f0)));let hit=0,pol=0,run=0,gap=0;
+  for(let i=0;i<N;i++){
+    const f=f0+(f1-f0)*(i+.5)/N,px=ax+dx*f,py=ay+dy*f;let best=0,bs=0;
+    for(let o=-2;o<=2;o++){
+      const x=Math.round(px+nx*o),y=Math.round(py+ny*o);if(x<1||y<1||x>=w-1||y>=h-1)continue;
+      const p=y*w+x,m=M[p];if(m<lo)continue;
+      const g=GX[p]*nx+GY[p]*ny,ag=Math.abs(g);if(ag>.82*m&&ag>best){best=ag;bs=g}
+    }
+    if(best){hit+=isStep(E,px,py,nx,ny)?1:.5;pol+=bs>0?1:-1;run=0}else if(++run>gap)gap=run;
+  }
+  return{cov:hit/N,pol:pol/N,gap:gap/N};
+}
+function lineX(a,b){const d=a.c*b.s-a.s*b.c;if(Math.abs(d)<.05)return null;return[(a.rho*b.s-b.rho*a.s)/d,(a.c*b.rho-b.c*a.rho)/d]}
+const BORDER=.68; // คะแนนของด้านที่เป็นขอบภาพ (เอกสารล้นเฟรม)
+// คะแนนของด้าน a→b: ขอบต้องมีตลอดแนว และต้อง "จบ" ที่มุม (ถ้าเส้นยังวิ่งต่อเลยมุมไป แปลว่าไม่ใช่มุมกระดาษจริง)
+function sideScore(E,a,b){
+  const s=sideSupport(E,a[0],a[1],b[0],b[1]),c=s.cov*(1-.5*Math.max(0,s.gap-.15));
+  if(c<.3)return{c:0,pol:0,ext:0};
+  const dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),e=Math.max(7,len*.12)/len,g=3/len;let ext=0;
+  const sg=s.pol>0?1:-1,fr=(f0,f1)=>{const r=sideSupport(E,a[0]+dx*f0,a[1]+dy*f0,a[0]+dx*f1,a[1]+dy*f1,0,1);return r.cov*(r.pol*sg>0?1:0)};
+  if(fr(-e,-g)>.8)ext++;if(fr(1+g,1+e)>.8)ext++;
+  return{c,pol:s.pol,ext,ea:fr(0,e),eb:fr(1-e,1)};
+}
+function combine(E,q,S){ // S[i] = sideScore ของด้าน q[i]→q[i+1] หรือ null ถ้าเป็นขอบภาพ
+  const{w,h}=E,cx=(q[0][0]+q[1][0]+q[2][0]+q[3][0])/4,cy=(q[0][1]+q[1][1]+q[2][1]+q[3][1])/4;
+  let sum=0,mn=1,pp=0,pn=0,nb=0,ext=0;
+  for(let i=0;i<4;i++){
+    const s=S[i];
+    if(!s){ // ขอบภาพ: ด้านข้างทั้งสองต้องมีขอบจริงวิ่งมาจนชนขอบภาพ
+      const p=S[(i+3)%4],nx=S[(i+1)%4];if((p&&p.eb<.7)||(nx&&nx.ea<.7))return 0;
+      nb++;sum+=BORDER;if(BORDER<mn)mn=BORDER;continue}
+    if(!s.c)return 0;sum+=s.c;if(s.c<mn)mn=s.c;ext+=s.ext;
+    const a=q[i],b=q[(i+1)%4],inw=(cx-a[0])*-(b[1]-a[1])+(cy-a[1])*(b[0]-a[0])>0?1:-1,p=s.pol*inw; // >0 = ด้านในสว่างกว่า
+    if(p>.25)pp++;else if(p<-.25)pn++;
+  }
+  if(nb>2)return 0;
+  const mean=sum/4;if(mean<.45)return 0;
+  const agree=Math.max(pp,pn)/(4-nb),pol=agree>=1?1:agree>=.74?.88:.72;
+  if(nb&&agree<1)return 0; // ใช้ขอบภาพได้เฉพาะเมื่อทุกด้านที่เหลือสว่าง/มืดกว่าพื้นไปทางเดียวกัน
+  return mean*(.35+.65*mn)*pol*Math.pow(.93,ext)*(nb>1?.85:1)*Math.pow(quadArea(q)/(w*h),.5);
+}
+function scoreQuad(E,q){
+  const{w,h}=E,S=[];
+  for(let i=0;i<4;i++){const a=q[i],b=q[(i+1)%4];
+    const onB=(a[0]<2&&b[0]<2)||(a[1]<2&&b[1]<2)||(a[0]>w-3&&b[0]>w-3)||(a[1]>h-3&&b[1]>h-3);
+    S.push(onB?null:sideScore(E,a,b))}
+  const sc=combine(E,q,S);if(!sc)return null;
+  const nb=S.some(x=>!x);return{sc,q,nb,mn:nb?0:Math.min(S[0].c,S[1].c,S[2].c,S[3].c)};
+}
+// โพรไฟล์ของเส้น: ทุก 1px ตามแนวเส้น มีขอบรองรับไหม (0 / +1 / −1 = ฝั่ง normal สว่างกว่า/มืดกว่า) — คิดครั้งเดียวต่อเส้น
+function lineProfile(E,l){
+  const{GX,GY,M,T,w,h}=E,px0=l.rho*l.c,py0=l.rho*l.s,dx=-l.s,dy=l.c,lo=T*.55;
+  let t0=1e9,t1=-1e9;for(const[x,y]of[[0,0],[w,0],[0,h],[w,h]]){const t=(x-px0)*dx+(y-py0)*dy;if(t<t0)t0=t;if(t>t1)t1=t}
+  t0=Math.floor(t0);const N=Math.ceil(t1)-t0+1,a=new Int8Array(N);
+  for(let k=0;k<N;k++){
+    const px=px0+dx*(t0+k),py=py0+dy*(t0+k);let best=0,bs=0;
+    for(let o=-2;o<=2;o++){
+      const x=Math.round(px+l.c*o),y=Math.round(py+l.s*o);if(x<1||y<1||x>=w-1||y>=h-1)continue;
+      const p=y*w+x,m=M[p];if(m<lo)continue;
+      const g=GX[p]*l.c+GY[p]*l.s,ag=Math.abs(g);if(ag>.82*m&&ag>best){best=ag;bs=g}
+    }
+    if(best)a[k]=(bs>0?1:-1)*(isStep(E,px,py,l.c,l.s)?2:1);
+  }
+  return{a,t0,px0,py0,dx,dy};
+}
+function segScore(P,A,B){ // เหมือน sideScore แต่อ่านจากโพรไฟล์ (เร็ว) · pol เทียบกับ normal ของเส้น
+  const a=P.a,ta=(A[0]-P.px0)*P.dx+(A[1]-P.py0)*P.dy-P.t0,tb=(B[0]-P.px0)*P.dx+(B[1]-P.py0)*P.dy-P.t0;
+  const lo=Math.min(ta,tb),hi=Math.max(ta,tb),len=hi-lo;if(len<3)return{c:0,pol:0,ext:0};
+  const k0=Math.max(0,Math.round(lo+len*.05)),k1=Math.min(a.length-1,Math.round(hi-len*.05)),N=Math.max(1,Math.round(len*.9));
+  let hit=0,pol=0,run=0,gap=0;
+  for(let k=k0;k<=k1;k++){const v=a[k];if(v){hit+=v===2||v===-2?1:.5;pol+=v>0?1:-1;run=0}else if(++run>gap)gap=run}
+  const c=Math.min(1,hit/N)*(1-.5*Math.max(0,gap/N-.15));
+  if(c<.3)return{c:0,pol:0,ext:0};
+  const e=Math.max(7,len*.12),sg=pol>0?1:-1,frac=(x0,x1)=>{const j0=Math.round(x0),j1=Math.round(x1);if(j0<0||j1>=a.length)return 0;
+    let hh=0;for(let k=j0;k<=j1;k++)if(a[k]*sg>0)hh++;return hh/(j1-j0+1)};
+  const ext=(frac(lo-e,lo-3)>.8?1:0)+(frac(hi+3,hi+e)>.8?1:0),el=frac(lo+1,lo+e),eh=frac(hi-e,hi-1);
+  return{c,pol:pol/N,ext,ea:ta<tb?el:eh,eb:ta<tb?eh:el};
+}
+function lineQuad(E,maxLines){
+  const{w,h}=E,L=houghLines(E,maxLines);
+  // ขอบภาพ 4 ด้าน เป็นเส้นสำรองเมื่อเอกสารล้นเฟรม (b = หมายเลขขอบ; คู่ตรงข้ามคือ 1-2 และ 3-4)
+  const B=[{c:1,s:0,rho:0,b:1},{c:1,s:0,rho:w-1,b:2},{c:0,s:1,rho:0,b:3},{c:0,s:1,rho:h-1,b:4}],A=L.concat(B),n=A.length;
+  const X=new Array(n*n);for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){const p=lineX(A[i],A[j]);X[i*n+j]=X[j*n+i]=p}
+  const mx=w*.06,my=h*.06,inb=p=>p&&p[0]>=-mx&&p[1]>=-my&&p[0]<=w-1+mx&&p[1]<=h-1+my,minA=w*h*.05;
+  const prof=A.map(l=>l.b?null:lineProfile(E,l)),cache=new Map();
+  // ด้านบนเส้น i จากจุดตัดกับเส้น k ไปยังจุดตัดกับเส้น l → {c,pol(เทียบ normal ของทิศ k→l),ext}
+  const side=(i,k,l)=>{
+    if(A[i].b)return null;const key=k<l?(i*n+k)*n+l:(i*n+l)*n+k;let v=cache.get(key);
+    const a=X[i*n+k],b=X[i*n+l];
+    if(v===undefined){v=segScore(prof[i],a,b);cache.set(key,v)}
+    if(!v.c)return v;
+    const fwd=(b[0]-a[0])*prof[i].dx+(b[1]-a[1])*prof[i].dy>0; // ทิศ a→b ตรงกับทิศเส้น → normal ของ a→b คือ −normal เส้น
+    return{c:v.c,pol:fwd?-v.pol:v.pol,ext:v.ext,ea:v.ea,eb:v.eb}};
+  let best=null,closed=null; // closed = ดีสุดในกลุ่มที่ปิดครบ 4 ด้านและขอบชัดทุกด้าน
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+    if(A[i].b&&A[j].b)continue; // ไม่ใช้ขอบภาพสองฝั่งตรงข้ามพร้อมกัน
+    if(inb(X[i*n+j]))continue; // คู่ด้านตรงข้ามต้องไม่ตัดกันในภาพ
+    for(let k=0;k<n;k++){
+      if(k===i||k===j)continue;const p1=X[i*n+k],p4=X[j*n+k];if(!inb(p1)||!inb(p4))continue;
+      const sk=side(k,j,i);if(sk&&!sk.c)continue;
+      for(let l=k+1;l<n;l++){
+        if(l===i||l===j||(A[k].b&&A[l].b))continue;const p2=X[i*n+l],p3=X[j*n+l];if(!inb(p2)||!inb(p3))continue;
+        if(inb(X[k*n+l]))continue;
+        const q=[p1,p2,p3,p4];if(quadArea(q)<minA||!squareish(q,.72))continue;
+        const s0=side(i,k,l);if(s0&&!s0.c)continue;const s1=side(l,i,j);if(s1&&!s1.c)continue;const s2=side(j,l,k);if(s2&&!s2.c)continue;
+        const sc=combine(E,q,[s0,s1,s2,sk]);
+        if(!sc)continue;
+        const nb=!s0||!s1||!s2||!sk;
+        if(!best||sc>best.sc)best={sc,q,nb};
+        if(!nb&&(!closed||sc>closed.sc)&&Math.min(s0.c,s1.c,s2.c,sk.c)>=.8)closed={sc,q,nb};
+      }
+    }
+  }
+  return{best,closed};
+
+}
+
+// ---- วิธีก้อนสี (ของเดิม)
 function otsu(hist,n){
   let sum=0;for(let i=0;i<256;i++)sum+=i*hist[i];
   let sB=0,wB=0,best=-1,th=128;
@@ -328,7 +496,119 @@ function maxQuad(H){ // สี่เหลี่ยมพื้นที่ม�
     }}
   return id.map(i=>H[i]);
 }
-const detect=c=>findQuad(c)||fullQuad(c.width,c.height,.04);
+function blobQuads(P,w,h){
+  const n=w*h,[R,G,B]=P;
+  // 1: กระดาษสว่างกว่าพื้น (Otsu บนความสว่าง)
+  const L=new Uint8Array(n),hist=new Float64Array(256);
+  for(let i=0;i<n;i++){const v=(R[i]*299+G[i]*587+B[i]*114)/1000|0;L[i]=v;hist[v]++}
+  const th=otsu(hist,n),bright=new Uint8Array(n);
+  for(let i=0;i<n;i++)bright[i]=L[i]>th?1:0;
+  // 2: ขอบสี — ไล่ท่วมพื้นหลังจากขอบภาพผ่านจุดที่ไม่มีเส้นขอบ ที่เหลือ (ถูกล้อมไว้) คือวัตถุ
+  const Gm=new Float32Array(n),gh=new Float64Array(256);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const p=y*w+x;let m=0;
+    for(const a of P){
+      const gx=a[p-w+1]+2*a[p+1]+a[p+w+1]-a[p-w-1]-2*a[p-1]-a[p+w-1];
+      const gy=a[p+w-1]+2*a[p+w]+a[p+w+1]-a[p-w-1]-2*a[p-w]-a[p-w+1];
+      const g=Math.abs(gx)+Math.abs(gy);if(g>m)m=g}
+    Gm[p]=m;gh[Math.min(255,m>>2)]++}
+  const gt=Math.max(12,otsu(gh,n))*4,E=new Uint8Array(n);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const p=y*w+x;if(Gm[p]>gt){E[p]=E[p-1]=E[p+1]=E[p-w]=E[p+w]=1}} // ขยายเส้น 1px ปิดรอยขาด
+  const bg=new Uint8Array(n),q=new Int32Array(n);let qt=0;
+  const seed=p=>{if(!bg[p]&&!E[p]){bg[p]=1;q[qt++]=p}},seed0=p=>{if(!bg[p]){bg[p]=1;q[qt++]=p}}; // ขอบภาพเป็นพื้นหลังเสมอ
+  for(let x=0;x<w;x++){seed0(x);seed0((h-1)*w+x)}
+  for(let y=0;y<h;y++){seed0(y*w);seed0(y*w+w-1)}
+  for(let qh=0;qh<qt;qh++){const p=q[qh],px=p%w;
+    if(px>0)seed(p-1);if(px<w-1)seed(p+1);if(p>=w)seed(p-w);if(p<n-w)seed(p+w)}
+  let fg=new Uint8Array(n);for(let i=0;i<n;i++)fg[i]=bg[i]?0:1;
+  const EK=4;for(let i=0;i<EK;i++)fg=erode(fg,w,h); // ตัดเส้น/ส่วนยื่นบาง ๆ ที่ต่อวัตถุกับของข้าง ๆ ออก
+  const out=[];let best=null;
+  for(const [mask,minFill,grow,maxEdge] of [[bright,.85,0,.12],[fg,.8,EK,.01]]){
+    const c=bestBlob(mask,w,h,minFill,maxEdge);if(!c)continue;
+    if(grow){const cx=c.quad.reduce((a,p)=>a+p[0],0)/4,cy=c.quad.reduce((a,p)=>a+p[1],0)/4; // ขยายกลับเท่าที่กัดไป
+      c.quad=c.quad.map(([px,py])=>{const dx=px-cx,dy=py-cy,l=Math.hypot(dx,dy)||1;return[px+dx/l*grow*1.4,py+dy/l*grow*1.4]})}
+    out.push(c.quad);
+    if(!best||c.area>best.area*1.3)best=c; // ขอบสีชนะเฉพาะเมื่อได้วัตถุใหญ่กว่าชัดเจน
+  }
+  return{all:out,pick:best&&best.quad};
+}
+// คืน null ถ้าหาไม่เจอ (ใช้ตอนกล้องสด เพื่อไม่วาดกรอบมั่ว); src เป็น canvas หรือ video ก็ได้
+function findQuad(src,W=src.width,H=src.height,max=256,refine=false){
+  const{d,w,h,s}=grab(src,W,H,max),P=blurPlanes(d,w,h),E=edgeMap(P,w,h);
+  const lq=lineQuad(E,max>230?22:16),bq=blobQuads(P,w,h);
+  let top=lq.best,closed=lq.closed;
+  for(const q of bq.all){const c=scoreQuad(E,orderQuad(q));if(!c)continue;
+    if(!top||c.sc>top.sc)top=c;if(!c.nb&&c.mn>=.8&&(!closed||c.sc>closed.sc))closed=c}
+  // กรอบที่ใช้ขอบภาพเป็นด้าน (เอกสารล้นเฟรม) ชนะได้ก็ต่อเมื่อไม่มีกรอบปิดครบ 4 ด้านที่ขอบชัดและคะแนนใกล้เคียงกัน
+  if(top&&top.nb&&closed&&closed.sc>=top.sc*.85)top=closed;
+  let best=top?top.q:bq.pick; // ไม่มีเส้นขอบชัดพอ → ใช้ก้อนสีแบบเดิม
+  if(!best)return null;
+  let q=orderQuad(best.map(([px,py])=>[(px+.5)/s,(py+.5)/s]));
+  if(refine)q=refineQuad(src,W,H,q,2.2/s);
+  return q.map(([x,y])=>[Math.max(0,Math.min(W,x)),Math.max(0,Math.min(H,y))]);
+}
+// ไล่ขอบซ้ำที่ความละเอียดสูง: ตามแต่ละด้าน หาจุดที่สีเปลี่ยนแรงสุดในแนวตั้งฉาก แล้วฟิตเส้นตรงใหม่ → มุม = จุดตัด
+function refineQuad(src,W,H,quad,R0){
+  const{d,w,h,s}=grab(src,W,H,1000),q=quad.map(([x,y])=>[x*s-.5,y*s-.5]),R=Math.max(3,Math.min(14,Math.round(R0*s)));
+  const cx=(q[0][0]+q[1][0]+q[2][0]+q[3][0])/4,cy=(q[0][1]+q[1][1]+q[2][1]+q[3][1])/4;
+  const lines=[],prof=new Float32Array((2*R+5)*3);
+  for(let i=0;i<4;i++){
+    const a=q[i],b=q[(i+1)%4],dx=b[0]-a[0],dy=b[1]-a[1],len=Math.hypot(dx,dy),tx=dx/len,ty=dy/len;
+    let nx=-ty,ny=tx;if((cx-a[0])*nx+(cy-a[1])*ny<0){nx=-nx;ny=-ny}
+    const base={px:a[0],py:a[1],tx,ty};lines.push(base);
+    if(len<30)continue;
+    const N=Math.max(12,Math.min(60,Math.round(len/8))),us=[],os=[],ws=[];
+    for(let k=0;k<N;k++){
+      const u=len*(.08+.84*(k+.5)/N),px=a[0]+tx*u,py=a[1]+ty*u;let ok=true;
+      for(let o=-R-2;o<=R+2&&ok;o++){
+        let r=0,g=0,bl=0;
+        for(let t=-3;t<=3;t++){const x=Math.round(px+nx*o+tx*t),y=Math.round(py+ny*o+ty*t);if(x<0||y<0||x>=w||y>=h){ok=false;break}const p=(y*w+x)*4;r+=d[p];g+=d[p+1];bl+=d[p+2]}
+        const j=(o+R+2)*3;prof[j]=r/7;prof[j+1]=g/7;prof[j+2]=bl/7;
+      }
+      if(!ok)continue;
+      let bo=0,bv=0;
+      for(let o=-R;o<=R;o++){const j=(o+R+2)*3;let m=0;for(let c=0;c<3;c++){const v=Math.abs(prof[j+6+c]-prof[j-6+c]);if(v>m)m=v}
+        m*=1-.35*Math.abs(o)/R;if(m>bv){bv=m;bo=o}}
+      if(bv>=7){us.push(u);os.push(bo);ws.push(Math.min(bv,60))}
+    }
+    if(us.length<Math.max(6,N*.4))continue;
+    // ฟิต o = A + B·u แบบถ่วงน้ำหนัก ตัดจุดหลุด 2 รอบ
+    let keep=us.map(()=>true),A=0,Bc=0,cnt=0;
+    for(let it=0;it<3;it++){
+      let sw=0,su=0,so=0,suu=0,suo=0;cnt=0;
+      for(let k=0;k<us.length;k++)if(keep[k]){const wt=ws[k];sw+=wt;su+=wt*us[k];so+=wt*os[k];suu+=wt*us[k]*us[k];suo+=wt*us[k]*os[k];cnt++}
+      const den=sw*suu-su*su;if(cnt<6||Math.abs(den)<1e-6)break;
+      Bc=(sw*suo-su*so)/den;A=(so-Bc*su)/sw;
+      const lim=it?1.5:3;for(let k=0;k<us.length;k++)keep[k]=Math.abs(os[k]-A-Bc*us[k])<=lim;
+    }
+    if(cnt<Math.max(6,N*.35)||Math.abs(Bc)>.12)continue;
+    const p0=[a[0]+nx*A,a[1]+ny*A],p1=[a[0]+tx*len+nx*(A+Bc*len),a[1]+ty*len+ny*(A+Bc*len)],l2=Math.hypot(p1[0]-p0[0],p1[1]-p0[1]);
+    lines[i]={px:p0[0],py:p0[1],tx:(p1[0]-p0[0])/l2,ty:(p1[1]-p0[1])/l2};
+  }
+  const out=[];
+  for(let i=0;i<4;i++){ // มุม i = จุดตัดของด้าน i-1 กับด้าน i
+    const a=lines[(i+3)%4],b=lines[i],den=a.tx*b.ty-a.ty*b.tx;
+    let p=q[i];
+    if(Math.abs(den)>1e-3){const t=((b.px-a.px)*b.ty-(b.py-a.py)*b.tx)/den,x=a.px+a.tx*t,y=a.py+a.ty*t;if(Math.hypot(x-p[0],y-p[1])<=R*2.5)p=[x,y]}
+    out.push([(p[0]+.5)/s,(p[1]+.5)/s]);
+  }
+  return out;
+}
+// สัดส่วน กว้าง/สูง จริงของกระดาษจากมุมทั้ง 4 ในภาพ (ชดเชย perspective; อ้างอิง Zhang & He, whiteboard scanning)
+function trueAspect(q,W,H){
+  const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
+  const naive=Math.max(dist(q[0],q[1]),dist(q[3],q[2]))/Math.max(1,Math.max(dist(q[0],q[3]),dist(q[1],q[2])));
+  const u0=W/2,v0=H/2,m=i=>[q[i][0]-u0,q[i][1]-v0,1],m1=m(0),m2=m(1),m3=m(3),m4=m(2);
+  const cr=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]],dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+  const k2=dot(cr(m1,m4),m3)/dot(cr(m2,m4),m3),k3=dot(cr(m1,m4),m2)/dot(cr(m3,m4),m2);
+  const n2=[k2*m2[0]-m1[0],k2*m2[1]-m1[1],k2-1],n3=[k3*m3[0]-m1[0],k3*m3[1]-m1[1],k3-1];
+  // ทางยาวโฟกัส: คำนวณได้เมื่อขอบทั้งสองคู่ลู่เข้าหากัน; ถ้าไม่ได้ (เอียงแกนเดียว/ค่าไม่สมเหตุผล) ใช้ค่าประมาณของกล้องมือถือ
+  const D=Math.max(W,H);let f2=(D*.75)*(D*.75);
+  if(Math.abs(n2[2])>.03&&Math.abs(n3[2])>.03){const v=-(n2[0]*n3[0]+n2[1]*n3[1])/(n2[2]*n3[2]);if(v>D*D*.2&&v<D*D*6)f2=v}
+  const r=Math.sqrt(((n2[0]*n2[0]+n2[1]*n2[1])/f2+n2[2]*n2[2])/((n3[0]*n3[0]+n3[1]*n3[1])/f2+n3[2]*n3[2]));
+  return r>naive*.4&&r<naive*2.5?r:naive;
+}
+const detect=c=>findQuad(c,c.width,c.height,320,true)||fullQuad(c.width,c.height,.04);
 
 // ดัดภาพให้ตรง (perspective) ด้วย homography + bilinear
 function homography(src,dst){
@@ -344,6 +624,7 @@ function homography(src,dst){
 function warp(src,q){
   const dist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1]);
   let w=Math.max(dist(q[0],q[1]),dist(q[3],q[2])),h=Math.max(dist(q[0],q[3]),dist(q[1],q[2]));
+  const r=trueAspect(q,src.width,src.height);if(w/h<r)w=h*r;else h=w/r; // คืนสัดส่วนจริงของกระดาษ (ถ่ายเอียงแล้วไม่ยืด/ไม่แบน)
   const s=Math.min(1,MAXS/Math.max(w,h));w=Math.max(8,Math.round(w*s));h=Math.max(8,Math.round(h*s));
   const H=homography([[0,0],[w,0],[w,h],[0,h]],q);
   const sw=src.width,sh=src.height,sd=src.getContext("2d",{willReadFrequently:true}).getImageData(0,0,sw,sh).data;
@@ -569,8 +850,11 @@ function startCapture(docId,how){
 // ================= กล้องในแอป (กรอบเขียวสด) =================
 // หลังบันทึกแต่ละหน้าจะกลับมาที่กล้องอีก (camMode) จนกด "เสร็จ"
 let camMode=false,camDenied=false,stream=null,camTimer=0,live=null,miss=0,hit=0;
+// ถ่ายอัตโนมัติ: กรอบนิ่งครบ STEADY รอบ → ถ่ายเอง · armed=false หลังถ่าย จนกว่ากรอบจะหาย/ขยับ (เปลี่ยนหน้า) กันถ่ายหน้าเดิมซ้ำ
+const STEADY=7;let steady=0,prevQ=null,armed=true,shooting=false,lost=0;
+function renderAuto(){const b=$("#kAuto");b.textContent=settings.auto?"AUTO":"MANUAL";b.classList.toggle("on",!!settings.auto)}
 async function openCamera(){
-  camMode=true;show("cam");renderCamDone();
+  camMode=true;show("cam");renderCamDone();renderAuto();steady=0;prevQ=null;shooting=false;lost=0;
   if(stream&&stream.active)return camLoop();
   try{
     stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:{ideal:"environment"},width:{ideal:3840},height:{ideal:2160}}});
@@ -599,34 +883,45 @@ function camLoop(){
   if(!$("#cam").classList.contains("on")||!stream)return;
   const v=$("#kVideo"),vw=v.videoWidth,vh=v.videoHeight;
   if(vw&&vh){
-    let q=findQuad(v,vw,vh,200);
+    let q=findQuad(v,vw,vh,220);
+    // นิ่งไหม: มุมทั้ง 4 ขยับไม่เกิน 1.5% ของด้านยาวเทียบกับรอบก่อน และเอกสารใหญ่พอในเฟรม
+    const tol=Math.max(vw,vh)*.015,mv=q&&prevQ?Math.max(...q.map((p,i)=>Math.hypot(p[0]-prevQ[i][0],p[1]-prevQ[i][1]))):1e9;
+    lost=q?0:lost+1;if(lost>=3||(q&&prevQ&&mv>tol*5))armed=true; // กรอบหายไปสักพัก หรือขยับเยอะ = เปลี่ยนหน้าแล้ว
+    steady=q&&mv<=tol&&quadArea(q)>vw*vh*.12?steady+1:0;prevQ=q;
     hit=q?hit+1:0;
     if(q&&!live&&hit<2)q=null; // ต้องเจอติดกัน 2 เฟรมก่อนค่อยโชว์ กันกรอบกระพริบมั่ว
     if(q){miss=0;live=live?live.map((p,i)=>[p[0]+(q[i][0]-p[0])*.5,p[1]+(q[i][1]-p[1])*.5]):q} // ลดกรอบสั่น
     else if(live&&++miss>3)live=null;
     drawLive(vw,vh);
+    if(settings.auto&&armed&&live&&steady>=STEADY&&!shooting){shoot();return}
   }
-  camTimer=setTimeout(camLoop,120);
+  camTimer=setTimeout(camLoop,110);
 }
 function drawLive(vw,vh){
   const st=$("#kStage"),W=st.clientWidth,H=st.clientHeight,k=Math.min(W/vw,H/vh),ox=(W-vw*k)/2,oy=(H-vh*k)/2;
-  $("#kHint").textContent=live?"เจอเอกสารแล้ว กดถ่ายได้เลย":"เล็งให้เห็นเอกสารทั้งแผ่น";
+  const auto=settings.auto&&armed&&live,prog=auto?Math.min(1,steady/STEADY):0;
+  $("#kHint").textContent=!live?"เล็งให้เห็นเอกสารทั้งแผ่น":auto?(steady>1?"ถือนิ่ง ๆ กำลังถ่ายให้…":"เจอเอกสารแล้ว ถือนิ่ง ๆ"):settings.auto?"เปลี่ยนหน้าถัดไป หรือกดถ่ายได้เลย":"เจอเอกสารแล้ว กดถ่ายได้เลย";
   if(!live){$("#kOv").innerHTML="";return}
   const pts=live.map(([x,y])=>`${ox+x*k},${oy+y*k}`).join(" ");
-  $("#kOv").innerHTML=`<polygon points="${pts}" fill="rgba(79,184,152,.28)" stroke="#4fb898" stroke-width="3" stroke-linejoin="round"/>`;
+  $("#kOv").innerHTML=`<polygon points="${pts}" fill="rgba(79,184,152,${(.22+.3*prog).toFixed(2)})" stroke="${prog>=.99?"#fff":"#4fb898"}" stroke-width="${3+2*prog}" stroke-linejoin="round"/>`;
 }
-$("#kShot").onclick=async()=>{
-  const v=$("#kVideo"),vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;
+$("#kAuto").onclick=()=>{settings.auto=!settings.auto;saveSettings();renderAuto();steady=0;toast(settings.auto?"ถ่ายอัตโนมัติ: เปิด — เล็งให้นิ่งแล้วแอปถ่ายให้เอง":"ถ่ายอัตโนมัติ: ปิด — กดปุ่มถ่ายเอง")};
+$("#kShot").onclick=()=>shoot();
+async function shoot(){
+  const v=$("#kVideo"),vw=v.videoWidth,vh=v.videoHeight;if(!vw||shooting)return;
+  shooting=true;armed=false;steady=0;
   const fl=$("#kFlash");fl.style.transition="none";fl.style.opacity=".8";requestAnimationFrame(()=>{fl.style.transition="";fl.style.opacity="0"});
   const s=Math.min(1,MAXS/Math.max(vw,vh)),c=mkCanvas(Math.round(vw*s),Math.round(vh*s)); // เฟรมเต็มความละเอียดของกล้อง
   c.getContext("2d").drawImage(v,0,0,c.width,c.height);
-  const corners=live&&live.map(([x,y])=>[x*s,y*s]);
+  const liveQ=live&&live.map(([x,y])=>[x*s,y*s]);
   stopCamera();busy(true);await tick();
   try{
+    // หาขอบใหม่จากภาพนิ่งที่ถ่ายได้ (ละเอียดกว่ากรอบสด); ถ้าไม่เจอค่อยใช้กรอบสด
+    const corners=findQuad(c,c.width,c.height,320,true)||(liveQ?refineQuad(c,c.width,c.height,liveQ,c.width/90):null)||fullQuad(c.width,c.height,.04);
     ed={pageId:null,orig:await toJpeg(c,.92),rot:0,corners,filter:settings.filter};queue=[];queueTotal=0;
-    await prepareCrop(!corners);
+    await prepareCrop(false);
   }catch(e){busy(false);toast(e.message,3000);openCamera()}
-};
+}
 $("#kTorch").onclick=async()=>{
   const tr=stream&&stream.getVideoTracks()[0];if(!tr)return;
   const b=$("#kTorch"),on=!b.classList.contains("on");
@@ -685,10 +980,12 @@ function drawOverlay(){
   const{k,ox,oy,W,H}=lay,pts=ed.corners.map(([x,y])=>[ox+x*k,oy+y*k]),poly=pts.map(p=>p.join(",")).join(" ");
   $("#ov").innerHTML=`<path d="M0 0H${W}V${H}H0Z M${pts.map(p=>p.join(" ")).join(" L")}Z" fill="rgba(0,0,0,.45)" fill-rule="evenodd"/>`+
     `<polygon points="${poly}" fill="rgba(79,184,152,.12)" stroke="#4fb898" stroke-width="2.5"/>`+
+    pts.map((p,i)=>{const n=pts[(i+1)%4],mx=(p[0]+n[0])/2,my=(p[1]+n[1])/2,a=Math.atan2(n[1]-p[1],n[0]-p[0])*180/Math.PI,on=drag===i+4; // ที่จับกลางด้าน: ลากเลื่อนทั้งด้าน
+      return`<rect x="${mx-(on?18:14)}" y="${my-(on?7:5)}" width="${on?36:28}" height="${on?14:10}" rx="5" transform="rotate(${a} ${mx} ${my})" fill="${on?"#4fb898":"rgba(255,255,255,.9)"}" stroke="#4fb898" stroke-width="2.5"/>`}).join("")+
     pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${drag===i?16:12}" fill="${drag===i?"#4fb898":"rgba(255,255,255,.9)"}" stroke="#4fb898" stroke-width="3"/>`).join("");
 }
 function drawLoupe(i){
-  const lp=$("#loupe"),[x,y]=ed.corners[i],z=lp.width,half=58/(lay.k*3); // ซูม 3 เท่าของภาพบนจอ
+  const lp=$("#loupe"),a=ed.corners[i%4],b=ed.corners[(i+1)%4],[x,y]=i<4?a:[(a[0]+b[0])/2,(a[1]+b[1])/2],z=lp.width,half=58/(lay.k*3); // ซูม 3 เท่าของภาพบนจอ
   const c=lp.getContext("2d");c.fillStyle="#000";c.fillRect(0,0,z,z);
   c.drawImage(ed.src,x-half,y-half,half*2,half*2,0,0,z,z);
   c.strokeStyle="#4fb898";c.lineWidth=3;c.beginPath();c.moveTo(z/2,z/2-22);c.lineTo(z/2,z/2+22);c.moveTo(z/2-22,z/2);c.lineTo(z/2+22,z/2);c.stroke();
@@ -699,11 +996,18 @@ stage.addEventListener("pointerdown",e=>{
   if(!lay)return;const r=stage.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
   let best=-1,bd=48*48;
   ed.corners.forEach(([x,y],i)=>{const dx=lay.ox+x*lay.k-mx,dy=lay.oy+y*lay.k-my,dd=dx*dx+dy*dy;if(dd<bd){bd=dd;best=i}});
-  if(best<0)return;drag=best;ed.grab=[mx-(lay.ox+ed.corners[best][0]*lay.k),my-(lay.oy+ed.corners[best][1]*lay.k)];
+  if(best<0){bd=40*40;ed.corners.forEach(([x,y],i)=>{const n=ed.corners[(i+1)%4],dx=lay.ox+(x+n[0])/2*lay.k-mx,dy=lay.oy+(y+n[1])/2*lay.k-my,dd=dx*dx+dy*dy;if(dd<bd){bd=dd;best=i+4}})} // ไม่โดนมุม → ลองที่จับกลางด้าน
+  if(best<0)return;drag=best;
+  if(best<4)ed.grab=[mx-(lay.ox+ed.corners[best][0]*lay.k),my-(lay.oy+ed.corners[best][1]*lay.k)];
+  else ed.grab={mx,my,a:ed.corners[best-4].slice(),b:ed.corners[(best-3)%4].slice()};
   stage.setPointerCapture(e.pointerId);drawOverlay();drawLoupe(best);e.preventDefault();
 });
 stage.addEventListener("pointermove",e=>{
   if(drag<0)return;const r=stage.getBoundingClientRect();
+  if(drag>3){ // เลื่อนทั้งด้าน (สองมุมไปด้วยกัน) โดยไม่ให้หลุดนอกภาพ
+    const g=ed.grab,W=ed.src.width,H=ed.src.height;let dx=(e.clientX-r.left-g.mx)/lay.k,dy=(e.clientY-r.top-g.my)/lay.k;
+    dx=Math.max(-Math.min(g.a[0],g.b[0]),Math.min(W-Math.max(g.a[0],g.b[0]),dx));dy=Math.max(-Math.min(g.a[1],g.b[1]),Math.min(H-Math.max(g.a[1],g.b[1]),dy));
+    ed.corners[drag-4]=[g.a[0]+dx,g.a[1]+dy];ed.corners[(drag-3)%4]=[g.b[0]+dx,g.b[1]+dy];drawOverlay();drawLoupe(drag);return}
   let x=(e.clientX-r.left-ed.grab[0]-lay.ox)/lay.k,y=(e.clientY-r.top-ed.grab[1]-lay.oy)/lay.k;
   x=Math.max(0,Math.min(ed.src.width,x));y=Math.max(0,Math.min(ed.src.height,y));
   ed.corners[drag]=[x,y];drawOverlay();drawLoupe(drag);
@@ -712,17 +1016,13 @@ const endDrag=()=>{if(drag<0)return;drag=-1;$("#loupe").style.display="none";dra
 stage.addEventListener("pointerup",endDrag);stage.addEventListener("pointercancel",endDrag);
 window.addEventListener("resize",()=>{if($("#crop").classList.contains("on"))layoutCrop()});
 
-// เรียงมุมให้เป็น บนซ้าย→บนขวา→ล่างขวา→ล่างซ้าย เผื่อผู้ใช้ลากมุมสลับกัน
-function orderQuad(q){
-  const cx=q.reduce((s,p)=>s+p[0],0)/4,cy=q.reduce((s,p)=>s+p[1],0)/4;
-  const s=[...q].sort((a,b)=>Math.atan2(a[1]-cy,a[0]-cx)-Math.atan2(b[1]-cy,b[0]-cx)); // เริ่มจากซ้ายบน วนตามเข็ม (แกน y ชี้ลง)
-  let i0=0,m=1e18;s.forEach((p,i)=>{const v=p[0]+p[1];if(v<m){m=v;i0=i}});
-  return[0,1,2,3].map(j=>s[(i0+j)%4]);
-}
-async function rotate(dir){ed.rot=(ed.rot+dir+360)%360;busy(true);await tick();ed.src=rotCanvas(ed.img,ed.rot);ed.corners=detect(ed.src);busy(false);layoutCrop()}
+async function rotate(dir){ // หมุนภาพ 90° แล้วหมุนกรอบตามไปด้วย (ไม่ทิ้งมุมที่ปรับไว้)
+  const W=ed.src.width,H=ed.src.height;ed.rot=(ed.rot+dir+360)%360;busy(true);await tick();
+  ed.src=rotCanvas(ed.img,ed.rot);ed.corners=orderQuad(ed.corners.map(([x,y])=>dir>0?[H-y,x]:[y,W-x]));busy(false);layoutCrop()}
 $("#cRotL").onclick=()=>rotate(-90);
 $("#cRotR").onclick=()=>rotate(90);
-$("#cAuto").onclick=()=>{const q=findQuad(ed.src,undefined,undefined,320);if(q){ed.corners=q;toast("เจอขอบแล้ว")}else toast("หาขอบไม่เจอ — ลากมุมทั้ง 4 เองได้เลย",3000);drawOverlay()};
+$("#cAuto").onclick=async()=>{busy(true);await tick();let q=null;try{q=findQuad(ed.src,ed.src.width,ed.src.height,400,true)}finally{busy(false)}
+  if(q){ed.corners=q;toast("เจอขอบแล้ว")}else toast("หาขอบไม่เจอ — ลากมุมหรือขอบทั้ง 4 เองได้เลย",3000);drawOverlay()};
 $("#cFull").onclick=()=>{ed.corners=fullQuad(ed.src.width,ed.src.height);drawOverlay()};
 $("#cBack").onclick=()=>{
   if(ed.pageId){ed=null;openDoc(target);return}
