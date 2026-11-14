@@ -253,3 +253,31 @@ document.readyState==="loading"?document.addEventListener("DOMContentLoaded",ini
     return r;
   };
 })();
+
+// NOTAM status line (#b_notamAutoMsg): brief-shim sets "ดึงแล้ว … · กำลังสรุปตามช่วงเวลาบิน" and never updates it, so it
+// looked stuck after the summary (Threats) had already appeared. Keep it in step with #b_notamOut: done / failed, and
+// after reopening the app show what is saved for this duty.
+(function(){
+  const $=id=>document.getElementById(id);
+  const hm=t=>{try{return local(t,S.base).hm}catch{return""}};
+  function sync(){
+    const msg=$("b_notamAutoMsg"),out=$("b_notamOut");if(!msg||!out)return;
+    const r=(typeof BR!=="undefined"&&briefKey)?BR[briefKey]:null;
+    const busy=$("b_notamBtn")?.disabled||$("b_notamAuto")?.disabled;
+    if(busy)return;
+    const err=out.querySelector(".note.err");
+    const head=/^\[([^\]]+)\]/.exec(r?.notam||"");
+    if(err&&/กำลังสรุป/.test(msg.textContent)){msg.style.color="var(--red)";msg.textContent="สรุป NOTAM ไม่สำเร็จ · กด สรุป NOTAM ตามช่วงเวลาบิน อีกครั้ง";return}
+    if(r?.notamSum){msg.style.color="var(--green)";msg.textContent=(head?"ดึงแล้ว "+head[1]:"มี NOTAM แล้ว")+" · สรุปแล้ว"+(r.notamAutoAt?" (ดึงอัตโนมัติ "+hm(r.notamAutoAt)+" L)":"");return}
+    if(!r?.notam&&!/กำลัง/.test(msg.textContent))msg.textContent="";
+  }
+  let t=null;const kick=()=>{clearTimeout(t);t=setTimeout(sync,150)};
+  function start(){
+    const out=$("b_notamOut");if(!out)return setTimeout(start,800);
+    new MutationObserver(kick).observe(out,{childList:true,subtree:true});
+    ["b_notamBtn","b_notamAuto"].forEach(id=>{const b=$(id);b&&new MutationObserver(kick).observe(b,{attributes:true,attributeFilter:["disabled"]})});
+    const sel=$("b_duty");sel&&sel.addEventListener("change",()=>setTimeout(kick,300));
+    kick();
+  }
+  document.readyState==="complete"?setTimeout(start,500):window.addEventListener("load",()=>setTimeout(start,500));
+})();
