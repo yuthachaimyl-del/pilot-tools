@@ -182,7 +182,7 @@
       return `<tr><td class="mu">${k + 1}</td><td class="m"><b>VZ${H(l.s.flt)}</b></td><td class="m">${H(l.s.dep)} → ${H(l.s.arr)}</td>
 <td>${t(l.s.std, l.dep)}</td><td>${t(l.s.sta, l.arr)}</td><td class="m">${l.nt ? "—" : fmtDur((l.arr - l.dep) / 6e4)}</td>
 <td class="${tc}">${turn == null ? (nx ? '<span class="mu">—</span>' : "") : `<span class="m">${Math.round(turn)}</span> นาที ที่ <span class="m">${H(l.s.arr)}</span>`}</td>
-<td class="m">${H(f?.gate || (k === 0 ? r.gate : "") || "")}</td></tr>`;
+<td class="m">${(() => { const g = f?.gate || (k === 0 ? r.gate : "") || ""; const c = r.gateChg?.[l.i]; return g ? (c && c.to === g ? `<b style="color:var(--amber)">${H(g)}</b><span class="z">เดิม ${H(c.from)}</span>` : H(g)) : '<span class="mu">—</span>'; })()}</td></tr>`;
     }).join("");
 
     // ----- aircraft / MEL -----

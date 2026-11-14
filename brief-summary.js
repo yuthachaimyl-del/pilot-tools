@@ -64,7 +64,7 @@ const SCREEN=`
 h3{font-size:14px;margin-bottom:4px;flex-wrap:wrap;row-gap:0}h3 small{font-size:11px;flex-basis:100%}
 table{min-width:100%}
 .lg table{min-width:0}
-@media (max-width:520px){.lg th:nth-child(1),.lg td:nth-child(1),.lg th:nth-child(6),.lg td:nth-child(6),.lg th:nth-child(8),.lg td:nth-child(8){display:none}.lg .z{display:block;margin:0;white-space:nowrap}.lg td{white-space:normal}.hdr .who,.hdr .who2{display:none}.hdr .hr{min-width:0}}
+@media (max-width:520px){.lg th:nth-child(1),.lg td:nth-child(1),.lg th:nth-child(6),.lg td:nth-child(6){display:none}.lg th:nth-child(8),.lg td:nth-child(8){padding-left:4px;padding-right:0}.lg .z{display:block;margin:0;white-space:nowrap}.lg td{white-space:normal}.hdr .who,.hdr .who2{display:none}.hdr .hr{min-width:0}}
 .nt tr.off{display:none}.nt.showoff tr.off{display:table-row}.nt tr.fold{display:none!important}.nt tr.ad td{cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}.nt tr.ad .chev{float:right;color:var(--p-muted);transition:transform .2s;margin-left:6px}.nt tr.ad.open .chev{transform:rotate(180deg)}.nt tr.ad .hi{color:var(--p-red);font-weight:600}.nt tr.ad .offbtn{display:block;margin:4px 0 0}
 .nt tr.ad td{position:relative}.nt .offbtn{appearance:none;border:1px solid var(--p-line);background:transparent;color:var(--p-muted);font:500 11px var(--f-body);border-radius:999px;padding:2px 8px;margin-left:6px;cursor:pointer}
 th{font-size:11px;padding:3px 5px}td{padding:3px 5px;font-size:12.5px}
@@ -233,4 +233,23 @@ function init(){
   schedule();
 }
 document.readyState==="loading"?document.addEventListener("DOMContentLoaded",init):init();
+})();
+
+// Gate per leg after every OMC update: remember the gates of the previous fetch and mark a leg whose gate changed
+// (BR[briefKey].gateChg = {legIndex: {from, to, at}}); brief-print shows it in the Gate column.
+(function(){
+  if(typeof window.fetchOps!=="function")return;
+  const orig=window.fetchOps;
+  window.fetchOps=async function(q){
+    const e=(typeof BR!=="undefined"&&briefKey)?BR[briefKey]:null;
+    const before={};(e?.ops||[]).forEach(x=>{x?.f?.gate&&(before[x.i]=x.f.gate)});
+    const r=await orig.apply(this,arguments);
+    try{
+      const e2=BR[briefKey];if(!e2||!e2.ops)return r;
+      const chg=e2.gateChg||{};let n=0;
+      e2.ops.forEach(x=>{const g=x?.f?.gate;if(g&&before[x.i]&&before[x.i]!==g){chg[x.i]={from:before[x.i],to:g,at:Date.now()};n++}});
+      if(n){e2.gateChg=chg;saveBR();try{renderBrief()}catch{}}
+    }catch{}
+    return r;
+  };
 })();
