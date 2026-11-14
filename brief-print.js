@@ -305,7 +305,10 @@
       else if (x.cls === "hot" && !/^Prevailing/.test(x.raw)) th.push(["w", `${w.icao} ${w.label}: ${x.raw}`, w.label.startsWith("DEP") ? "สภาพอากาศตอนออก · เช็ค take-off minima" : (x.trans ? x.trans + " · " : "") + "brief threat (CB / windshear / holding)"]);
     }));
     nItems.filter((x) => x.impact === "high" && x.active_in_window !== false).forEach((x) => th.push(["b", `${x.icao} ${x.id || ""}: ${x.summary || ""}`, "NOTAM ผลสูง ทับช่วงบิน"]));
-    turns.filter((t) => t.min < 50).forEach((t) => th.push([t.min < 35 ? "b" : "w", t.ib ? `เครื่องขาเข้าอยู่บนพื้น ${Math.round(t.min)} นาทีก่อนขาแรก` : `Turnaround ${Math.round(t.min)} นาทีที่ ${t.at}`, "ถ้าเครื่องเข้าช้า ขาถัดไปจะถูกบีบ"]));
+    const shortT = turns.filter((t) => t.min < 50);
+    shortT.filter((t) => t.ib).forEach((t) => th.push([t.min < 35 ? "b" : "w", `เครื่องขาเข้าอยู่บนพื้น ${Math.round(t.min)} นาทีก่อนขาแรก`, "ถ้าเครื่องเข้าช้า ขาถัดไปจะถูกบีบ"]));
+    const tas = shortT.filter((t) => !t.ib);   // one line for all short turnarounds of the day
+    if (tas.length) th.push([tas.some((t) => t.min < 35) ? "b" : "w", `Turnaround ${tas.map((t) => `${Math.round(t.min)} นาทีที่ ${t.at}`).join(" · ")}`, "ถ้าเครื่องเข้าช้า ขาถัดไปจะถูกบีบ"]);
     if (left != null && left < 120) th.push([left < 60 ? "b" : "w", `FDP เหลือ ${fmtDur(left)} ก่อนต้องใช้ extension`, "ดีเลย์สะสมอาจเกิน max FDP"]);
     melExpired.forEach((x) => th.push(["b", `${x.ref} ${x.n < 0 ? "หมดอายุก่อนวันบิน" : "หมดอายุวันบิน"}`, "ต้องแก้หรือต่ออายุก่อนบิน · ตรวจ Tech Log"]));
     if (melCount) th.push(["w", `MEL ${melCount} รายการบน ${reg}`, "ดู (O)(M) procedure และผลต่อ performance"]);
@@ -388,7 +391,7 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .ffdp{border:1px solid var(--line);border-radius:2mm;padding:1.2mm 2.4mm;font-size:8.4pt}
 #ccPrint .ffdp .bar{height:4px;margin-top:1mm}
 #ccPrint .fbox{border:1px solid var(--line);border-radius:2.4mm;padding:1.8mm 2.6mm;min-height:0}
-#ccPrint .fth{flex:1;min-height:0;overflow:hidden}
+#ccPrint .fth{flex:1;min-height:0;overflow:hidden}#ccPrint .fold-l .fth .thl{font-size:8pt;gap:.5mm}
 #ccPrint .fold-p .ftwo{grid-template-columns:1fr;flex:0 0 auto}
 #ccPrint .pn .thl li{font-size:8pt}#ccPrint .fold-l .thl li{font-size:7.5pt;line-height:1.25}
 #ccPrint .fwx{display:grid;grid-template-columns:1fr 1fr;gap:1mm 4mm}
