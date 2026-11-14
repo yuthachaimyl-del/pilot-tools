@@ -313,7 +313,7 @@
     melExpired.forEach((x) => th.push(["b", `${x.ref} ${x.n < 0 ? "หมดอายุก่อนวันบิน" : "หมดอายุวันบิน"}`, "ต้องแก้หรือต่ออายุก่อนบิน · ตรวจ Tech Log"]));
     if (melCount) th.push(["w", `MEL ${melCount} รายการบน ${reg}`, "ดู (O)(M) procedure และผลต่อ performance"]);
     unknownSt.forEach((st) => th.push(["b", `ไม่รู้รหัส ICAO ของ ${st}`, "แอปยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้ · ดูจาก AeroWeather เอง"]));
-    const thHtml = th.length ? `<ul class="thl">${th.slice(0, 7).map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}</ul>`
+    const thHtml = th.length ? `<ul class="thl">${th.map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}</ul>`
       : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป · ยังต้องดู OFP, NOTAM และ weather ทางการ</div>';
 
     // ----- header -----
@@ -484,12 +484,29 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
     const tileZ = (lbl, ms, st, cls = "") => `<div class="tile ${cls}"><span>${lbl}</span><b>${ms == null ? "—" : zr(ms) + "Z"}</b><em>${ms == null ? "" : lt(ms, st) + " L"}</em></div>`;
     const tileL = (lbl, ms, st) => `<div class="tile"><span>${lbl}</span><b>${ms == null ? "—" : lt(ms, st)}</b><em>local</em></div>`;
     const tiles = tileL("ตื่น", b.wakeAbs, base) + tileL("ออกจากบ้าน", b.leaveAbs, base) + tileZ("Report", b.repAbs, from, "key") + tileZ("Off-block แรก", legs[0] && !legs[0].nt ? legs[0].dep : null, legs[0]?.s.dep) + tileZ(last?.nt ? "On-block ≈" : "On-block สุดท้าย", lastOn ?? null, last?.s.arr || base) + tileZ("Release", b.relAbs, o.to || last?.s.arr || base);
-    const thHtml = th.length ? `<ul class="thl">${th.map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}</ul>` : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป</div>';
-    const panel2 = `<section class="pn"><span class="pno">2</span>
+    const thF = [...th.filter((t) => t[0] === "b"), ...th.filter((t) => t[0] !== "b")];   // red first, so a cut drops the amber ones
+    const thHtmlOf = (k) => th.length ? `<ul class="thl">${thF.slice(0, k).map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}${k < thF.length ? `<li class="w"><b>+ อีก ${thF.length - k} รายการ</b> <span>— ดู Weather ช่อง 3 / NOTAM ช่อง 4 หรือในแอป</span></li>` : ""}</ul>` : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป</div>';
+    const panel2Of = (thHtml) => `<section class="pn"><span class="pno">2</span>
 <h3>เวลาวันนี้ <small>UTC ใหญ่ · local เล็ก</small></h3><div class="ftiles">${tiles}</div>
 ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <span class="m">${fmtDur(fdp)}</span></b> จาก max <span class="m">${fmtDur(b.fdpMax)}</span> · เหลือ <b class="m" style="color:${lc}">${fmtDur(left)}</b> ก่อนต้องใช้ extension<div class="bar"><i style="width:${Math.max(0, Math.min(100, (fdp * 100) / b.fdpMax)).toFixed(1)}%;background:${lc}"></i></div></div>` : ""}
 <div class="fbox fth"><h3>Threats วันนี้ <small>${th.length} รายการ</small></h3>${thHtml}</div>
 <div class="fftr"><span>CoolCrew · Crew Brief</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ</span></div></section>`;
+    let thFit = thF.length;
+    try {
+      const fits = (k) => {
+        const meas = document.createElement("div");
+        meas.id = "ccPrint";
+        meas.style.cssText = "position:fixed;left:-9999px;top:0;display:block;visibility:hidden;pointer-events:none";
+        meas.innerHTML = `<style>${CSS}${FOLD_CSS}</style><div class="${mode}"><div class="sheet"><section class="pn"></section>${panel2Of(thHtmlOf(k))}<section class="pn"></section><section class="pn"></section></div></div>`;
+        document.body.appendChild(meas);
+        const box = meas.querySelector(".fth"), li = [...box.querySelectorAll("li")].pop();
+        const ok = !li || li.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom - parseFloat(getComputedStyle(box).paddingBottom) + 0.5;
+        meas.remove();
+        return ok;
+      };
+      while (thFit > 1 && !fits(thFit)) thFit--;
+    } catch (e) { console.warn("fold threats fit", e); }
+    const panel2 = panel2Of(thHtmlOf(thFit));
     // --- panel 3: aircraft / MEL + weather ---
     const allUncovered = merged.size && [...merged.values()].every((w) => !w.lines.length && /ไม่ครอบคลุม|ไม่มี TAF/.test(w.note || ""));
     const unk = d.unknownSt?.length ? `<div class="empty" style="color:var(--red)">ไม่รู้รหัส ICAO ของ ${d.unknownSt.map(H).join(", ")} · ยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้</div>` : "";
@@ -525,13 +542,15 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
     const on = nItems.filter((x) => x.active_in_window !== false), offN = nItems.length - on.length;
     const order = [...new Set([...d.usedIcao, ...on.map((x) => x.icao)])].filter((i) => on.some((x) => x.icao === i));
     const roleOf = (i) => [...merged.values()].filter((w) => w.icao === i).map((w) => w.label.replace(/ขา /g, "")).join(", ");
-    const groups = order.map((i) => {
-      const rows = on.filter((x) => x.icao === i).sort((p2, q) => rank(p2) - rank(q));
-      return { head: `<div class="ad">${H(i)} <span>${iataOf[i] ? H(iataOf[i]) + " · " : ""}${H(roleOf(i))} · ${rows.length} รายการ</span></div>`,
+    // important (high/medium) NOTAMs of every aerodrome first, then the low ones, so page 1 carries what matters at each field
+    const mkGroup = (i, rows, lowPass) => ({ head: `<div class="ad">${H(i)} <span>${iataOf[i] ? H(iataOf[i]) + " · " : ""}${lowPass ? "low · " : H(roleOf(i)) + " · "}${rows.length} รายการ</span></div>`,
         rows: rows.map((x) => { const legsX = Array.isArray(x.legs) ? x.legs.map((l) => { const m = /^(DEP|ARR|ALT)\s*(\d+)/i.exec(String(l)); if (!m) return ""; const lbl = `${m[1].toUpperCase()} ขา ${m[2]}`; const w = winByLabel[lbl]; return w ? `${lbl} ${zt(w.s)}–${zt(w.n)}` : lbl; }).filter(Boolean) : [];
           const x2 = x.impact === "low" ? "" : [legsX.join(" · "), x.when ? "NOTAM " + x.when : ""].filter(Boolean).join(" · ");
-          return `<div class="it"><span class="id">${H(x.id || "")}</span><div>${H(x.summary || "")} <span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span>${x2 ? `<div class="x">${H(x2)}</div>` : ""}</div></div>`; }) };
-    });
+          return `<div class="it"><span class="id">${H(x.id || "")}</span><div>${H(x.summary || "")} <span class="pill ${x.impact === "high" ? "bad" : x.impact === "medium" ? "warn" : ""}">${H(x.impact || "low")}</span>${x2 ? `<div class="x">${H(x2)}</div>` : ""}</div></div>`; }) });
+    const groups = [
+      ...order.map((i) => mkGroup(i, on.filter((x) => x.icao === i && x.impact !== "low" && x.impact).sort((p2, q) => rank(p2) - rank(q)), false)),
+      ...order.map((i) => mkGroup(i, on.filter((x) => x.icao === i && !(x.impact !== "low" && x.impact)), true)),
+    ].filter((g) => g.rows.length);
     if (wxOver.length) groups.unshift({ head: `<div class="ad">Weather ต่อ <span>จากช่อง 3 · ETA ±1 ชม. UTC</span></div>`, rows: wxOver.map((r) => `<div class="fwx" style="grid-template-columns:1fr">${r}</div>`) });
     const perPanel = P ? 1 : 2;
     const colsHtml = (cs) => `<div class="fnt">${Array.from({ length: perPanel }, (_, i) => `<div class="col">${(cs && cs[i]) || ""}</div>`).join("")}</div>`;
