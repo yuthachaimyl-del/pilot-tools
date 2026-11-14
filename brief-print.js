@@ -394,11 +394,13 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .pn h3{margin:0 0 1mm;font-size:10pt}
 #ccPrint .ftiles{display:grid;grid-template-columns:repeat(6,1fr);gap:1.2mm}
 #ccPrint .fold-p .ftiles{grid-template-columns:repeat(3,1fr);gap:1.6mm}
-#ccPrint .ftiles .tile{padding:1mm 1.6mm;min-width:0}
-#ccPrint .ftiles .tile b{font-size:12.5pt;display:block;font-family:var(--f-mono,monospace)}#ccPrint .fold-p .ftiles .tile b{font-size:14pt}
-#ccPrint .ftiles .tile em{display:block;margin:-.4mm 0 0;font-size:6.6pt}
-#ccPrint .ffdp{border:1px solid var(--line);border-radius:2mm;padding:1.2mm 2.4mm;font-size:8.4pt}
-#ccPrint .ffdp .bar{height:4px;margin-top:1mm}
+#ccPrint .ftiles .tile{padding:.5mm 1.4mm .7mm;min-width:0}
+#ccPrint .ftiles .tile span{font-size:7pt;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ccPrint .ftiles .tile .v{display:flex;align-items:baseline;gap:.9mm;white-space:nowrap;line-height:1.1}
+#ccPrint .ftiles .tile b{font-size:11pt;display:inline;font-family:var(--f-mono,monospace)}#ccPrint .fold-p .ftiles .tile b{font-size:13pt}
+#ccPrint .ftiles .tile em{display:inline;margin:0;font-size:6.6pt}#ccPrint .fold-p .ftiles .tile em{font-size:7.4pt}
+#ccPrint .ffdp{border:1px solid var(--line);border-radius:2mm;padding:.8mm 2.4mm;font-size:8.2pt;display:flex;align-items:center;gap:2.5mm;white-space:nowrap}
+#ccPrint .ffdp .bar{height:4px;margin-top:0;flex:1;min-width:12mm}
 #ccPrint .fbox{border:1px solid var(--line);border-radius:2.4mm;padding:1.8mm 2.6mm;min-height:0}
 #ccPrint .fth{flex:1;min-height:0;overflow:hidden}#ccPrint .fold-l .fth .thl{font-size:8pt;gap:.5mm}
 #ccPrint .fold-p .ftwo{grid-template-columns:1fr;flex:0 0 auto}
@@ -491,14 +493,15 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 <div class="fcf"><span>${altList ? "ALT " + altList : "ยังไม่ได้ใส่ ALT"}</span><span>${fdp != null && b.fdpMax ? `FDP ${fmtDur(fdp)} / max ${fmtDur(b.fdpMax)} · เหลือ ${fmtDur(left)}` : ""}</span><span>${melCount ? `MEL ${melCount} (ช่อง 3)` : reg ? "ไม่มี MEL ค้าง" : ""}</span></div>
 </div></section>`;
     // --- panel 2: times, threats, checklist ---
-    const tileZ = (lbl, ms, st, cls = "") => `<div class="tile ${cls}"><span>${lbl}</span><b>${ms == null ? "—" : zr(ms) + "Z"}</b><em>${ms == null ? "" : lt(ms, st) + " L"}</em></div>`;
-    const tileL = (lbl, ms, st) => `<div class="tile"><span>${lbl}</span><b>${ms == null ? "—" : lt(ms, st)}</b><em>local</em></div>`;
-    const tiles = tileL("ตื่น", b.wakeAbs, base) + tileL("ออกจากบ้าน", b.leaveAbs, base) + tileZ("Report", b.repAbs, from, "key") + tileZ("Off-block แรก", legs[0] && !legs[0].nt ? legs[0].dep : null, legs[0]?.s.dep) + tileZ(last?.nt ? "On-block ≈" : "On-block สุดท้าย", lastOn ?? null, last?.s.arr || base) + tileZ("Release", b.relAbs, o.to || last?.s.arr || base);
+    // compact tiles: a one-line label, then the time with its local time beside it (2 lines per tile)
+    const tileZ = (lbl, ms, st, cls = "") => `<div class="tile ${cls}"><span>${lbl}</span><div class="v"><b>${ms == null ? "—" : zr(ms) + "Z"}</b><em>${ms == null ? "" : lt(ms, st) + "L"}</em></div></div>`;
+    const tileL = (lbl, ms, st) => `<div class="tile"><span>${lbl}</span><div class="v"><b>${ms == null ? "—" : lt(ms, st)}</b><em>L</em></div></div>`;
+    const tiles = tileL("ตื่น", b.wakeAbs, base) + tileL("ออกบ้าน", b.leaveAbs, base) + tileZ("Report", b.repAbs, from, "key") + tileZ("Off-block", legs[0] && !legs[0].nt ? legs[0].dep : null, legs[0]?.s.dep) + tileZ(last?.nt ? "On-block ≈" : "On-block", lastOn ?? null, last?.s.arr || base) + tileZ("Release", b.relAbs, o.to || last?.s.arr || base);
     const thF = [...th.filter((t) => t[0] === "b"), ...th.filter((t) => t[0] !== "b")];   // red first, so a cut drops the amber ones
     const thHtmlOf = (k) => th.length ? `<ul class="thl">${thF.slice(0, k).map(([c, a, b2]) => `<li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li>`).join("")}${k < thF.length ? `<li class="w"><b>▶ อีก ${thF.length - k} รายการ ต่อหน้า 2</b></li>` : ""}</ul>` : '<div class="empty">ไม่พบ threat จากข้อมูลที่ใส่ในแอป</div>';
     const panel2Of = (thHtml) => `<section class="pn"><span class="pno">2</span>
-<h3>เวลาวันนี้ <small>UTC ใหญ่ · local เล็ก</small></h3><div class="ftiles">${tiles}</div>
-${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <span class="m">${fmtDur(fdp)}</span></b> จาก max <span class="m">${fmtDur(b.fdpMax)}</span> · เหลือ <b class="m" style="color:${lc}">${fmtDur(left)}</b> ก่อนต้องใช้ extension<div class="bar"><i style="width:${Math.max(0, Math.min(100, (fdp * 100) / b.fdpMax)).toFixed(1)}%;background:${lc}"></i></div></div>` : ""}
+<div class="ftiles">${tiles}</div>
+${fdp != null && b.fdpMax ? `<div class="ffdp"><span><b>FDP <span class="m">${fmtDur(fdp)}</span></b> / max <span class="m">${fmtDur(b.fdpMax)}</span> · เหลือ <b class="m" style="color:${lc}">${fmtDur(left)}</b> ก่อน extension</span><div class="bar"><i style="width:${Math.max(0, Math.min(100, (fdp * 100) / b.fdpMax)).toFixed(1)}%;background:${lc}"></i></div></div>` : ""}
 <div class="fbox fth"><h3>Threats วันนี้ <small>${th.length} รายการ</small></h3>${thHtml}</div>
 <div class="fftr"><span>CoolCrew · Crew Brief</span><span>ช่วยเตรียม brief ไม่ใช่เอกสารทางการ</span></div></section>`;
     let thFit = thF.length;
