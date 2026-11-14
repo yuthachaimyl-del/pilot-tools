@@ -389,7 +389,7 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .fold-p .fleg .fr{display:flex;flex-direction:column;gap:.4mm}
 #ccPrint .fold-p .fleg .fta{grid-column:auto;margin-top:0}
 #ccPrint .fleg .fta b{color:var(--red)}
-#ccPrint .fold-l .fleg .fno{grid-row:span 2}#ccPrint .fold-l .fleg .fta{grid-column:auto;margin-top:0;font-size:7.6pt}#ccPrint .fold-l .fleg .ftm{grid-column:2/4;margin-top:-1.4mm}
+#ccPrint .fold-l .fleg{grid-template-columns:24mm auto 1fr;row-gap:0}#ccPrint .fold-l .fleg .fno{grid-row:span 2}#ccPrint .fold-l .fleg .fta{grid-column:auto;margin-top:0;font-size:7.8pt;text-align:right;white-space:nowrap}#ccPrint .fold-l .fleg .ftm{margin-top:-.6mm}
 #ccPrint .fcf{display:flex;justify-content:space-between;gap:2mm;font-size:7pt;color:var(--muted);padding-top:1.2mm;border-top:1.4px solid var(--ink);margin-top:auto}
 #ccPrint .pn h3{margin:0 0 1mm;font-size:10pt}
 #ccPrint .ftiles{display:grid;grid-template-columns:repeat(6,1fr);gap:1.2mm}
@@ -478,11 +478,13 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
     const legRows = legs.map((l, k) => {
       const nx = legs[k + 1]; let turn = null; if (nx && !l.nt && !nx.nt) turn = Math.round((nx.dep - l.arr) / 6e4);
       const f = opOf(l.i), gate = f?.gate || (k === 0 ? r.gate : "") || "";
-      const ta = [l.nt ? "" : `block ${fmtDur((l.arr - l.dep) / 6e4)}`, gate ? `gate ${H(gate)}` : "", turn != null ? `turnaround <b>${turn} นาที</b> ที่ ${H(icaoOf(l.s.arr))}` : (k === nLegs - 1 && b.relAbs ? `release ${zr(b.relAbs)}Z (${lt(b.relAbs, o.to || l.s.arr)} L)` : "")].filter(Boolean).join(" · ");
+      const ta1 = [l.nt ? "" : `block ${fmtDur((l.arr - l.dep) / 6e4)}`, gate ? `gate/bay ${H(gate)}` : ""].filter(Boolean).join(" · ");
+      const ta2 = turn != null ? `turnaround <b>${turn} นาที</b> ที่ ${H(icaoOf(l.s.arr))}` : (k === nLegs - 1 && b.relAbs ? `release ${zr(b.relAbs)}Z (${lt(b.relAbs, o.to || l.s.arr)} L)` : "");
+      const ta = [ta1, ta2].filter(Boolean).join(" · ");
       const times = l.nt ? `<div class="ftm">—<small>ยังไม่มีเวลา STD/STA</small></div>` : `<div class="ftm">${zr(l.dep)}–${zr(l.arr)}Z<small>${lt(l.dep, l.s.dep)} – ${lt(l.arr, l.s.arr)} L</small></div>`;
       const route = `<div class="frt">${H(icaoOf(l.s.dep))}<i>→</i>${H(icaoOf(l.s.arr))}<small>${H(l.s.dep)}–${H(l.s.arr)}</small></div>`;
       return P ? `<div class="fleg"><div class="fno"><small>VZ</small>${H(l.s.flt)}</div><div class="fr">${route}${times}<div class="fta">${ta}</div></div></div>`
-               : `<div class="fleg"><div class="fno"><small>VZ</small>${H(l.s.flt)}</div>${route}<div class="fta">${ta}</div>${times}</div>`;   // landscape: block/gate/turnaround beside the route, times on the second line
+               : `<div class="fleg"><div class="fno"><small>VZ</small>${H(l.s.flt)}</div>${route}<div class="fta">${ta1}</div>${times}<div class="fta">${ta2}</div></div>`;   // landscape: block · gate right of the route, turnaround right of the times
     }).join("");
     const altList = legs.map((l) => { const a = alt[l.i] ?? ALTDEF[l.s.arr]; return a ? `ขา ${l.i + 1}: ${H(icaoOf(a))}` : ""; }).filter(Boolean).join(" · ");
     const dateL = `${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y}`;
