@@ -27,7 +27,7 @@
   const setDocCss = (mode) => { const st = document.getElementById("ccPrintCss"); if (st) st.textContent = docCss(mode); };
   // the report lives in a shadow root, so the app's own CSS (.card, table, .row, dark theme...) cannot leak in
   const CSS = `
-#ccPrint{--ink:#0E1620;--text:#0B1117;--muted:#2F3A46;--line:#8E9AA6;--soft:#EDF0F3;--green:#1F6B3F;--green-soft:#E3F3EA;
+#ccPrint{--f-body:"IBM Plex Sans Thai",sans-serif;--f-mono:"IBM Plex Mono",monospace;--ink:#0E1620;--text:#0B1117;--muted:#2F3A46;--line:#8E9AA6;--soft:#EDF0F3;--green:#1F6B3F;--green-soft:#E3F3EA;
   --amber:#7A4500;--amber-soft:#FCF0DA;--red:#9B1C12;--red-soft:#FDE8E6;--blue:#1B4F8C;--blue-soft:#E6EEF8;
   font-family:var(--f-body,"IBM Plex Sans Thai",sans-serif);font-size:9.9pt;line-height:1.3;font-weight:500;color:var(--text);background:#fff;-webkit-text-size-adjust:100%;text-size-adjust:100%;
   -webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -241,7 +241,7 @@
         if (!row || !row.f) return;
         const nx = row.next;
         if (nx && ours.has(norm(nx.flt))) return;
-        if (!nx) { afterHtml += `<div class="mel after"><span class="pill info">หลังขา ${k + 1}</span> ไม่มีไฟลท์ต่อในชีตวันนี้</div>`; return; }
+        if (!nx) { if (k === legs.length - 1) afterHtml += `<div class="mel after"><span class="pill info">หลังขา ${k + 1}</span> ไม่มีไฟลท์ต่อในชีตวันนี้</div>`; return; }   // only the last leg says so
         const p = [row.f.ata, row.f.eta2, row.f.eta, row.f.sta].find((x) => /\d{1,2}:\d{2}/.test(x || "")) || "";
         const q = [nx.etd, nx.std].find((x) => /\d{1,2}:\d{2}/.test(x || "")) || "";
         const g = typeof gapMin === "function" ? gapMin(p, q) : null;
@@ -408,7 +408,7 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .ftiles .tile span{font-size:7pt;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #ccPrint .ftiles .tile .v{display:flex;align-items:baseline;gap:.9mm;white-space:nowrap;line-height:1.1}
 #ccPrint .ftiles .tile b{font-size:11pt;display:inline;font-family:var(--f-mono,monospace)}#ccPrint .fold-p .ftiles .tile b{font-size:13pt}
-#ccPrint .ftiles .tile em{display:inline;margin:0;font-size:6.6pt}#ccPrint .fold-p .ftiles .tile em{font-size:7.4pt}
+#ccPrint .ftiles .tile em{display:inline;margin:0;font-size:6.6pt}#ccPrint .fold-l .ftiles{gap:1mm}#ccPrint .fold-l .ftiles .tile{padding:.5mm 1.1mm .7mm;overflow:hidden}#ccPrint .fold-l .ftiles .tile .v{gap:.6mm}#ccPrint .fold-l .ftiles .tile b{font-size:10pt;letter-spacing:-.02em}#ccPrint .fold-l .ftiles .tile em{font-family:var(--f-body,sans-serif);font-size:6.4pt}#ccPrint .fold-p .ftiles .tile em{font-size:7.4pt}
 #ccPrint .ffdp{border:1px solid var(--line);border-radius:2mm;padding:.8mm 2.4mm;font-size:8.2pt;display:flex;align-items:center;gap:2.5mm;white-space:nowrap}
 #ccPrint .ffdp .bar{height:4px;margin-top:0;flex:1;min-width:12mm}
 #ccPrint .fbox{border:1px solid var(--line);border-radius:2.4mm;padding:1.8mm 2.6mm;min-height:0}
@@ -437,25 +437,34 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
   const MM = 96 / 25.4;   // CSS px per mm
   // measure the NOTAM rows at the real column width (offscreen, synchronously) and pack them into columns
   // measure the NOTAM rows at the real column width and the free height of each panel (offscreen, synchronously), then pack
+  // fit measurements run where the page is drawn: inside the PDF iframe while makePdf builds (MDOC), otherwise in a
+  // shadow root with the same CSS as the print view, so the app page's own CSS and fonts cannot skew them
+  let MDOC = null;
+  function measureBox(inner) {
+    const off = "position:fixed;left:-9999px;top:0;display:block;visibility:hidden;pointer-events:none";
+    if (MDOC) { const m = MDOC.createElement("div"); m.id = "ccPrint"; m.style.cssText = off; m.innerHTML = inner; MDOC.body.appendChild(m); return { root: m, done: () => m.remove() }; }
+    const h = document.createElement("div"); h.style.cssText = off; document.body.appendChild(h);
+    const sr = h.attachShadow({ mode: "open" }); sr.innerHTML = `<style>${SHADOW_CSS}${SHADOW_FOLD}</style><div id="ccPrintIn">${inner}</div>`;
+    return { root: sr, done: () => h.remove() };
+  }
+  const gcs = (el) => el.ownerDocument.defaultView.getComputedStyle(el);
   function packNotams(groups, mode, perPanel, skel) {
-    const meas = document.createElement("div");
-    meas.id = "ccPrint";
-    meas.style.cssText = "position:fixed;left:-9999px;top:0;display:block;visibility:hidden;pointer-events:none";
-    meas.innerHTML = `<style>${CSS}${FOLD_CSS}</style><div class="${mode}"><div class="sheet">${skel.p4}${skel.pH}${skel.pP}${skel.pL}</div></div>`;
-    document.body.appendChild(meas);
-    const free = [...meas.querySelectorAll(".sheet > .pn")].map((pn) => {
-      const box = pn.querySelector(".fbox"), f = pn.querySelector(".fnt"), cs = getComputedStyle(box);
+    const meas = measureBox(`<div class="${mode}"><div class="sheet">${skel.p4}${skel.pH}${skel.pP}${skel.pL}</div></div>`);
+    const free = [...meas.root.querySelectorAll(".sheet > .pn")].map((pn) => {
+      const box = pn.querySelector(".fbox"), f = pn.querySelector(".fnt"), cs = gcs(box);
       return Math.max(0, box.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom) - f.getBoundingClientRect().top);
     });   // [panel 4, page-2 header panel, plain panel, last panel with footer]
-    const col = meas.querySelector(".fnt .col");
+    const col = meas.root.querySelector(".fnt .col");
     const items = [];
     for (const g of groups) {
       items.push({ html: g.head, h: 0, group: g, isHead: true });
       g.rows.forEach((row) => items.push({ html: row, h: 0, group: g }));
     }
     col.innerHTML = items.map((it) => it.html).join("");
-    [...col.children].forEach((el, i) => { items[i].h = el.getBoundingClientRect().height + 0.6 * MM; });
-    meas.remove();
+    // an item's height is the step to the next one, so gaps and margins between items are counted as they lay out
+    const kids = [...col.children], rects = kids.map((el) => el.getBoundingClientRect());
+    kids.forEach((el, i) => { items[i].h = i < kids.length - 1 ? Math.max(rects[i].height, rects[i + 1].top - rects[i].top) : rects[i].height + 0.6 * MM; });
+    meas.done();
     // column k capacity: panel 4 columns first, then page-2 panels (header panel, plain, plain, last-with-footer; repeating per page)
     const cap = (k) => {
       if (k < perPanel) return free[0];
@@ -520,14 +529,10 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><span><b>FDP <span class="m">${fm
     let thFit = thF.length;
     try {
       const fits = (k) => {
-        const meas = document.createElement("div");
-        meas.id = "ccPrint";
-        meas.style.cssText = "position:fixed;left:-9999px;top:0;display:block;visibility:hidden;pointer-events:none";
-        meas.innerHTML = `<style>${CSS}${FOLD_CSS}</style><div class="${mode}"><div class="sheet"><section class="pn"></section>${panel2Of(thHtmlOf(k))}<section class="pn"></section><section class="pn"></section></div></div>`;
-        document.body.appendChild(meas);
-        const box = meas.querySelector(".fth"), li = [...box.querySelectorAll("li")].pop();
-        const ok = !li || li.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom - parseFloat(getComputedStyle(box).paddingBottom) + 0.5;
-        meas.remove();
+        const meas = measureBox(`<div class="${mode}"><div class="sheet"><section class="pn"></section>${panel2Of(thHtmlOf(k))}<section class="pn"></section><section class="pn"></section></div></div>`);
+        const box = meas.root.querySelector(".fth"), li = [...box.querySelectorAll("li")].pop();
+        const ok = !li || li.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom - parseFloat(gcs(box).paddingBottom) - 2;
+        meas.done();
         return ok;
       };
       while (thFit > 1 && !fits(thFit)) thFit--;
@@ -557,14 +562,10 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><span><b>FDP <span class="m">${fm
     if (merged.size && !allUncovered && wxRows.length > 1) {
       try {
         const fits = (k) => {
-          const meas = document.createElement("div");
-          meas.id = "ccPrint";
-          meas.style.cssText = "position:fixed;left:-9999px;top:0;display:block;visibility:hidden;pointer-events:none";
-          meas.innerHTML = `<style>${CSS}${FOLD_CSS}</style><div class="${mode}"><div class="sheet"><section class="pn"></section><section class="pn"></section>${panel3Of(wxRows.slice(0, k), wxMoreTxt(k))}<section class="pn"></section></div></div>`;
-          document.body.appendChild(meas);
-          const box = meas.querySelector(".wxbox"), src = box.querySelector(".src"), cs = getComputedStyle(box);
-          const ok = src.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom) + 0.5;
-          meas.remove();
+          const meas = measureBox(`<div class="${mode}"><div class="sheet"><section class="pn"></section><section class="pn"></section>${panel3Of(wxRows.slice(0, k), wxMoreTxt(k))}<section class="pn"></section></div></div>`);
+          const box = meas.root.querySelector(".wxbox"), src = box.querySelector(".src"), cs = gcs(box);
+          const ok = src.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom) - 2;
+          meas.done();
           return ok;
         };
         while (wxFit > 1 && (wxItems[wxFit - 1].head || !fits(wxFit))) wxFit--;   // never end panel 3 on a leg header
@@ -584,7 +585,7 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><span><b>FDP <span class="m">${fm
     const groups = order.map((i) => mkGroup(i, on.filter((x) => x.icao === i).sort((p2, q) => rank(p2) - rank(q)), false)).filter((g) => g.rows.length);   // one block per aerodrome, in duty order
     if (groups.length) groups[0].newPage = true;
     const thOver = thF.slice(thFit);   // threats that did not fit panel 2 open sheet 2, before the NOTAMs
-    if (thOver.length) groups.unshift({ newPage: true, head: `<div class="ad">Threats ต่อ <span>จากช่อง 2 · ${thOver.length} รายการ</span></div>`, rows: thOver.map(([c, a, b2]) => `<ul class="thl" style="margin-bottom:.6mm"><li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li></ul>`) });   // NOTAMs go to sheet 2; panel 4 keeps an index + any weather overflow
+    if (thOver.length) groups.unshift({ newPage: true, head: `<div class="ad">Threats ต่อ <span>จากช่อง 2 · ${thOver.length} รายการ</span></div>`, rows: thOver.map(([c, a, b2]) => `<ul class="thl"><li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li></ul>`) });   // NOTAMs go to sheet 2; panel 4 keeps an index + any weather overflow
     if (wxOver.length) {
       const wg = [];
       for (const it of wxOver) {
@@ -659,6 +660,17 @@ ${wxOver.length || box ? `<div class="fbox" style="flex:1"><h3>Weather ต่อ
   ];
   const FONTS = "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap";
   let pdfFile = null, pdfBusy = false;
+  // Google serves Thai and Latin as separate subsets: load both (sample text has Thai), every weight the page uses
+  const FONT_FACES = ['400 10pt "IBM Plex Sans Thai"', '500 10pt "IBM Plex Sans Thai"', '600 10pt "IBM Plex Sans Thai"', '500 10pt "IBM Plex Mono"', '600 10pt "IBM Plex Mono"'];
+  const FONT_SAMPLE = "ทับช่วงบิน เครื่อง ขา Aa0:–→·";
+  // the print/PDF always uses IBM Plex; load it into the app page too, so the fit measurements (threats, weather,
+  // NOTAM columns) are taken with the same font the PDF is drawn in (the app theme may use Barlow, which is narrower)
+  try { if (!document.querySelector(`link[href="${FONTS}"]`)) { const lk = document.createElement("link"); lk.rel = "stylesheet"; lk.href = FONTS; document.head.appendChild(lk); } } catch {}
+  const fontsReady = () => Promise.race([
+    Promise.all(FONT_FACES.map((f) => document.fonts?.load(f, FONT_SAMPLE))).catch(() => {}),
+    new Promise((r) => setTimeout(r, 4000)),
+  ]);
+  fontsReady();
   function pdfName() {
     const o = sorted().find((d) => key(d) === briefKey);
     return `CrewBrief-${String(o?.code || "duty").replace(/[^\w-]+/g, "_")}-${o?.date || ""}.pdf`;
@@ -672,8 +684,8 @@ ${wxOver.length || box ? `<div class="fbox" style="flex:1"><h3>Weather ต่อ
     let fr = null;
     try {
       const mode = layoutMode(), fold = mode !== "a4", land = mode === "fold-l";
-      const html = buildHtml((await melData()) || cachedMel(), mode);
-      if (!html) throw new Error("ยังไม่มี flight duty ในตาราง");
+      const melD = (await melData()) || cachedMel();
+      if (!buildHtml(melD, mode)) throw new Error("ยังไม่มี flight duty ในตาราง");
       const W = land ? 1123 : 794, Hh = land ? 794 : 1123;   // A4 at 96 dpi
       fr = document.createElement("iframe");
       fr.setAttribute("aria-hidden", "true");
@@ -682,13 +694,18 @@ ${wxOver.length || box ? `<div class="fbox" style="flex:1"><h3>Weather ต่อ
       fr.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="${FONTS}">
 <style>:root{--f-body:"IBM Plex Sans Thai",sans-serif;--f-mono:"IBM Plex Mono",monospace}html,body{margin:0;background:#fff;-webkit-text-size-adjust:100%;text-size-adjust:100%}#ccPrint{width:${W}px;padding:${fold ? "0" : "30px 34px 34px"}}${CSS}${fold ? FOLD_CSS : ""}</style>
 ${LIBS.map(([u, h]) => `<script src="${u}" integrity="${h}" crossorigin="anonymous" referrerpolicy="no-referrer"><\/script>`).join("")}
-</head><body><div id="ccPrint">${html}</div></body></html>`;
+</head><body><div id="ccPrint"></div></body></html>`;
       document.body.appendChild(fr);
       await new Promise((res, rej) => { fr.onload = res; setTimeout(() => rej(new Error("โหลดตัวทำ PDF ไม่ทัน (เน็ตช้า?)")), 25000); });
       const w = fr.contentWindow;
       if (!w.html2canvas || !w.jspdf) throw new Error("โหลดตัวทำ PDF ไม่ได้");
-      await (w.document.fonts?.ready || Promise.resolve());
+      // load the fonts in the iframe, then build the page there so every fit is measured exactly as it is drawn
+      await Promise.race([Promise.all(FONT_FACES.map((f) => w.document.fonts?.load(f, FONT_SAMPLE))).catch(() => {}), new Promise((r) => setTimeout(r, 6000))]);
       const el = w.document.getElementById("ccPrint");
+      let html;
+      try { MDOC = fold ? w.document : null; html = buildHtml(melD, mode); } finally { MDOC = null; }
+      el.innerHTML = html;
+      await (w.document.fonts?.ready || Promise.resolve());
       // NOTAM block starts on page 2 (same rule as @media print break-before): pad it down to the next page top
       try {
         const p2 = el.querySelector(".p2");
