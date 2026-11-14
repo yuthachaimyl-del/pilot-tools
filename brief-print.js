@@ -399,7 +399,7 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .fwx .w{display:grid;grid-template-columns:22mm 1fr;gap:1.2mm;font-size:7.6pt;border-bottom:1px solid var(--line);padding-bottom:.8mm}
 #ccPrint .fwx .lbl b{display:block;font-size:8.4pt}#ccPrint .fwx .lbl small{color:var(--muted);font-family:var(--f-mono,monospace)}
 #ccPrint .fwx .g{font-family:var(--f-mono,monospace);font-size:7pt;display:block}
-#ccPrint .wxmore{font-size:7pt;font-weight:700;color:var(--amber);margin-top:.8mm}#ccPrint .fwx .g.hot{color:var(--red)}#ccPrint .fwx .g.warm{color:var(--amber)}
+#ccPrint .nidx{display:grid;gap:.6mm;margin-bottom:1.6mm;font-size:8pt}#ccPrint .nidx>div{display:flex;flex-wrap:wrap;align-items:center;gap:1mm 1.6mm;border-bottom:1px solid var(--line);padding-bottom:.6mm}#ccPrint .nidx span{color:var(--muted)}#ccPrint .nidx i{font-style:normal;margin-left:auto;display:flex;gap:1mm}#ccPrint .nidx .pill{color:inherit}#ccPrint .wxmore{font-size:7pt;font-weight:700;color:var(--amber);margin-top:.8mm}#ccPrint .fwx .g.hot{color:var(--red)}#ccPrint .fwx .g.warm{color:var(--amber)}
 #ccPrint .pn .pill{font-size:6.6pt;white-space:normal}
 #ccPrint .pn .mel{font-size:8pt}
 #ccPrint .fnt{display:grid;grid-template-columns:1fr 1fr;gap:.6mm 4mm;font-size:7.3pt;line-height:1.25;align-content:start}
@@ -446,6 +446,7 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
     for (let i = 0; i < items.length; i++) {
       const it = items[i];
       if (it.isHead) lastGroup = it.group;
+      if (it.isHead && it.group.newPage && k < perPanel) { k = perPanel; used = 0; }
       const need = it.isHead ? it.h + (items[i + 1] && !items[i + 1].isHead ? items[i + 1].h : 0) : it.h;   // keep a header with its first row
       if (used + need > cap(k) && used > 0) {
         k++; used = 0;
@@ -551,15 +552,19 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
       ...order.map((i) => mkGroup(i, on.filter((x) => x.icao === i && x.impact !== "low" && x.impact).sort((p2, q) => rank(p2) - rank(q)), false)),
       ...order.map((i) => mkGroup(i, on.filter((x) => x.icao === i && !(x.impact !== "low" && x.impact)), true)),
     ].filter((g) => g.rows.length);
+    if (groups.length) groups[0].newPage = true;   // NOTAMs go to sheet 2; panel 4 keeps an index + any weather overflow
     if (wxOver.length) groups.unshift({ head: `<div class="ad">Weather ต่อ <span>จากช่อง 3 · ETA ±1 ชม. UTC</span></div>`, rows: wxOver.map((r) => `<div class="fwx" style="grid-template-columns:1fr">${r}</div>`) });
     const perPanel = P ? 1 : 2;
     const colsHtml = (cs) => `<div class="fnt">${Array.from({ length: perPanel }, (_, i) => `<div class="col">${(cs && cs[i]) || ""}</div>`).join("")}</div>`;
     const printed = `พิมพ์ ${gen.date.split("-").reverse().join("/")} ${gen.hm} ${H(base)}`;
     const offTxt = offN ? `ไม่ทับช่วงบินอีก ${offN} รายการ ไม่พิมพ์` : "";
+    const cnt = (i, imp) => on.filter((x) => x.icao === i && (imp === "low" ? !(x.impact === "high" || x.impact === "medium") : x.impact === imp)).length;
+    const nIndex = on.length ? `<div class="nidx">${order.map((i) => { const h = cnt(i, "high"), m = cnt(i, "medium"), lo = cnt(i, "low");
+      return `<div><b>${H(i)}</b> <span>${iataOf[i] ? H(iataOf[i]) + " · " : ""}${H(roleOf(i))}</span><i>${h ? `<span class="pill bad">high ${h}</span>` : ""}${m ? `<span class="pill warn">medium ${m}</span>` : ""}${lo ? `<span class="pill">low ${lo}</span>` : ""}</i></div>`; }).join("")}</div>` : '<div class="empty">ยังไม่ได้สรุป NOTAM</div>';
     const panel4 = (cs, more, pages) => `<section class="pn"><span class="pno">4</span>
-<div class="fbox" style="flex:1"><h3>NOTAM ที่ทับช่วงบิน <small>${on.length} จาก ${nItems.length}${pages > 1 ? ` · หน้า 1/${pages}` : ""} · ตรวจกับต้นฉบับ</small></h3>${groups.length ? colsHtml(cs) : ""}${on.length ? "" : '<div class="empty">ยังไม่ได้สรุป NOTAM</div>'}</div>
-<div class="fftr"><span>${printed}</span><span>${more ? `<b>ต่อหน้า 2 อีก ${more} รายการ</b> · ` : ""}${offTxt}</span></div></section>`;
-    const panelHead = (n, pi, cs, more) => `<section class="pn"><span class="pno">${n} · หน้า ${pi + 2}</span><div class="fch" style="margin-bottom:1.5mm"><div><div class="kick">CREW BRIEF · ${H(o.code || "")} · หน้า ${pi + 2}</div><div class="reg" style="font-size:14pt">NOTAM ต่อ</div><div class="typ">${dateL} · ${H(reg || "")}</div></div><div class="gate"><small>ต่อจากหน้า 1</small><b style="font-size:12pt">${more} รายการ</b></div></div><div class="fbox" style="flex:1">${colsHtml(cs)}</div></section>`;
+<div class="fbox" style="flex:1"><h3>NOTAM ที่ทับช่วงบิน <small>${on.length} จาก ${nItems.length}${on.length ? ` · รายละเอียดหน้า 2${pages > 2 ? `–${pages}` : ""}` : ""}</small></h3>${nIndex}${groups.length ? colsHtml(cs) : ""}</div>
+<div class="fftr"><span>${printed}</span><span>${offTxt}</span></div></section>`;
+    const panelHead = (n, pi, cs, more) => `<section class="pn"><span class="pno">${n} · หน้า ${pi + 2}</span><div class="fch" style="margin-bottom:1.5mm"><div><div class="kick">CREW BRIEF · ${H(o.code || "")} · หน้า ${pi + 2}</div><div class="reg" style="font-size:14pt">NOTAM</div><div class="typ">${dateL} · ${H(reg || "")}</div></div><div class="gate"><small>ทับช่วงบิน</small><b style="font-size:12pt">${more} รายการ</b></div></div><div class="fbox" style="flex:1">${colsHtml(cs)}</div></section>`;
     const panelPlain = (n, cs) => `<section class="pn"><span class="pno">${n}</span><div class="fbox" style="flex:1">${colsHtml(cs)}</div></section>`;
     const panelLast = (n, pi, cs) => `<section class="pn"><span class="pno">${n}</span><div class="fbox" style="flex:1">${colsHtml(cs)}</div><div class="fftr"><span>หน้า ${pi + 2}</span><span>${offN ? `ไม่ทับช่วงบินอีก ${offN} รายการ ดูในแอป` : ""}</span></div></section>`;
     let cols = [];
