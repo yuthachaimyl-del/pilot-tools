@@ -160,6 +160,16 @@
     const from = (o.from || base).toUpperCase();
     const ops = Array.isArray(r.ops) ? r.ops : [];
     const opOf = (i) => ops.find((x) => x.i === i)?.f || null;
+    // the aircraft's next flight after one of our legs when it is not ours (OMC sheet): flight number + ground time
+    const normF = (x) => String(x || "").toUpperCase().replace(/^VZ\s*/, "").trim();
+    const acNext = (l) => {
+      const row = ops.find((x) => x.i === l.i), nx = row?.next;
+      if (!row?.f || !nx || !nx.flt || legs.some((m) => normF(m.s.flt) === normF(nx.flt))) return null;
+      const p = [row.f.ata, row.f.eta2, row.f.eta, row.f.sta].find((x) => /\d{1,2}:\d{2}/.test(x || "")) || "";
+      const q = [nx.etd, nx.std].find((x) => /\d{1,2}:\d{2}/.test(x || "")) || "";
+      const g = typeof gapMin === "function" ? gapMin(p, q) : null;
+      return { flt: "VZ" + normF(nx.flt), to: nx.to || "", g: g == null ? null : Math.round(g) };
+    };
 
     // ----- times -----
     const nt = legs.some((l) => l.nt);
@@ -181,7 +191,7 @@
       const t = (v, ms) => (l.nt || !v ? '<span class="mu">—</span>' : `<span class="m"><b>${zt(ms)}</b></span><span class="z m">${H(v)} L</span>`);
       return `<tr><td class="mu">${k + 1}</td><td class="m"><b>VZ${H(l.s.flt)}</b></td><td class="m">${H(l.s.dep)} → ${H(l.s.arr)}</td>
 <td>${t(l.s.std, l.dep)}</td><td>${t(l.s.sta, l.arr)}</td><td class="m">${l.nt ? "—" : fmtDur((l.arr - l.dep) / 6e4)}</td>
-<td class="${tc}">${turn == null ? (nx ? '<span class="mu">—</span>' : "") : `<span class="m">${Math.round(turn)}</span> นาที ที่ <span class="m">${H(l.s.arr)}</span>`}</td>
+<td class="${tc}">${turn == null ? (nx ? '<span class="mu">—</span>' : (() => { const a = acNext(l); return a ? `<span class="${a.g != null && a.g < 35 ? "tbad" : a.g != null && a.g < 50 ? "twarn" : ""}">${a.g != null ? `<span class="m">${a.g}</span> นาที ` : ""}→ <span class="m">${H(a.flt)}</span>${a.to ? " " + H(a.to) : ""}</span>` : ""; })()) : `<span class="m">${Math.round(turn)}</span> นาที ที่ <span class="m">${H(l.s.arr)}</span>`}</td>
 <td class="m">${(() => { const g = f?.gate || (k === 0 ? r.gate : "") || ""; const c = r.gateChg?.[l.i]; return g ? (c && c.to === g ? `<b style="color:var(--amber)">${H(g)}</b><span class="z">เดิม ${H(c.from)}</span>` : H(g)) : '<span class="mu">—</span>'; })()}</td></tr>`;
     }).join("");
 
@@ -333,7 +343,7 @@
     const now = new Date();
     const gen = local(now.getTime(), base);
 
-    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, merged, wxLegs, worstCls, unknownSt, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
+    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, acNext, merged, wxLegs, worstCls, unknownSt, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
     return `<div class="pg">
 <div class="hdr"><div class="hl"><div class="kick">CREW BRIEF · PRE-REPORT</div><div class="row"><span class="code m">${H(o.code || "")}</span><span class="route m">${route}</span></div></div>
 <div class="hr"><div class="date m">${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y}</div><div class="dth">${DOW_TH[dw]} ${D} ${MON_TH[Mo - 1]} ${Y + 543}</div><div class="who">${H(who)}</div></div></div>
@@ -479,7 +489,8 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
       const nx = legs[k + 1]; let turn = null; if (nx && !l.nt && !nx.nt) turn = Math.round((nx.dep - l.arr) / 6e4);
       const f = opOf(l.i), gate = f?.gate || (k === 0 ? r.gate : "") || "";
       const ta1 = [l.nt ? "" : `block ${fmtDur((l.arr - l.dep) / 6e4)}`, gate ? `gate/bay ${H(gate)}` : ""].filter(Boolean).join(" · ");
-      const ta2 = turn != null ? `turnaround <b>${turn} นาที</b> ที่ ${H(icaoOf(l.s.arr))}` : (k === nLegs - 1 && b.relAbs ? `release ${zr(b.relAbs)}Z (${lt(b.relAbs, o.to || l.s.arr)} L)` : "");
+      const an = !nx ? d.acNext(l) : null;   // last leg: the aircraft's next flight (another crew) instead of release
+      const ta2 = turn != null ? `turnaround <b>${turn} นาที</b> ที่ ${H(icaoOf(l.s.arr))}` : an ? `turnaround ${an.g != null ? `<b>${an.g} นาที</b> ` : ""}→ ${H(an.flt)}${an.to ? " " + H(an.to) : ""}` : (k === nLegs - 1 && b.relAbs ? `release ${zr(b.relAbs)}Z (${lt(b.relAbs, o.to || l.s.arr)} L)` : "");
       const ta = [ta1, ta2].filter(Boolean).join(" · ");
       const times = l.nt ? `<div class="ftm">—<small>ยังไม่มีเวลา STD/STA</small></div>` : `<div class="ftm">${zr(l.dep)}–${zr(l.arr)}Z<small>${lt(l.dep, l.s.dep)} – ${lt(l.arr, l.s.arr)} L</small></div>`;
       const route = `<div class="frt">${H(icaoOf(l.s.dep))}<i>→</i>${H(icaoOf(l.s.arr))}<small>${H(l.s.dep)}–${H(l.s.arr)}</small></div>`;
