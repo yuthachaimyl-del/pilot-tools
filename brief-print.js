@@ -86,7 +86,7 @@
 #ccPrint .acft b{font-size:11pt;font-family:var(--f-mono,monospace)}
 #ccPrint .mel{padding:.4mm 0}
 #ccPrint .note{white-space:pre-wrap;color:var(--muted);font-size:9pt;margin-top:.6mm}
-#ccPrint .wx td{font-size:9.2pt}
+#ccPrint .wx td{font-size:9.2pt}#ccPrint .wx tr.wlr td{background:var(--soft);font-weight:700;padding:.9mm 2mm;border-radius:1.5mm}#ccPrint .wx tr.wlr td span{font-weight:500;color:var(--muted)}#ccPrint .wx tr.wsame td{padding-top:.4mm;padding-bottom:.4mm}
 #ccPrint .wx td.w{white-space:nowrap;font-weight:600}
 #ccPrint .wx td.w small{display:block;font-weight:500;color:var(--muted);font-family:var(--f-mono,monospace);font-size:8pt}
 #ccPrint .g{font-family:var(--f-mono,monospace);font-size:8.4pt;margin-right:4px}
@@ -246,10 +246,11 @@
     const unknownSt = [...new Set(legs.flatMap((l) => [l.s.dep, l.s.arr]).filter((st) => st && !icao(st)))];   // stations the app cannot map to ICAO
     legs.forEach((l, k) => {
       const s0 = l.nt ? l.dep : l.arr, s1 = l.arr; // legs without times use the whole duty window
-      if (k === 0) wins.push(wxWindow(`DEP ขา 1`, l.s.dep, l.dep - HR, (l.nt ? l.arr : l.dep) + HR, tafs, true));
-      wins.push(wxWindow(`ARR ขา ${k + 1}`, l.s.arr, s0 - HR, s1 + HR, tafs, false));
+      const put = (w, role) => { if (w) { w.leg = k; w.role = role; } wins.push(w); };
+      if (k === 0) put(wxWindow(`DEP ขา 1`, l.s.dep, l.dep - HR, (l.nt ? l.arr : l.dep) + HR, tafs, true), "DEP");
+      put(wxWindow(`ARR ขา ${k + 1}`, l.s.arr, s0 - HR, s1 + HR, tafs, false), "ARR");
       const a = alt[l.i] ?? ALTDEF[l.s.arr];
-      if (a) wins.push(wxWindow(`ALT ขา ${k + 1}`, a, s0 - HR, s1 + HR, tafs, false));
+      if (a) put(wxWindow(`ALT ขา ${k + 1}`, a, s0 - HR, s1 + HR, tafs, false), "ALT");
     });
     // one row per airport + identical weather: e.g. VTBS DEP ขา 1 / ARR ขา 2 with the same TEMPO become one row
     // (keeps a 4-leg day with TEMPO everywhere on its panel); each original window stays listed in ranges
@@ -262,13 +263,20 @@
       if (!m.ranges.some((q) => q[0] === w.s && q[1] === w.n)) m.ranges.push([w.s, w.n]);
       m.s = Math.min(m.s, w.s); m.n = Math.max(m.n, w.n);
     }
+    // print order: leg by leg (DEP ขา 1, then ARR / ALT of each leg); a window whose TAF lines equal one already
+    // printed becomes a one-line "เหมือน …" reference instead of repeating the groups
+    const wxLegs = legs.map((l, k) => ({ k, l, rows: [], head: `ขา ${k + 1}`, sub: `VZ${String(l.s.flt || "").replace(/^VZ\s*/i, "")} ${l.s.dep || ""}→${l.s.arr || ""}${l.nt ? "" : ` · ${zt(l.dep)}–${zt(l.arr)}`}` }));
+    { const first = new Map();
+      for (const w of wins.filter(Boolean)) { const sg = wxSig(w), f = first.get(sg); if (wxLegs[w.leg]) wxLegs[w.leg].rows.push({ w, same: f || null }); if (!f) first.set(sg, w); } }
+    const worstCls = (w) => (w.lines.some((x) => x.cls === "hot") ? "hot" : w.lines.some((x) => x.cls === "warm") ? "warm" : "");
     const allUncovered = merged.size && [...merged.values()].every((w) => !w.lines.length && /ไม่ครอบคลุม|ไม่มี TAF/.test(w.note || ""));
-    const wxRows = allUncovered ? `<tr><td colspan="2"><div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน (${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} <span class="m">${(w.ranges || [[w.s, w.n]]).map((q) => zt(q[0]) + "–" + zt(q[1])).join(", ")}</span>`).join(" · ")}) · TAF ออกล่วงหน้า ~30 ชม. เปิดแท็บนี้ใกล้วันบินจะดึงใหม่ให้เอง</div></td></tr>` : [...merged.values()].map((w) => {
-      const st = w.label.startsWith("DEP") && !legs[0].nt ? hm(legs[0].dep, legs[0].s.dep) : "";
+    const wxRows = allUncovered ? `<tr><td colspan="2"><div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน (${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} <span class="m">${(w.ranges || [[w.s, w.n]]).map((q) => zt(q[0]) + "–" + zt(q[1])).join(", ")}</span>`).join(" · ")}) · TAF ออกล่วงหน้า ~30 ชม. เปิดแท็บนี้ใกล้วันบินจะดึงใหม่ให้เอง</div></td></tr>` : wxLegs.filter((g) => g.rows.length).map((g) => `<tr class="wlr"><td colspan="2">${H(g.head)} <span>${H(g.sub)}</span></td></tr>` + g.rows.map(({ w, same }) => {
+      if (same) return `<tr class="wsame"><td class="w">${H(w.role)} <span class="m">${H(w.icao)}</span><small>${zt(w.s)}–${zt(w.n)}</small></td><td><span class="g ${worstCls(same)}">TAF เหมือน ${H(same.label)} ↑</span></td></tr>`;
+      const st = w.role === "DEP" && !legs[0].nt ? hm(legs[0].dep, legs[0].s.dep) : "";
       const body = w.lines.map((x) => `<div class="gl"><span class="g ${x.cls}">${H(x.raw)}</span>${x.trans ? `<span class="mu" style="font-size:8.2pt">${H(x.trans)}</span> ` : ""}${x.v ? (x.v.c === "app" && /improvement/i.test(x.v.t) ? `<span class="pill ok">${H(x.v.lbl)} · ดีขึ้น</span>` : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? `<span class="pill warn">${H(x.v.lbl)} · ลมเปลี่ยน</span>` : `<span class="pill ${vCls(x.v.c)}">${H(x.v.lbl)}</span>`) : ""}</div>`).join("");
-      return `<tr><td class="w">${H(w.label)} <span class="m">${H(w.icao)}</span><small>${(w.ranges || [[w.s, w.n]]).map((q) => zt(q[0]) + "–" + zt(q[1])).join(", ")}${st ? " · STD " + st : ""}</small></td>
+      return `<tr><td class="w">${H(w.role)} <span class="m">${H(w.icao)}</span><small>${zt(w.s)}–${zt(w.n)}${st ? " · STD " + st : ""}</small></td>
 <td>${body || ""}${w.note ? `<div class="empty">${H(w.note)}</div>` : ""}</td></tr>`;
-    }).join("");
+    }).join("")).join("");
     const usedIcao = [...new Set(wins.filter(Boolean).map((w) => w.icao))];
     const unknownRow = unknownSt.length ? `<tr><td colspan="2"><div class="empty" style="color:var(--red)">ไม่รู้รหัส ICAO ของ ${unknownSt.map(H).join(", ")} · แอปยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้ ดูจาก AeroWeather เอง</div></td></tr>` : "";
     const metars = r.metar || {};
@@ -325,7 +333,7 @@
     const now = new Date();
     const gen = local(now.getTime(), base);
 
-    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, merged, unknownSt, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
+    if (mode === "fold-p" || mode === "fold-l") return foldPage(mode, { o, b, r, legs, base, from, reg, f0, ib, melHtml, ibHtml, afterHtml, melCount, merged, wxLegs, worstCls, unknownSt, nItems, winByLabel, usedIcao, th, fdp, left, lc, last, lastOn, nt, turns, who, Y, Mo, D, dw, gen, opOf, alt, iataOf });
     return `<div class="pg">
 <div class="hdr"><div class="hl"><div class="kick">CREW BRIEF · PRE-REPORT</div><div class="row"><span class="code m">${H(o.code || "")}</span><span class="route m">${route}</span></div></div>
 <div class="hr"><div class="date m">${DOW[dw]} ${String(D).padStart(2, "0")} ${MON[Mo - 1]} ${Y}</div><div class="dth">${DOW_TH[dw]} ${D} ${MON_TH[Mo - 1]} ${Y + 543}</div><div class="who">${H(who)}</div></div></div>
@@ -395,12 +403,12 @@ ${ntRows ? `<div class="p2"><div class="p2h"><span><b>${H(o.code || "")}</b> · 
 #ccPrint .fth{flex:1;min-height:0;overflow:hidden}#ccPrint .fold-l .fth .thl{font-size:8pt;gap:.5mm}
 #ccPrint .fold-p .ftwo{grid-template-columns:1fr;flex:0 0 auto}
 #ccPrint .pn .thl li{font-size:8pt}#ccPrint .fold-l .thl li{font-size:7.5pt;line-height:1.25}
-#ccPrint .fwx{display:grid;grid-template-columns:1fr 1fr;gap:1mm 4mm}
+#ccPrint .fwx{display:grid;grid-template-columns:1fr;gap:1mm 4mm}
 #ccPrint .fold-p .fwx{grid-template-columns:1fr}
 #ccPrint .fwx .w{display:grid;grid-template-columns:22mm 1fr;gap:1.2mm;font-size:7.6pt;border-bottom:1px solid var(--line);padding-bottom:.8mm}
 #ccPrint .fwx .lbl b{display:block;font-size:8.4pt}#ccPrint .fwx .lbl small{color:var(--muted);font-family:var(--f-mono,monospace)}
 #ccPrint .fwx .g{font-family:var(--f-mono,monospace);font-size:7pt;display:block}
-#ccPrint .nidx{display:grid;gap:.6mm;margin-bottom:1.6mm;font-size:8pt}#ccPrint .nidx>div{display:flex;flex-wrap:wrap;align-items:center;gap:1mm 1.6mm;border-bottom:1px solid var(--line);padding-bottom:.6mm}#ccPrint .nidx span{color:var(--muted)}#ccPrint .nidx i{font-style:normal;margin-left:auto;display:flex;gap:1mm}#ccPrint .nidx .pill{color:inherit}#ccPrint .wxmore{font-size:7pt;font-weight:700;color:var(--amber);margin-top:.8mm}#ccPrint .fwx .g.hot{color:var(--red)}#ccPrint .fwx .g.warm{color:var(--amber)}
+#ccPrint .nidx{display:grid;gap:.6mm;margin-bottom:1.6mm;font-size:8pt}#ccPrint .nidx>div{display:flex;flex-wrap:wrap;align-items:center;gap:1mm 1.6mm;border-bottom:1px solid var(--line);padding-bottom:.6mm}#ccPrint .nidx span{color:var(--muted)}#ccPrint .nidx i{font-style:normal;margin-left:auto;display:flex;gap:1mm}#ccPrint .nidx .pill{color:inherit}#ccPrint .wlh{grid-column:1/-1;background:var(--soft);font-weight:700;font-size:8pt;padding:.5mm 2mm;border-radius:1.5mm}#ccPrint .wlh span{font-weight:500;color:var(--muted)}#ccPrint .fwx .wsame .g{font-family:inherit;font-weight:600}#ccPrint .fwx .w{grid-template-columns:18mm 1fr}#ccPrint .fnt .fwx .w{grid-template-columns:1fr;gap:.2mm}#ccPrint .fnt .fwx .lbl b{display:inline;margin-right:1.5mm}#ccPrint .fnt .fwx .lbl small{display:inline}#ccPrint .wxmore{font-size:7pt;font-weight:700;color:var(--amber);margin-top:.8mm}#ccPrint .fwx .g.hot{color:var(--red)}#ccPrint .fwx .g.warm{color:var(--amber)}
 #ccPrint .pn .pill{font-size:6.6pt;white-space:normal}
 #ccPrint .pn .mel{font-size:8pt}
 #ccPrint .fnt{display:grid;grid-template-columns:1fr 1fr;gap:.6mm 4mm;font-size:7.3pt;line-height:1.25;align-content:start}
@@ -513,13 +521,22 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
     const allUncovered = merged.size && [...merged.values()].every((w) => !w.lines.length && /ไม่ครอบคลุม|ไม่มี TAF/.test(w.note || ""));
     const unk = d.unknownSt?.length ? `<div class="empty" style="color:var(--red)">ไม่รู้รหัส ICAO ของ ${d.unknownSt.map(H).join(", ")} · ยังไม่ได้ดึงอากาศ/NOTAM ของสนามนี้</div>` : "";
     const wxRange = (w) => (w.ranges || [[w.s, w.n]]).map((q) => zt(q[0]) + "–" + zt(q[1])).join(", ");
-    const wxRows = [...merged.values()].map((w) => `<div class="w"><div class="lbl"><b>${H(w.label)} ${H(w.icao)}</b><small>${wxRange(w)}</small></div><div>${w.lines.map((x) => `<span class="g ${x.cls}">${H(x.raw)}${x.v ? ` <span class="pill ${x.v.c === "app" && /improvement/i.test(x.v.t) ? "ok" : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? "warn" : vCls(x.v.c)}">${H(x.v.lbl)}${x.trans ? " · " + H(x.trans) : ""}</span>` : ""}</span>`).join("")}${w.note ? `<span class="empty">${H(w.note)}</span>` : ""}</div></div>`);
+    const wxRowHtml = ({ w, same }) => same
+      ? `<div class="w wsame"><div class="lbl"><b>${H(w.role)} ${H(w.icao)}</b><small>${zt(w.s)}–${zt(w.n)}</small></div><div><span class="g ${d.worstCls(same)}">TAF เหมือน ${H(same.label)} ↑</span></div></div>`
+      : `<div class="w"><div class="lbl"><b>${H(w.role)} ${H(w.icao)}</b><small>${zt(w.s)}–${zt(w.n)}</small></div><div>${w.lines.map((x) => `<span class="g ${x.cls}">${H(x.raw)}${x.v ? ` <span class="pill ${x.v.c === "app" && /improvement/i.test(x.v.t) ? "ok" : x.v.c === "app" && /wind\/other/i.test(x.v.t) ? "warn" : vCls(x.v.c)}">${H(x.v.lbl)}${x.trans ? " · " + H(x.trans) : ""}</span>` : ""}</span>`).join("")}${w.note ? `<span class="empty">${H(w.note)}</span>` : ""}</div></div>`;
+    const wxItems = [];   // flat, leg by leg: a header item, then that leg's rows
+    d.wxLegs.filter((g) => g.rows.length).forEach((g) => {
+      wxItems.push({ head: true, g, html: `<div class="wlh">${H(g.head)} <span>${H(g.sub)}</span></div>` });
+      g.rows.forEach((r) => wxItems.push({ g, html: wxRowHtml(r) }));
+    });
+    const wxRows = wxItems.map((it) => it.html);
     const wxBody = (rows, moreN) => unk + (!merged.size ? '<div class="empty">ยังไม่มี TAF / METAR</div>' : allUncovered ? `<div class="empty">TAF ที่มีตอนนี้ยังไม่ครอบคลุมช่วงบิน · ${[...merged.values()].map((w) => `${H(w.label)} ${H(w.icao)} ${wxRange(w)}`).join(" · ")}</div>`
-      : `<div class="fwx">${rows.join("")}</div>${moreN ? `<div class="wxmore">▶ อีก ${moreN} รายการ ต่อช่อง 4</div>` : ""}`);
+      : `<div class="fwx">${rows.join("")}</div>${moreN ? `<div class="wxmore">▶ อีก ${moreN} ต่อช่อง 4</div>` : ""}`);
     const panel3Of = (rows, moreN) => `<section class="pn"><span class="pno">3</span>
 <div class="fbox"><h3>เครื่องและ MEL <small>${H(reg || "—")}</small></h3>${melHtml}${ibHtml}${afterHtml}</div>
 <div class="fbox wxbox" style="flex:1"><h3>Weather ที่ ETA ±1 ชม. <small>UTC</small></h3>${wxBody(rows, moreN)}<div class="src" style="margin-top:1.2mm"><b>OM-A 8.1.2.4.6 A (p.8-26)</b> ±1 ชม. รอบ ETA ≥ landing minima · <b>8.1.2.5 Table 1 (p.8-29)</b> · ยังไม่เทียบ minima ราย approach</div></div></section>`;
     // weather rows that do not fit panel 3 move to the top of panel 4 (then page 2), so every leg's TEMPO still prints
+    const wxMoreTxt = (k) => { const rest = wxItems.slice(k); const nRow = rest.filter((x) => !x.head).length; if (!nRow) return ""; const ls = [...new Set(rest.map((x) => x.g.k + 1))]; return `ขา ${ls.join(", ")} (${nRow} แถว)`; };
     let wxFit = wxRows.length;
     if (merged.size && !allUncovered && wxRows.length > 1) {
       try {
@@ -527,18 +544,18 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
           const meas = document.createElement("div");
           meas.id = "ccPrint";
           meas.style.cssText = "position:fixed;left:-9999px;top:0;display:block;visibility:hidden;pointer-events:none";
-          meas.innerHTML = `<style>${CSS}${FOLD_CSS}</style><div class="${mode}"><div class="sheet"><section class="pn"></section><section class="pn"></section>${panel3Of(wxRows.slice(0, k), wxRows.length - k)}<section class="pn"></section></div></div>`;
+          meas.innerHTML = `<style>${CSS}${FOLD_CSS}</style><div class="${mode}"><div class="sheet"><section class="pn"></section><section class="pn"></section>${panel3Of(wxRows.slice(0, k), wxMoreTxt(k))}<section class="pn"></section></div></div>`;
           document.body.appendChild(meas);
           const box = meas.querySelector(".wxbox"), src = box.querySelector(".src"), cs = getComputedStyle(box);
           const ok = src.getBoundingClientRect().bottom <= box.getBoundingClientRect().bottom - parseFloat(cs.paddingBottom) + 0.5;
           meas.remove();
           return ok;
         };
-        while (wxFit > 1 && !fits(wxFit)) wxFit--;
+        while (wxFit > 1 && (wxItems[wxFit - 1].head || !fits(wxFit))) wxFit--;   // never end panel 3 on a leg header
       } catch (e) { console.warn("fold wx fit", e); }
     }
-    const wxOver = wxRows.slice(wxFit);
-    const panel3 = panel3Of(wxRows.slice(0, wxFit), wxOver.length);
+    const wxOver = wxItems.slice(wxFit);
+    const panel3 = panel3Of(wxRows.slice(0, wxFit), wxMoreTxt(wxFit));
     // --- panel 4 (+ page 2): NOTAMs that overlap the duty, grouped per aerodrome, packed into columns ---
     const rank = (x) => ({ high: 0, medium: 1 }[x.impact] ?? 2);
     const on = nItems.filter((x) => x.active_in_window !== false), offN = nItems.length - on.length;
@@ -552,7 +569,14 @@ ${fdp != null && b.fdpMax ? `<div class="ffdp"><b>FDP ตามตาราง <
     if (groups.length) groups[0].newPage = true;
     const thOver = thF.slice(thFit);   // threats that did not fit panel 2 open sheet 2, before the NOTAMs
     if (thOver.length) groups.unshift({ newPage: true, head: `<div class="ad">Threats ต่อ <span>จากช่อง 2 · ${thOver.length} รายการ</span></div>`, rows: thOver.map(([c, a, b2]) => `<ul class="thl" style="margin-bottom:.6mm"><li class="${c}"><b>${H(a)}</b> <span>— ${H(b2)}</span></li></ul>`) });   // NOTAMs go to sheet 2; panel 4 keeps an index + any weather overflow
-    if (wxOver.length) groups.unshift({ noCont: true, head: `<div class="wxh"></div>`, rows: wxOver.map((r) => `<div class="fwx" style="grid-template-columns:1fr">${r}</div>`) });
+    if (wxOver.length) {
+      const wg = [];
+      for (const it of wxOver) {
+        if (it.head || !wg.length || wg[wg.length - 1].k !== it.g.k) wg.push({ k: it.g.k, head: `<div class="ad">${H(it.g.head)} <span>${H(it.g.sub)}${it.head ? "" : " · ต่อ"}</span></div>`, rows: [] });
+        if (!it.head) wg[wg.length - 1].rows.push(`<div class="fwx" style="grid-template-columns:1fr">${it.html}</div>`);
+      }
+      groups.unshift(...wg.filter((g) => g.rows.length));
+    }
     const perPanel = P ? 1 : 2;
     const colsHtml = (cs) => `<div class="fnt">${Array.from({ length: perPanel }, (_, i) => `<div class="col">${(cs && cs[i]) || ""}</div>`).join("")}</div>`;
     const printed = `พิมพ์ ${gen.date.split("-").reverse().join("/")} ${gen.hm} ${H(base)}`;
