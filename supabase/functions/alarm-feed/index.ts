@@ -117,6 +117,20 @@ export function computeIcs(brief, settings, now, opt = {}) {
   const duties = (Array.isArray(brief?.duties) ? brief.duties : []).filter((d) => d && typeof d === "object" && /^\d{4}-\d{2}-\d{2}$/.test(d.date || ""));
   const since = now - 60 * 864e5;   // keep two months of history, all of the future
   const seen = {}, ev = [];
+  // a duty read without its detail page has only a code (no report time): show it as an all-day event so the day is not lost;
+  // "-->" days (the rest of a multi-day trip) stretch the previous one
+  const sinceDate = new Date(since).toISOString().slice(0, 10);
+  let last = null;
+  for (const d of [...duties].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))) {
+    if (!["FLT", "SBY", "SIM"].includes(d.type)) { last = null; continue; }
+    if (typeof d.report === "string" && d.report) { last = null; continue; }
+    const code = String(d.code || "").trim();
+    if (/^-+>$/.test(code) || !code) { if (last && last.end === d.date) { last.end = addDay(d.date, 1); } continue; }
+    if (d.date < sinceDate) { last = null; continue; }
+    const ic = d.type === "FLT" ? "✈️" : d.type === "SIM" ? "🎓" : "⏳";
+    last = { date: d.date, end: addDay(d.date, 1), title: `${ic} ${code}`, type: d.type };
+    ev.push(last);
+  }
   for (const d of duties) {
     if (!["FLT", "SBY", "SIM"].includes(d.type) || typeof d.report !== "string" || !d.report) continue;
     const st = String(d.from || base).toUpperCase(), to = String(d.to || st).toUpperCase();
@@ -140,6 +154,11 @@ export function computeIcs(brief, settings, now, opt = {}) {
     const k = d.date + "-" + d.type; seen[k] = (seen[k] || 0) + 1;
     ev.push(["BEGIN:VEVENT", `UID:${k}-${seen[k]}-${uid}@coolcrew.web.app`, `DTSTAMP:${utc(now)}`, `DTSTART:${utc(rep)}`, `DTEND:${utc(end)}`,
       `SUMMARY:${icsText(title)}`, `LOCATION:${icsText(st)}`, `DESCRIPTION:${icsText(notes)}`, "TRANSP:OPAQUE", "END:VEVENT"]);
+  }
+  for (let i = 0; i < ev.length; i++) {
+    const a = ev[i]; if (Array.isArray(a)) continue;
+    ev[i] = ["BEGIN:VEVENT", `UID:${a.date}-${a.type}-day-${uid}@coolcrew.web.app`, `DTSTAMP:${utc(now)}`, `DTSTART;VALUE=DATE:${a.date.replace(/-/g, "")}`, `DTEND;VALUE=DATE:${a.end.replace(/-/g, "")}`,
+      `SUMMARY:${icsText(a.title)}`, `DESCRIPTION:${icsText("ยังไม่มีเวลา report ในตาราง (อัปโหลดหน้ารายละเอียดเพื่อให้ขึ้นเวลา)\n" + name)}`, "TRANSP:TRANSPARENT", "END:VEVENT"];
   }
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CoolCrew//Roster//TH", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     `X-WR-CALNAME:${icsText(name)}`, "X-WR-TIMEZONE:Asia/Bangkok", "REFRESH-INTERVAL;VALUE=DURATION:PT15M", "X-PUBLISHED-TTL:PT15M", ...ev.flat(), "END:VCALENDAR"];
