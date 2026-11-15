@@ -423,6 +423,9 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
       ["calBarRoster", "calBarMonth", "calBarWl"].forEach((id) => $(id)?.remove());
       paintSetup();
       paintGoogle();
+      // keep the ตั้งเวลา+ปฏิทิน cards in one order however they were created: alarm iPhone, alarm Android, calendar iPhone, Google
+      const order = ["al_card", "al_android", "calSetup", "calGoogle"].map($).filter(Boolean);
+      for (let i = 1; i < order.length; i++) if (order[i - 1].nextElementSibling !== order[i]) order[i - 1].insertAdjacentElement("afterend", order[i]);
     } catch (e) { console.warn("calendar", e); }
   }
   // back from the Shortcut (x-success): confirm and clean the URL

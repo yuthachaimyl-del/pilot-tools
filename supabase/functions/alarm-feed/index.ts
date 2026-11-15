@@ -10,6 +10,7 @@
 // 2026-11-15: GET ?c=<calendar token> -> an .ics feed of the roster (FLT/SBY/SIM, report -> release) that the iPhone Calendar
 // subscribes to (webcal://), so the calendar follows every roster update by itself. Calendar tokens live in public.cal_tokens,
 // separate from alarm_tokens, so making one never breaks the alarm Shortcut.
+// 2026-11-15: the ?t= JSON also carries flat n / a1_h / a1_m / a2_h / a2_m for the Android MacroDroid macro.
 // JWT verification is OFF on purpose: the shortcut has no session; the personal token is the credential.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -145,6 +146,14 @@ export function computeIcs(brief, settings, now, opt = {}) {
   return { ics: lines.map(fold).join("\r\n") + "\r\n", count: ev.length };
 }
 
+// 2026-11-15: flat numbers for Android automation apps (MacroDroid): n, a1_h, a1_m, a2_h, a2_m ... (hour/minute as integers,
+// in the same local time as "alarms"); the iPhone Shortcut keeps reading "alarms" and ignores these.
+export function flatAlarms(alarms) {
+  const o = { n: alarms.length, label: "CoolCrew" };
+  alarms.slice(0, 4).forEach((a, i) => { o[`a${i + 1}_h`] = +a.slice(11, 13); o[`a${i + 1}_m`] = +a.slice(14, 16); });
+  return o;
+}
+
 async function sha256hex(s) {
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
   return [...h].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -171,7 +180,7 @@ if (typeof Deno !== "undefined") Deno.serve(async (req) => {
     const now = Date.now();
     const res = computeAlarms(r?.brief, p?.prefs?.settings, now);
     await admin.from("alarm_tokens").update({ last_used_at: new Date(now).toISOString() }).eq("user_id", tok.user_id);
-    return json({ ok: true, generated_at: new Date(now).toISOString(), ...res });
+    return json({ ok: true, generated_at: new Date(now).toISOString(), ...res, ...flatAlarms(res.alarms) });
   } catch (e) {
     console.error("alarm-feed", String(e?.message || e));
     return json({ ok: false, message: "ระบบขัดข้อง ลองใหม่อีกครั้ง" }, 502);

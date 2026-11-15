@@ -102,6 +102,77 @@ ${SC_LINK && ready ? `<div><b>ทางสำรอง (เครื่องท
 ${ready ? `<div><b>ข้อความคำสั่ง (ข้อ 2):</b><textarea id="al_prompt" readonly rows="3" style="width:100%;margin-top:4px;font-family:var(--f-mono);font-size:11px">${H(PROMPT(FEED + link))}</textarea></div>` : ""}
 </div></details>` : ""}
 <p class="small muted" style="margin:6px 0 0">ลิงก์เปิดดูเวลาปลุกของคุณได้โดยไม่ต้องล็อกอิน อย่าส่งต่อ · นาฬิกาปลุก iPhone ไม่มีวันที่ จึงตั้งล่วงหน้าได้ 24 ชม. และต้องรันทุกวัน</p>`;
+    renderAndroid(st, err);
+  }
+
+  /* ---------- Android (experimental): MacroDroid reads the same personal link twice a day and sets alarms in the Clock app ---------- */
+  // The feed gives flat numbers for it: n, a1_h, a1_m (wake), a2_h, a2_m (repeat). Not yet tested on a real Android phone.
+  function androidCard() {
+    let c = document.getElementById("al_android");
+    if (c) return c;
+    const al = document.getElementById("al_card"); if (!al) return null;
+    c = document.createElement("div"); c.id = "al_android"; c.className = "card cc-fold";
+    al.insertAdjacentElement("afterend", c);
+    c.addEventListener("click", onAndroidClick);
+    return c;
+  }
+  function renderAndroid(st, err) {
+    const c = androidCard(); if (!c) return;
+    const open = c.classList.contains("open");
+    const ready = !!(st && link);
+    const linkStep = ready ? `<b>คัดลอกลิงก์ปลุกของคุณ</b> <button class="btn primary ib" type="button" id="ala_copy">📋 คัดลอกลิงก์ปลุก</button><span class="why">ลิงก์เดียวกับ iPhone ใช้ร่วมกันได้ · เก็บไว้ใช้ในข้อ 4</span>`
+      : st ? `<b>ลิงก์นี้ถูกสร้างจากเครื่องอื่น</b><span class="why">เปิดหน้านี้บนเครื่องที่สร้างลิงก์แล้วกดคัดลอก หรือสร้างใหม่ในการ์ด <b>ปลุกอัตโนมัติบน iPhone</b> (ลิงก์เก่าจะหยุดทำงาน ถ้ามี iPhone ใช้ลิงก์เก่าอยู่ต้องตั้ง Shortcut ใหม่)</span>`
+      : `<b>สร้างลิงก์ส่วนตัว</b> <button class="btn primary ib" type="button" id="ala_make">🔗 สร้างลิงก์ปลุก</button><span class="why">ลิงก์นี้คือกุญแจให้มือถืออ่านเวลาปลุกของคุณ</span>`;
+    c.innerHTML = `<h2>ปลุกอัตโนมัติบน Android <small>${ready ? "ลิงก์พร้อม · ทดลอง" : "ทดลอง · ยังไม่ได้ตั้ง"}</small></h2>
+<p class="small" style="margin:0;line-height:1.6">ใช้แอปฟรี <b>MacroDroid</b> ให้ไปดึงเวลาปลุกของ duty ถัดไปจาก CoolCrew <b>ทุกวัน 08:00 และ 20:00</b> แล้วตั้งนาฬิกาปลุกในแอปนาฬิกาให้ (ตื่น + ปลุกซ้ำ) · ตั้งครั้งเดียว ~10 นาที</p>
+<div class="note warn small" style="margin-top:8px;line-height:1.6">⚠️ <b>ทดลอง:</b> ยังไม่ได้ทดสอบบนมือถือ Android จริง ชื่อเมนูใน MacroDroid อาจต่างนิดหน่อยตามรุ่น · ถ้าติดตรงไหน แคปหน้าจอส่งใน feedback ได้เลย</div>
+${err ? `<div class="note err small">${H(err)}</div>` : ""}
+<div class="small" id="ala_msg" style="min-height:1.2em"></div>
+<ol class="alst">
+<li><b>ติดตั้ง MacroDroid</b> จาก Play Store แล้วเปิด 1 ครั้ง อนุญาตตามที่แอปถาม<span class="why">ฟรีใช้ได้ 5 macro · ใช้แค่ 1 macro</span></li>
+<li>${linkStep}</li>
+<li><b>สร้าง macro</b><span class="why">MacroDroid → แท็บ <b>Macros</b> → <span class="k">＋</span> → ตั้งชื่อ <b>CoolCrew Alarm</b></span></li>
+<li><b>Triggers</b> (ให้ทำงานเอง)<span class="why"><span class="k">＋</span> → <b>Date/Time</b> → <b>Day/Time Trigger</b> → <b>08:00</b> ติ๊กทุกวัน → OK · แล้วเพิ่มอีกอันเวลา <b>20:00</b></span></li>
+<li><b>Action: ดึงเวลาปลุก</b><span class="why"><span class="k">＋</span> ในช่อง Actions → ค้นคำว่า <b>HTTP Request</b> → Method <b>GET</b> → URL: วางลิงก์จากข้อ 2 → ส่วนเก็บผล (Response) เลือกเก็บลง<b>ตัวแปร</b> → สร้างตัวแปร Local ชนิด <b>String</b> ชื่อ <b>resp</b></span></li>
+<li><b>Action: อ่านข้อมูล</b><span class="why"><span class="k">＋</span> → ค้น <b>JSON Parse</b> → Input เลือก <b>resp</b> → Output สร้างตัวแปร Local ชนิด <b>Dictionary</b> ชื่อ <b>cc</b></span></li>
+<li><b>Action: ตั้งปลุกตื่น</b><span class="why"><span class="k">＋</span> → ค้น <b>If Clause</b> → เงื่อนไข Variable → <b>cc</b> → <b>n</b> มากกว่าหรือเท่ากับ <b>1</b> · แล้วเพิ่ม action ข้างใน If: ค้น <b>Send Intent</b> → Target <b>Activity</b> · Action <code>android.intent.action.SET_ALARM</code> · Extras:<br>
+<code>android.intent.extra.alarm.HOUR</code> = cc → <b>a1_h</b> (Integer)<br>
+<code>android.intent.extra.alarm.MINUTES</code> = cc → <b>a1_m</b> (Integer)<br>
+<code>android.intent.extra.alarm.MESSAGE</code> = <b>CoolCrew</b> (String)<br>
+<code>android.intent.extra.alarm.SKIP_UI</code> = <b>true</b> (Boolean)<br>
+ค่า cc → a1_h ให้กดปุ่มตัวแปร (…/magic text) แล้วเลือก cc → a1_h · ปิดด้วย <b>End If</b></span></li>
+<li><b>Action: ตั้งปลุกซ้ำ</b><span class="why">ทำข้อ 7 อีกชุด เปลี่ยนเงื่อนไขเป็น cc → n มากกว่าหรือเท่ากับ <b>2</b> และใช้ <b>a2_h</b> / <b>a2_m</b></span></li>
+<li><b>บันทึกแล้วทดสอบ</b> <button class="btn ib" type="button" id="ala_test" ${ready ? "" : "disabled"}>🔍 ตอนนี้จะตั้งปลุกกี่โมง</button><span class="why">ใน MacroDroid กด ✓ บันทึก → เปิด macro → ⋮ → <b>Test Actions</b> → เปิดแอปนาฬิกา ต้องเห็นปลุกชื่อ CoolCrew ตรงกับเวลาที่ปุ่มนี้บอก (ถ้าไม่มี duty ใน 24 ชม. จะไม่มีปลุก)</span><div class="small" id="ala_testOut" style="margin-top:4px"></div></li>
+<li><b>กันมือถือปิด MacroDroid</b><span class="why">Settings → Apps → MacroDroid → Battery → <b>Unrestricted / ไม่จำกัด</b> ไม่งั้นรอบ 08:00 / 20:00 อาจไม่ทำงาน</span></li>
+</ol>
+<div class="small muted" style="margin-top:6px;line-height:1.6">ข้อจำกัด: Android ลบปลุกเก่าให้เองไม่ได้แบบ iPhone · ถ้าตารางเลื่อนหลังตั้งปลุกไปแล้ว ให้ปิดปลุก CoolCrew อันเก่าในแอปนาฬิกาเอง · ลิงก์เปิดดูเวลาปลุกของคุณได้โดยไม่ต้องล็อกอิน อย่าส่งต่อ</div>`;
+    if (open) c.classList.add("open");
+  }
+  async function onAndroidClick(e) {
+    const t = e.target.closest("button"); if (!t) return;
+    const m = document.getElementById("ala_msg");
+    if (t.id === "ala_copy") {
+      const v = FEED + link, ok = () => { t.textContent = "✓ คัดลอกแล้ว"; setTimeout(() => (t.textContent = "📋 คัดลอกลิงก์ปลุก"), 2500); };
+      try { await navigator.clipboard.writeText(v); ok(); } catch { const ta = document.createElement("textarea"); ta.value = v; document.body.appendChild(ta); ta.select(); document.execCommand("copy"); ta.remove(); ok(); }
+      return;
+    }
+    if (t.id === "ala_make") {
+      t.disabled = true;
+      try { const { data, error } = await sb().rpc("create_alarm_token"); if (error) throw error; keep(data); await render(); if (m) m.innerHTML = '<span style="color:var(--green)">สร้างลิงก์แล้ว · ทำข้อ 2 ต่อ</span>'; }
+      catch (err) { t.disabled = false; if (m) m.innerHTML = `<span style="color:var(--red)">สร้างไม่ได้: ${H(err?.message || err)}</span>`; }
+      return;
+    }
+    if (t.id === "ala_test") {
+      const o = document.getElementById("ala_testOut"); t.disabled = true; o.textContent = "กำลังเรียก…";
+      try {
+        const r = await fetch(FEED + link, { cache: "no-store" }); const j = await r.json();
+        const p2 = (n) => String(n).padStart(2, "0");
+        o.innerHTML = !j.ok ? `<span style="color:var(--red)">${H(j.message || "เรียกไม่ได้")}</span>`
+          : j.n ? `<span style="color:var(--green)">✓ ลิงก์ใช้ได้ · MacroDroid จะตั้งปลุก <b class="mono">${p2(j.a1_h)}:${p2(j.a1_m)}</b>${j.n > 1 ? ` และ <b class="mono">${p2(j.a2_h)}:${p2(j.a2_m)}</b>` : ""}</span><br><span class="muted">${H(j.summary)}</span>`
+          : '<span style="color:var(--green)">✓ ลิงก์ใช้ได้</span> · ไม่มี duty ใน 24 ชม. ข้างหน้า ตอนนี้จึงยังไม่มีปลุก (n = 0)';
+      } catch (err) { o.innerHTML = `<span style="color:var(--red)">${H(err?.message || err)}</span>`; }
+      t.disabled = false;
+    }
   }
 
   async function onClick(e) {
