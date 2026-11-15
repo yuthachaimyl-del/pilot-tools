@@ -295,11 +295,15 @@ Use only these built-in Shortcuts actions, in this exact order, and nothing else
 8. "Count" the items in the "events" value, then "Show Notification" with text "CoolCrew: updated calendar, " followed by the Count, followed by " duties".
 Rules: do not add, remove, rename or reorder any action. Do not use "Use Model", "Cloud model", "Ask for Input", "Ask Each Time", or any AI action. Nothing may ask the user anything when it runs. Do not add any automation.`;
 
+  // fold: the card shows only its title + status until tapped (keeps ตั้งเวลา+ปฏิทิน tidy)
+  if (!window.__ccFold) { window.__ccFold = 1;
+    const st = document.createElement("style"); st.textContent = '.cc-fold>h2{cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:0}.cc-fold>h2::after{content:"›";margin-left:auto;transition:transform .2s;color:var(--muted)}.cc-fold.open>h2::after{transform:rotate(90deg)}.cc-fold>h2 small{font-size:.72rem;font-weight:500;color:var(--muted)}.cc-fold>h2 small.ok{color:var(--green)}.cc-fold:not(.open)>:not(h2){display:none!important}.cc-fold.open>h2{margin-bottom:8px}'; document.head.appendChild(st);
+    document.addEventListener("click", (e) => { const h = e.target.closest(".cc-fold > h2"); if (h && !e.target.closest("button, a")) h.parentElement.classList.toggle("open"); }); }
   function setupCard() {
     const host = $("p-settings"); if (!host) return null;
     let c = $("calSetup");
     if (!c) {
-      c = document.createElement("div"); c.id = "calSetup"; c.className = "card";
+      c = document.createElement("div"); c.id = "calSetup"; c.className = "card cc-fold";
       const al = $("al_card"); al ? al.insertAdjacentElement("afterend", c) : host.appendChild(c);
     }
     return c;
@@ -307,7 +311,7 @@ Rules: do not add, remove, rename or reorder any action. Do not use "Use Model",
   function paintSetup() {
     const c = setupCard(); if (!c) return;
     const setup = get(LS_SETUP, null);
-    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone</h2>${subHtml()}
+    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone ${subOn() ? `<small class="ok">✓ อัปเดตเอง · ดึงล่าสุด ${when(subSt.last_used_at)}</small>` : setup ? "<small>แบบ Shortcut</small>" : "<small>ยังไม่ได้ตั้ง</small>"}</h2>${subHtml()}
 <details class="more" id="calOld" style="margin-top:10px" ${setup && !subOn() ? "open" : ""}><summary>แบบเดิม: ผ่าน Shortcut (ต้องกดอัปเดตเองทุกครั้ง) ›</summary>
 <p class="small" style="margin:0;line-height:1.6">ส่งตารางบินเข้าแอป <b>ปฏิทิน</b> บน iPhone <b>เฉพาะตอนคุณกด "อัปเดตปฏิทิน iPhone"</b> (หลังใส่ roster หรือที่แท็บตาราง) · ทุกครั้งที่อัปเดต จะลบ event เดิมของ CoolCrew ในช่วงวันที่ของตารางก่อน แล้วใส่ใหม่ ไม่มีซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
 ${SC_LINK ? `<div class="note ok small" style="margin-top:8px">📱 ใช้ได้ทุก iPhone ที่เป็น <b>iOS 17 ขึ้นไป</b></div>` : `<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน (ต้องโหลดใหม่เองทุกครั้งที่ตารางเปลี่ยน)</span></div>`}
@@ -368,7 +372,7 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
       else copy(t, text);
     }
     else if (a === "redo") { set(LS_SETUP, null); redo = true; paint(); setTimeout(() => $("calSteps")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }
-    else if (a === "setup") { if (typeof showTab === "function") showTab("settings"); setTimeout(() => $("calSetup")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
+    else if (a === "setup") { if (typeof showTab === "function") showTab("settings"); $("calSetup")?.classList.add("open"); setTimeout(() => $("calSetup")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
   });
 
   function paint() {

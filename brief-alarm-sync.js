@@ -50,12 +50,16 @@ ${SC_LINK ? "" : `<li><b>เช็คผล</b> แตะเปิดดู ต�
 
 `;
 
+  // fold: the card shows only its title + status until tapped (keeps ตั้งเวลา+ปฏิทิน tidy)
+  if (!window.__ccFold) { window.__ccFold = 1;
+    const st = document.createElement("style"); st.textContent = '.cc-fold>h2{cursor:pointer;display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:0}.cc-fold>h2::after{content:"›";margin-left:auto;transition:transform .2s;color:var(--muted)}.cc-fold.open>h2::after{transform:rotate(90deg)}.cc-fold>h2 small{font-size:.72rem;font-weight:500;color:var(--muted)}.cc-fold>h2 small.ok{color:var(--green)}.cc-fold:not(.open)>:not(h2){display:none!important}.cc-fold.open>h2{margin-bottom:8px}'; document.head.appendChild(st);
+    document.addEventListener("click", (e) => { const h = e.target.closest(".cc-fold > h2"); if (h && !e.target.closest("button, a")) h.parentElement.classList.toggle("open"); }); }
   function card() {
     let c = document.getElementById("al_card");
     if (c) return c;
     const host = document.querySelector("#p-settings");
     if (!host) return null;
-    c = document.createElement("div"); c.id = "al_card"; c.className = "card";
+    c = document.createElement("div"); c.id = "al_card"; c.className = "card cc-fold";
     host.appendChild(c);
     c.addEventListener("click", onClick);
     return c;
@@ -80,7 +84,7 @@ ${SC_LINK ? "" : `<li><b>เช็คผล</b> แตะเปิดดู ต�
               : `<li><b>ลิงก์นี้ถูกสร้างจากเครื่องอื่น</b><br><span class="seq">ถ้าจะตั้งบนเครื่องนี้ กด <button class="btn primary ib" type="button" id="al_make">🔗 สร้างลิงก์ใหม่</button></span><span class="why">Shortcut ที่ตั้งไว้บนเครื่องอื่นจะหยุดทำงาน</span></li>`)
       : `<li><b>สร้างลิงก์ส่วนตัว</b><br><span class="seq">กด <button class="btn primary ib" type="button" id="al_make">🔗 สร้างลิงก์ส่วนตัว</button></span><span class="why">ลิงก์นี้คือกุญแจให้ iPhone อ่านเวลาปลุกของคุณ (ไม่ต้องล็อกอิน) จะถูกฝังในคำสั่งข้อถัดไปให้เอง</span></li>`;
     const rest = ready ? STEPS(FEED + link) : `<li class="dim"><b>สร้าง Shortcut</b> <span class="why">ทำข้อก่อนหน้าให้เสร็จก่อน</span></li><li class="dim"><b>เช็คผล</b></li><li class="dim"><b>ทดสอบ</b></li>`;
-    c.innerHTML = `<h2>ปลุกอัตโนมัติบน iPhone</h2>
+    c.innerHTML = `<h2>ปลุกอัตโนมัติบน iPhone ${st && st.last_used_at ? `<small class="ok">✓ ทำงานอยู่ · เรียกล่าสุด ${when(st.last_used_at)}</small>` : st ? "<small>ยังไม่เคยทำงาน</small>" : "<small>ยังไม่ได้ตั้ง</small>"}</h2>
 <p class="small" style="margin:0;line-height:1.6"><b>ไม่ต้องกดตั้งปลุกเองอีก</b> · iPhone ดึงเวลาปลุกของ duty ถัดไปจากตารางคุณ <b>ทุกวัน 08:00 และ 20:00</b> แล้วตั้งนาฬิกาปลุกให้ (ตื่น + ปลุกซ้ำ ตามค่าในการ์ด "เวลาส่วนตัว") · ทำครั้งเดียว ~2 นาที</p>
 ${SC_LINK ? `<div class="note ok small" style="margin-top:8px">📱 ใช้ได้ทุก iPhone ที่เป็น <b>iOS 17 ขึ้นไป</b></div>` : `<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน ไฟล์มีแจ้งเตือนปลุกในตัว ใช้ได้ทุกเครื่อง</span></div>`}
 ${err ? `<div class="note err small">${H(err)}</div>` : ""}
