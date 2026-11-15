@@ -120,12 +120,19 @@ export function computeIcs(brief, settings, now, opt = {}) {
   // a duty read without its detail page has only a code (no report time): show it as an all-day event so the day is not lost;
   // "-->" days (the rest of a multi-day trip) stretch the previous one
   const sinceDate = new Date(since).toISOString().slice(0, 10);
-  let last = null;
+  // "-->" days after a duty that ended away from base are the layover: one all-day "🏨 Layover SYD" event across them
+  let last = null, prev = null;
   for (const d of [...duties].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))) {
-    if (!["FLT", "SBY", "SIM"].includes(d.type)) { last = null; continue; }
-    if (typeof d.report === "string" && d.report) { last = null; continue; }
+    if (!["FLT", "SBY", "SIM"].includes(d.type)) { last = null; prev = null; continue; }
+    if (typeof d.report === "string" && d.report) { last = null; prev = d; continue; }
     const code = String(d.code || "").trim();
-    if (/^-+>$/.test(code) || !code) { if (last && last.end === d.date) { last.end = addDay(d.date, 1); } continue; }
+    if (/^-+>$/.test(code) || !code) {
+      if (last && last.end === d.date) { last.end = addDay(d.date, 1); continue; }
+      const st = prev ? String(prev.to || (prev.sectors?.length ? prev.sectors[prev.sectors.length - 1]?.arr : "") || "").toUpperCase() : "";
+      if (st && st !== base && d.date >= sinceDate) { last = { date: d.date, end: addDay(d.date, 1), title: `🏨 Layover ${st}`, type: "LAY", note: `ต่อจาก ${prev.code || prev.type}` }; ev.push(last); }
+      continue;
+    }
+    prev = null;
     if (d.date < sinceDate) { last = null; continue; }
     const ic = d.type === "FLT" ? "✈️" : d.type === "SIM" ? "🎓" : "⏳";
     last = { date: d.date, end: addDay(d.date, 1), title: `${ic} ${code}`, type: d.type };
@@ -158,7 +165,7 @@ export function computeIcs(brief, settings, now, opt = {}) {
   for (let i = 0; i < ev.length; i++) {
     const a = ev[i]; if (Array.isArray(a)) continue;
     ev[i] = ["BEGIN:VEVENT", `UID:${a.date}-${a.type}-day-${uid}@coolcrew.web.app`, `DTSTAMP:${utc(now)}`, `DTSTART;VALUE=DATE:${a.date.replace(/-/g, "")}`, `DTEND;VALUE=DATE:${a.end.replace(/-/g, "")}`,
-      `SUMMARY:${icsText(a.title)}`, `DESCRIPTION:${icsText("ยังไม่มีเวลา report ในตาราง (อัปโหลดหน้ารายละเอียดเพื่อให้ขึ้นเวลา)\n" + name)}`, "TRANSP:TRANSPARENT", "END:VEVENT"];
+      `SUMMARY:${icsText(a.title)}`, `DESCRIPTION:${icsText((a.note || "ยังไม่มีเวลา report ในตาราง (อัปโหลดหน้ารายละเอียดเพื่อให้ขึ้นเวลา)") + "\n" + name)}`, "TRANSP:TRANSPARENT", "END:VEVENT"];
   }
   const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CoolCrew//Roster//TH", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
     `X-WR-CALNAME:${icsText(name)}`, "X-WR-TIMEZONE:Asia/Bangkok", "REFRESH-INTERVAL;VALUE=DURATION:PT15M", "X-PUBLISHED-TTL:PT15M", ...ev.flat(), "END:VCALENDAR"];
