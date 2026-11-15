@@ -4,6 +4,9 @@
 // calendar unless the member taps the button, other calendars and personal events are never touched, and an empty roster
 // is never sent (so a bad read cannot wipe a month).
 // Places: after uploading a roster (ใส่ roster), top of ตาราง, and the setup card in ตั้งเวลา.
+// 2026-11-15: recommended way is now a calendar SUBSCRIPTION: a personal link (alarm-feed?c=<token>, an .ics feed made from
+// the roster saved on the server) that the iPhone Calendar subscribes to with webcal:// and refreshes by itself, so the
+// calendar follows every roster update with no button. The Shortcut way stays available for members already using it.
 (() => {
   const $ = (id) => document.getElementById(id);
   const H = (v) => String(v ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -13,7 +16,9 @@
   const IC_CAL = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 14h.01M12 14h.01M16 14h.01M8 17h.01M12 17h.01" stroke-width="2.4" stroke-linecap="round"/></svg>';
   const IC_BOX = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 13l3-8h12l3 8v6H3z"/><path d="M3 13h5l1 2h6l1-2h5"/></svg>';
   const IC_ADD = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" style="vertical-align:-2px"><rect x="3" y="5" width="15" height="14" rx="2"/><path d="M3 9h15"/><circle cx="18" cy="17" r="4" fill="currentColor"/><path d="M18 15v4M16 17h4" stroke="#1c1c1e"/></svg>';
-  const LS_SYNC = "cb_cal_sync", LS_SETUP = "cb_cal_setup";
+  const LS_SYNC = "cb_cal_sync", LS_SETUP = "cb_cal_setup", LS_SUB = "cb_cal_link";
+  const SUB_FEED = (window.FO_CONFIG?.SUPABASE_URL || "https://devbnbshwsibjupesywi.supabase.co") + "/functions/v1/alarm-feed?c=";
+  const SUB_NAME = window.FO_CONFIG?.AIRLINE === "TG" ? "TG Crew Roster" : "CoolCrew Roster";
   const get = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
   const set = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, JSON.stringify(v)); } catch {} };
   const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -148,12 +153,68 @@
 <div class="st">${H(st)}</div>`;
   }
   /* ---------- status + bars ---------- */
+  /* ---------- calendar subscription (auto-updating, recommended) ---------- */
+  let subLink = ""; try { subLink = localStorage.getItem(LS_SUB) || ""; } catch {}
+  const keepSub = (v) => { subLink = v || ""; try { v ? localStorage.setItem(LS_SUB, v) : localStorage.removeItem(LS_SUB); } catch {} };
+  let subSt, subBusy = false, subMsg = "", subAt = 0;   // subSt: undefined = not loaded, null = no link, {created_at,last_used_at}
+  async function subStatus(force) {
+    if (!window.SB || (!force && Date.now() - subAt < 5 * 6e4)) return;
+    subAt = Date.now();
+    try { const { data, error } = await window.SB.rpc("cal_token_status"); if (error) throw error; subSt = data || null; if (!subSt && subLink) keepSub(""); }
+    catch (e) { console.warn("cal sub", e); }
+    paint();
+  }
+  const subOn = () => !!(subSt && subSt.last_used_at);   // the iPhone (or any calendar) has read the feed at least once
+  const httpsUrl = () => SUB_FEED + subLink, webcalUrl = () => httpsUrl().replace(/^https?:\/\//, "webcal://");
+  function subHtml() {
+    const used = subSt?.last_used_at ? `✓ ปฏิทินดึงตารางล่าสุด ${when(subSt.last_used_at)}` : "";
+    let body;
+    if (!subLink) body = `${subSt ? `<div class="small muted" style="margin:6px 0">มีลิงก์ปฏิทินที่สร้างจากเครื่องอื่นอยู่แล้ว${used ? " · " + used : ""} · ถ้าจะตั้งบนเครื่องนี้ กดสร้างใหม่ (ลิงก์เก่าจะหยุดอัปเดต ต้อง Subscribe ใหม่)</div>` : ""}
+<button class="btn primary" type="button" data-cal="subMake" ${subBusy ? "disabled" : ""}>🔗 ${subSt ? "สร้างลิงก์ปฏิทินใหม่" : "สร้างลิงก์ปฏิทินอัปเดตเอง"}</button>`;
+    else body = `<ol class="alst">
+<li class="${subOn() ? "done" : ""}"><b>Subscribe</b> <a class="btn primary ib" href="${H(webcalUrl())}">📅 Subscribe ในปฏิทิน iPhone</a><span class="why">iPhone จะเปิดแอปปฏิทิน → กด <b>Subscribe</b> → หน้าถัดไปกด <b>Add</b> (ถ้ามีให้เลือก Account เลือก <b>On My iPhone</b>) · จะได้ปฏิทินชื่อ <b>${SUB_NAME}</b> แยกจากนัดส่วนตัว</span></li>
+<li><b>ให้ iPhone ดึงบ่อยขึ้น</b><span class="why">Settings → Apps → Calendar → Calendar Accounts → <b>Fetch New Data</b> → เลือก <b>Every 15 Minutes</b> (iOS 17: Settings → Calendar → Accounts → Fetch New Data) · ไม่ตั้งก็ได้ แต่ iPhone อาจดึงช้ากว่า</span></li>
+<li><b>เคยใช้แบบ Shortcut?</b><span class="why">ลบปฏิทินชื่อ <b>${CAL}</b> อันเดิมในแอปปฏิทิน (Calendars → ⓘ ข้าง ${CAL} → Delete Calendar) ไม่งั้นนัดจะขึ้นซ้ำ 2 อัน</span></li>
+</ol>
+<div class="small" style="margin-top:6px;line-height:1.6">${used ? `<b style="color:var(--green)">${used}</b>` : '<span class="muted">ปฏิทินยังไม่เคยดึง · กด Subscribe ในข้อ 1</span>'}</div>
+<details class="more" style="margin-top:6px"><summary>ลิงก์ / ใช้กับ Mac, Google Calendar / สร้างใหม่ ›</summary><div class="small" style="margin-top:6px;line-height:1.7">
+<div><button class="btn ghost ib" type="button" data-cal="subCopy">📋 คัดลอกลิงก์</button> ใช้กับ Mac (File → New Calendar Subscription) หรือ Google Calendar (Other calendars → From URL · Google ดึงช้า อาจหลายชั่วโมง)</div>
+<div><b>ลิงก์หลุด / เปลี่ยนเครื่อง:</b> <button class="btn ghost ib" type="button" data-cal="subMake">🔄 สร้างลิงก์ใหม่</button> ลิงก์เก่าหยุดอัปเดตทันที ต้อง Subscribe ใหม่</div>
+<div><b>เลิกใช้:</b> <button class="btn ghost ib" type="button" data-cal="subRevoke">ยกเลิกลิงก์</button> แล้วลบปฏิทิน ${SUB_NAME} ในแอปปฏิทิน</div>
+</div></details>`;
+    return `<div class="calsub${subOn() ? " on" : ""}"><b>📅 ปฏิทินอัปเดตเอง (แนะนำ)</b>
+<div class="small" style="margin:4px 0 6px;line-height:1.6">iPhone ดึงตารางล่าสุดจาก${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : " CoolCrew "}เองเป็นรอบๆ · <b>อัปเดตตารางแล้วไม่ต้องกดอะไรอีก</b> ปฏิทินเปลี่ยนตามเอง (ภายในประมาณ 15 นาทีถึง 1 ชม.) · ใส่ duty ที่มีเวลา report (บิน / SBY / SIM) จาก report ถึง release</div>
+${subMsg ? `<div class="small" style="margin-bottom:6px">${subMsg}</div>` : ""}${body}
+<div class="small muted" style="margin-top:6px">ลิงก์นี้เปิดดูตารางของคุณได้โดยไม่ต้องล็อกอิน อย่าส่งต่อ</div></div>`;
+  }
+  async function subMake(t) {
+    if (subLink && t.dataset.arm !== "1") { t.dataset.arm = "1"; t.textContent = "⚠️ ลิงก์เก่าจะหยุดอัปเดต · กดอีกครั้งเพื่อยืนยัน"; setTimeout(() => { if (t.isConnected) { t.dataset.arm = ""; t.textContent = "🔄 สร้างลิงก์ใหม่"; } }, 6000); return; }
+    if (!window.SB) { subMsg = '<span style="color:var(--red)">ยังไม่ได้เข้าสู่ระบบ</span>'; paint(); return; }
+    subBusy = true; paint();
+    try { const { data, error } = await window.SB.rpc("create_cal_token"); if (error) throw error; keepSub(data); subMsg = '<span style="color:var(--green)">สร้างลิงก์แล้ว · กด Subscribe ในข้อ 1</span>'; subSt = { created_at: new Date().toISOString(), last_used_at: null }; }
+    catch (e) { subMsg = `<span style="color:var(--red)">สร้างไม่ได้: ${H(e?.message || e)}</span>`; }
+    subBusy = false; paint();
+  }
+  async function subRevoke(t) {
+    if (t.dataset.arm !== "1") { t.dataset.arm = "1"; t.textContent = "ยืนยันยกเลิก"; setTimeout(() => { if (t.isConnected) { t.dataset.arm = ""; t.textContent = "ยกเลิกลิงก์"; } }, 4000); return; }
+    try { const { error } = await window.SB.rpc("revoke_cal_token"); if (error) throw error; keepSub(""); subSt = null; subMsg = "ยกเลิกลิงก์แล้ว · ลบปฏิทิน " + SUB_NAME + " ในแอปปฏิทินด้วย"; }
+    catch (e) { subMsg = `<span style="color:var(--red)">${H(e?.message || e)}</span>`; }
+    paint();
+  }
+
   function state() {
     const p = payload(), sync = get(LS_SYNC, null), setup = get(LS_SETUP, null);
     const cur = p && p.events.length ? hash(body(p)) : null;
     return { p, sync, setup, changed: !!(cur && (!sync || sync.h !== cur)), empty: !cur };
   }
-  const CSS = `.calbar{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
+  const CSS = `.calsub{border:1px solid var(--green);border-radius:12px;padding:10px 12px;margin-top:8px;background:var(--surface)}
+.calsub .alst{counter-reset:s;list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:8px}
+.calsub .alst li{position:relative;padding:8px 10px 8px 40px;border:1px solid var(--line);border-radius:10px;line-height:1.55}
+.calsub .alst li::before{counter-increment:s;content:counter(s);position:absolute;left:10px;top:8px;width:22px;height:22px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center}
+.calsub .alst .why{display:block;color:var(--muted);font-size:.9em;margin-top:3px}
+.calsub .alst li.done{border-color:var(--green)}
+.calsub .ib{display:inline-block;vertical-align:middle;padding:4px 12px;margin:2px 0}
+.calbar{display:flex;flex-direction:column;gap:6px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--surface)}
 .calbar.hot{border-color:var(--amber);background:var(--amber-soft)}
 .calbar .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:space-between}
 .calbar .st{font-size:.82rem;color:var(--muted);line-height:1.45}.calbar.hot .st{color:var(--amber)}
@@ -193,6 +254,8 @@
     return (ios ? iosRow(s) : "") + (ios && g ? '<div style="border-top:1px solid var(--line);margin:4px 0"></div>' : "") + g;
   }
   function iosRow(s) {
+    if (subOn()) return `<div class="row"><b style="font-size:.92rem">📅 ปฏิทิน iPhone</b><span class="small" style="color:var(--green)">อัปเดตเองแล้ว</span></div>
+<div class="st">${H(flashMsg || `ปฏิทิน ${SUB_NAME} ตามตารางเอง · ดึงล่าสุด ${when(subSt.last_used_at)}`)}</div>`;
     const rng = s.p.range.length ? `${fmtDay(s.p.range[0])} – ${fmtDay(s.p.range[1])}` : "";
     const st = !s.setup ? "ยังไม่ได้ตั้งค่า · ตั้งครั้งเดียวในเมนูตั้งเวลา"
       : s.sync ? (s.changed ? `⚠ ตารางเปลี่ยนหลังอัปเดตปฏิทินครั้งล่าสุด (${when(s.sync.at)})` : `✓ ปฏิทินตรงกับตาราง · อัปเดตล่าสุด ${when(s.sync.at)}`)
@@ -206,7 +269,7 @@
     if (!b) { b = document.createElement("div"); b.id = id; b.className = "calbar"; anchor.insertAdjacentElement(where, b); }
     const s = state(), h = barHtml(s);
     const gs = get(LS_GSYNC, null), gch = GCLIENT && gs && s.p && gs.h !== hash(body(s.p));
-    b.hidden = !h; b.classList.toggle("hot", !!((s.setup && s.changed && (isIOS() || s.setup)) || gch));
+    b.hidden = !h; b.classList.toggle("hot", !!((!subOn() && s.setup && s.changed && (isIOS() || s.setup)) || gch));
     if (b.dataset.h !== h) { b.innerHTML = h; b.dataset.h = h; }
   }
 
@@ -243,7 +306,8 @@ Rules: do not add, remove, rename or reorder any action. Do not use "Use Model",
   function paintSetup() {
     const c = setupCard(); if (!c) return;
     const setup = get(LS_SETUP, null);
-    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone</h2>
+    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone</h2>${subHtml()}
+<details class="more" id="calOld" style="margin-top:10px" ${setup && !subOn() ? "open" : ""}><summary>แบบเดิม: ผ่าน Shortcut (ต้องกดอัปเดตเองทุกครั้ง) ›</summary>
 <p class="small" style="margin:0;line-height:1.6">ส่งตารางบินเข้าแอป <b>ปฏิทิน</b> บน iPhone <b>เฉพาะตอนคุณกด "อัปเดตปฏิทิน iPhone"</b> (หลังใส่ roster หรือที่แท็บตาราง) · ทุกครั้งที่อัปเดต จะลบ event เดิมของ CoolCrew ในช่วงวันที่ของตารางก่อน แล้วใส่ใหม่ ไม่มีซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
 ${SC_LINK ? `<div class="note ok small" style="margin-top:8px">📱 ใช้ได้ทุก iPhone ที่เป็น <b>iOS 17 ขึ้นไป</b></div>` : `<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน (ต้องโหลดใหม่เองทุกครั้งที่ตารางเปลี่ยน)</span></div>`}
 ${isIOS() ? "" : '<div class="note warn small">ใช้ได้บน iPhone / iPad เท่านั้น · เปิดหน้านี้บน iPhone เพื่อตั้งค่า</div>'}
@@ -276,7 +340,7 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
 <details class="more" style="margin-top:8px"><summary>ข้อความคำสั่ง / ถ้าไม่ทำงาน ›</summary><div class="small" style="margin-top:6px;line-height:1.7">
 <div>ถ้ากดแล้วขึ้น "ไม่พบ Shortcut" = ชื่อ Shortcut ไม่ตรง <b>${NAME}</b> · ถ้า event ไม่เข้า = ชื่อปฏิทินไม่ตรง <b>${CAL}</b></div>
 <div>อยากลบทั้งหมด: ลบปฏิทิน ${CAL} ในแอปปฏิทิน</div>
-<textarea readonly rows="4" style="width:100%;margin-top:4px;font-family:var(--f-mono);font-size:11px">${H(PROMPT)}</textarea></div></details>`;
+<textarea readonly rows="4" style="width:100%;margin-top:4px;font-family:var(--f-mono);font-size:11px">${H(PROMPT)}</textarea></div></details></details>`;
     if (c.dataset.h !== h) { c.innerHTML = h; c.dataset.h = h; }
   }
 
@@ -294,6 +358,9 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
     else if (a === "ok") { set(LS_SETUP, { at: Date.now() }); paint(); }
     else if (a === "unsetup") { set(LS_SETUP, null); set(LS_SYNC, null); paint(); }
     else if (a === "gsend") gSend();
+    else if (a === "subMake") subMake(t);
+    else if (a === "subRevoke") subRevoke(t);
+    else if (a === "subCopy") copy(t, httpsUrl());
     else if (a === "redo") { set(LS_SETUP, null); redo = true; paint(); setTimeout(() => $("calSteps")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }
     else if (a === "setup") { if (typeof showTab === "function") showTab("settings"); setTimeout(() => $("calSetup")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
   });
@@ -312,6 +379,8 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
   try { const u = new URL(location.href); const cv = u.searchParams.get("cal"); if (cv === "ok" || cv === "err") { u.searchParams.delete("cal"); history.replaceState(null, "", u.pathname + u.search + u.hash);
       if (cv === "ok") flash("✓ อัปเดตปฏิทิน iPhone แล้ว");
       else { set(LS_SYNC, null); flash("⚠ Shortcut ทำงานไม่สำเร็จ หรือหา Shortcut \"" + NAME + "\" ไม่เจอ · กด 🔧 ตั้ง Shortcut ใหม่ ในอื่นๆ → ตั้งเวลา", 30000); } } } catch {}
-  const start = () => { gLoad(); paint(); setInterval(paint, 2000); window.addEventListener("storage", paint); };
+  const start = () => { gLoad(); paint(); setInterval(paint, 2000); window.addEventListener("storage", paint);
+    subStatus(true); setTimeout(() => subStatus(true), 4000); setInterval(() => subStatus(false), 6e4);
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) subStatus(true); }); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
 })();

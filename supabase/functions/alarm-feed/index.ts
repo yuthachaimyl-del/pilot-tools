@@ -7,6 +7,9 @@
 // inside the next 23 h 50 min are returned; the shortcut runs twice a day.
 // 2026-10-29: serves both sites (coolcrew = TVJ, tgcrew = TG): CORS echoes an allow-listed Origin; station time zones are
 // IANA zones (same table as tz.js in the web app), so Europe/Australia daylight saving is handled.
+// 2026-11-15: GET ?c=<calendar token> -> an .ics feed of the roster (FLT/SBY/SIM, report -> release) that the iPhone Calendar
+// subscribes to (webcal://), so the calendar follows every roster update by itself. Calendar tokens live in public.cal_tokens,
+// separate from alarm_tokens, so making one never breaks the alarm Shortcut.
 // JWT verification is OFF on purpose: the shortcut has no session; the personal token is the credential.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
@@ -95,6 +98,53 @@ export function computeAlarms(brief, settings, now) {
   return { alarms: uniq, duties: used, summary: used.length ? "ตั้งปลุก " + used.map((u) => u.label).join(" / ") : "" };
 }
 
+/* ---------- calendar feed (.ics) ---------- */
+const icsText = (v) => String(v ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+function fold(line) {   // RFC 5545: lines over 75 octets continue on the next line after CRLF + space
+  const enc = new TextEncoder(); if (enc.encode(line).length <= 75) return line;
+  const out = []; let cur = "", n = 0;
+  for (const ch of line) { const b = enc.encode(ch).length; if (n + b > (out.length ? 74 : 75)) { out.push(cur); cur = ""; n = 0; } cur += ch; n += b; }
+  out.push(cur); return out.join("\r\n ");
+}
+const utc = (ms) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+const addDay = (date, n) => { const [y, m, d] = date.split("-").map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+// pure: roster -> VCALENDAR text. Same events as the "อัปเดตปฏิทิน iPhone" Shortcut: one per FLT/SBY/SIM duty, report -> release.
+export function computeIcs(brief, settings, now, opt = {}) {
+  const S = { ...DEF, ...(settings || {}) };
+  const base = String(brief?.base || S.base || "BKK").toUpperCase();
+  const pre = opt.prefix || "VZ", name = opt.name || "CoolCrew", uid = opt.uid || "x";
+  const duties = (Array.isArray(brief?.duties) ? brief.duties : []).filter((d) => d && typeof d === "object" && /^\d{4}-\d{2}-\d{2}$/.test(d.date || ""));
+  const since = now - 60 * 864e5;   // keep two months of history, all of the future
+  const seen = {}, ev = [];
+  for (const d of duties) {
+    if (!["FLT", "SBY", "SIM"].includes(d.type) || typeof d.report !== "string" || !d.report) continue;
+    const st = String(d.from || base).toUpperCase(), to = String(d.to || st).toUpperCase();
+    const rep = absT(d.date, d.report, st); if (rep == null || rep < since) continue;
+    let rel = d.release ? absT(addDay(d.date, +d.releaseDayOffset || 0), d.release, to) : null;
+    if (rel != null && rel <= rep) rel += 864e5;
+    const end = rel || rep + 36e5;
+    const away = st !== base;
+    const repBaseMin = Math.floor((((rep + offAt(base, rep) * 60000) % 86400000) + 86400000) % 86400000 / 60000);
+    const extra = repBaseMin >= 300 && repBaseMin < 420 ? +S.buffer || 0 : 0;
+    const wake = away ? rep - ((+S.hotel || 0) + extra) * 60000 : d.type === "SBY" && !d.airportSby ? null : rep - ((+S.commute || 0) + extra + (+S.prep || 0)) * 60000;
+    const route = [d.from, ...(d.sectors || []).map((x) => x?.arr)].filter(Boolean).reduce((a, x) => (a.length && a[a.length - 1] === x ? a : [...a, x]), []).join("–");
+    const ic = d.type === "FLT" ? "✈️" : d.type === "SIM" ? "🎓" : "⏳";
+    const title = `${ic} ${d.code || d.type}${route && route !== st ? " " + route : ""} · R ${d.report}`;
+    const notes = [
+      `Report ${d.report} ${st}${d.release ? ` · Release ${d.release} ${to}` : ""}`,
+      wake ? `Wake ${hmOf(wake, away ? st : base)}` : "",
+      ...(d.sectors || []).map((x) => `${x?.flt ? pre + x.flt + " " : ""}${x?.dep || ""} ${x?.std || ""} > ${x?.arr || ""} ${x?.sta || ""}`.replace(/\s+/g, " ").trim()),
+      name,
+    ].filter(Boolean).join("\n");
+    const k = d.date + "-" + d.type; seen[k] = (seen[k] || 0) + 1;
+    ev.push(["BEGIN:VEVENT", `UID:${k}-${seen[k]}-${uid}@coolcrew.web.app`, `DTSTAMP:${utc(now)}`, `DTSTART:${utc(rep)}`, `DTEND:${utc(end)}`,
+      `SUMMARY:${icsText(title)}`, `LOCATION:${icsText(st)}`, `DESCRIPTION:${icsText(notes)}`, "TRANSP:OPAQUE", "END:VEVENT"]);
+  }
+  const lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//CoolCrew//Roster//TH", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+    `X-WR-CALNAME:${icsText(name)}`, "X-WR-TIMEZONE:Asia/Bangkok", "REFRESH-INTERVAL;VALUE=DURATION:PT15M", "X-PUBLISHED-TTL:PT15M", ...ev.flat(), "END:VCALENDAR"];
+  return { ics: lines.map(fold).join("\r\n") + "\r\n", count: ev.length };
+}
+
 async function sha256hex(s) {
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
   return [...h].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -104,7 +154,9 @@ if (typeof Deno !== "undefined") Deno.serve(async (req) => {
   cors = corsFor(req);
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "GET" && req.method !== "POST") return json({ ok: false, message: "method not allowed" }, 405);
-  const t = new URL(req.url).searchParams.get("t") || "";
+  const qs = new URL(req.url).searchParams, c = qs.get("c") || "";
+  if (c) return calFeed(c);
+  const t = qs.get("t") || "";
   if (!/^[0-9a-f]{48}$/.test(t)) return json({ ok: false, message: "ลิงก์ไม่ถูกต้อง · สร้างลิงก์ใหม่ในหน้า ตั้งเวลา" }, 404);
   const admin = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
   try {
@@ -125,3 +177,26 @@ if (typeof Deno !== "undefined") Deno.serve(async (req) => {
     return json({ ok: false, message: "ระบบขัดข้อง ลองใหม่อีกครั้ง" }, 502);
   }
 });
+
+async function calFeed(c) {
+  const txt = (b, s) => new Response(b, { status: s, headers: { ...cors, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
+  if (!/^[0-9a-f]{48}$/.test(c)) return txt("ลิงก์ปฏิทินไม่ถูกต้อง · สร้างลิงก์ใหม่ในหน้า ตั้งเวลา", 404);
+  const admin = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
+  try {
+    const { data: tok } = await admin.from("cal_tokens").select("user_id").eq("token_hash", await sha256hex(c)).maybeSingle();
+    if (!tok) return txt("ลิงก์ปฏิทินนี้ถูกยกเลิกแล้ว · สร้างลิงก์ใหม่ในหน้า ตั้งเวลา", 404);
+    const { data: prof } = await admin.from("profiles").select("status, airline").eq("id", tok.user_id).maybeSingle();
+    if (prof?.status !== "approved") return txt("บัญชียังไม่ได้รับอนุมัติ", 403);
+    const [{ data: r }, { data: p }] = await Promise.all([
+      admin.from("rosters").select("brief").eq("user_id", tok.user_id).maybeSingle(),
+      admin.from("member_prefs").select("prefs").eq("user_id", tok.user_id).maybeSingle(),
+    ]);
+    const now = Date.now(), tg = prof?.airline === "TG";
+    const { ics } = computeIcs(r?.brief, p?.prefs?.settings, now, { prefix: tg ? "TG" : "VZ", name: tg ? "TG Crew Roster" : "CoolCrew Roster", uid: tok.user_id.slice(0, 8) });
+    await admin.from("cal_tokens").update({ last_used_at: new Date(now).toISOString() }).eq("user_id", tok.user_id);
+    return new Response(ics, { status: 200, headers: { ...cors, "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="' + (tg ? "tgcrew" : "coolcrew") + '.ics"', "Cache-Control": "no-cache, max-age=0" } });
+  } catch (e) {
+    console.error("cal-feed", String(e?.message || e));
+    return txt("ระบบขัดข้อง ลองใหม่อีกครั้ง", 502);
+  }
+}
