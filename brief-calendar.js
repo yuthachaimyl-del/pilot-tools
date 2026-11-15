@@ -164,27 +164,32 @@
     catch (e) { console.warn("cal sub", e); }
     paint();
   }
-  const subOn = () => !!(subSt && subSt.last_used_at);   // the iPhone (or any calendar) has read the feed at least once
+  // who read the link: Apple Calendar (iPhone/iPad/Mac) and Google Calendar are told apart by the feed (user agent);
+  // a link read before that split counts as Apple
+  const appleAt = () => subSt?.last_apple_at || (!subSt?.last_google_at && subSt?.last_used_at) || null;
+  const googleAt = () => subSt?.last_google_at || null;
+  const subOn = () => !!appleAt();      // the iPhone calendar has fetched at least once
+  const gOn = () => !!googleAt();
   const httpsUrl = () => SUB_FEED + subLink, webcalUrl = () => httpsUrl().replace(/^https?:\/\//, "webcal://");
   function subHtml() {
-    const used = subSt?.last_used_at ? `✓ ปฏิทินดึงตารางล่าสุด ${when(subSt.last_used_at)}` : "";
+    const used = appleAt() ? `✓ iPhone ดึงตารางล่าสุด ${when(appleAt())}` : "";
     let body;
     if (!subLink) body = `${subSt ? `<div class="small muted" style="margin:6px 0">มีลิงก์ปฏิทินที่สร้างจากเครื่องอื่นอยู่แล้ว${used ? " · " + used : ""} · ถ้าจะตั้งบนเครื่องนี้ กดสร้างใหม่ (ลิงก์เก่าจะหยุดอัปเดต ต้อง Subscribe ใหม่)</div>` : ""}
-<button class="btn primary" type="button" data-cal="subMake" ${subBusy ? "disabled" : ""}>🔗 ${subSt ? "สร้างลิงก์ปฏิทินใหม่" : "สร้างลิงก์ปฏิทินอัปเดตเอง"}</button>`;
+<button class="btn primary" type="button" data-cal="subMake" ${subBusy ? "disabled" : ""}>🔗 ${subSt ? "สร้างลิงก์ปฏิทินใหม่" : "สร้างลิงก์ปฏิทินอัตโนมัติ"}</button>`;
     else body = `<ol class="alst">
 <li class="${subOn() ? "done" : ""}"><b>Subscribe</b> <a class="btn primary ib" href="${H(webcalUrl())}">📅 Subscribe ในปฏิทิน iPhone</a><span class="why">iPhone จะเปิดแอปปฏิทิน → กด <b>Subscribe</b> → หน้าถัดไปกด <b>Add</b> (ถ้ามีให้เลือก Account เลือก <b>On My iPhone</b>) · จะได้ปฏิทินชื่อ <b>${SUB_NAME}</b> แยกจากนัดส่วนตัว</span></li>
 <li><b>ให้คนที่บ้านเห็นด้วย (ไม่บังคับ)</b> <button class="btn ib" type="button" data-cal="subShare">📤 ส่งให้คนอื่น</button><span class="why">ส่งลิงก์ทาง LINE / iMessage · คนรับแตะลิงก์บน iPhone → Subscribe → Add · ปฏิทินเขาจะอัปเดตตามตารางคุณเอง · ส่งให้เฉพาะคนที่ไว้ใจ</span></li>
-<li><b>เสร็จแล้ว ไม่ต้องตั้งอะไรเพิ่ม</b><span class="why">iPhone ดึงตารางใหม่เองประมาณทุก 15 นาที · อยากให้อัปเดตทันที: เปิดแอปปฏิทิน → แตะ Calendars → ลากหน้าลงเพื่อรีเฟรช</span></li>
+<li><b>เสร็จแล้ว ไม่ต้องตั้งอะไรเพิ่ม</b><span class="why">iPhone ไปดึงตารางล่าสุดจาก ${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : "CoolCrew"} ให้อัตโนมัติเป็นรอบ ประมาณทุก 15 นาทีถึง 1 ชม. · คุณไม่ต้องกดอะไร · อยากให้อัปเดตทันที: เปิดแอปปฏิทิน → แตะ Calendars → ลากหน้าลงเพื่อรีเฟรช</span></li>
 <li><b>เคยใช้แบบ Shortcut?</b><span class="why">ลบปฏิทินชื่อ <b>${CAL}</b> อันเดิมในแอปปฏิทิน (Calendars → ⓘ ข้าง ${CAL} → Delete Calendar) ไม่งั้นนัดจะขึ้นซ้ำ 2 อัน</span></li>
 </ol>
-<div class="small" style="margin-top:6px;line-height:1.6">${used ? `<b style="color:var(--green)">${used}</b>` : '<span class="muted">ปฏิทินยังไม่เคยดึง · กด Subscribe ในข้อ 1</span>'}</div>
+<div class="small" style="margin-top:6px;line-height:1.6">${used ? `<b style="color:var(--green)">${used}</b>` : '<span class="muted">iPhone ยังไม่เคยดึง · กด Subscribe ในข้อ 1</span>'}</div>
 <details class="more" style="margin-top:6px"><summary>ลิงก์ / ใช้กับ Mac / สร้างใหม่ ›</summary><div class="small" style="margin-top:6px;line-height:1.7">
-<div><button class="btn ghost ib" type="button" data-cal="subCopy">📋 คัดลอกลิงก์</button> ใช้กับ Mac (แอป Calendar → File → New Calendar Subscription → วาง) · Google Calendar ดูหัวข้อ "ใช้กับ Google Calendar" ด้านล่าง</div>
+<div><button class="btn ghost ib" type="button" data-cal="subCopy">📋 คัดลอกลิงก์</button> ใช้กับ Mac (แอป Calendar → File → New Calendar Subscription → วาง) · Google Calendar ดูการ์ด <b>Google Calendar</b> ด้านล่าง</div>
 <div><b>ลิงก์หลุด / เปลี่ยนเครื่อง:</b> <button class="btn ghost ib" type="button" data-cal="subMake">🔄 สร้างลิงก์ใหม่</button> ลิงก์เก่าหยุดอัปเดตทันที ต้อง Subscribe ใหม่</div>
 <div><b>เลิกใช้:</b> <button class="btn ghost ib" type="button" data-cal="subRevoke">ยกเลิกลิงก์</button> แล้วลบปฏิทิน ${SUB_NAME} ในแอปปฏิทิน</div>
 </div></details>`;
-    return `<div class="calsub${subOn() ? " on" : ""}"><b>📅 ปฏิทินอัปเดตเอง (แนะนำ)</b>
-<div class="small" style="margin:4px 0 6px;line-height:1.6">iPhone ดึงตารางล่าสุดจาก${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : " CoolCrew "}เองเป็นรอบๆ · <b>อัปเดตตารางแล้วไม่ต้องกดอะไรอีก</b> ปฏิทินเปลี่ยนตามเอง (ภายในประมาณ 15 นาทีถึง 1 ชม.) · ใส่ duty ที่มีเวลา report (บิน / SBY / SIM) จาก report ถึง release</div>
+    return `<div class="calsub${subOn() ? " on" : ""}"><b>📅 แบบอัตโนมัติ (แนะนำ)</b>
+<div class="small" style="margin:4px 0 6px;line-height:1.6">ตั้งครั้งเดียว แล้ว <b>iPhone จะไปดึงตารางล่าสุดจาก ${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : "CoolCrew"} ให้เองเป็นรอบ</b> · ใส่ roster ใหม่หรือแก้ตารางแล้ว คุณไม่ต้องกดอะไร ปฏิทินเปลี่ยนตามภายในประมาณ 15 นาทีถึง 1 ชม. · ใส่ duty ที่มีเวลา report (บิน / SBY / SIM) จาก report ถึง release</div>
 ${subMsg ? `<div class="small" style="margin-bottom:6px">${subMsg}</div>` : ""}${body}
 <div class="small muted" style="margin-top:6px">ลิงก์นี้เปิดดูตารางของคุณได้โดยไม่ต้องล็อกอิน อย่าส่งต่อ</div></div>`;
   }
@@ -193,16 +198,35 @@ ${subMsg ? `<div class="small" style="margin-bottom:6px">${subMsg}</div>` : ""}$
   const gAddUrl = () => "https://calendar.google.com/calendar/render?cid=" + encodeURIComponent(webcalUrl());
   function gSubHtml() {
     const g = GCLIENT ? gRowHtml(state()) : "";
-    return `<details class="more" id="calG" style="margin-top:10px" ${isIOS() ? "" : "open"}><summary>📅 ใช้กับ Google Calendar (Android / คอม) ›</summary>
-<div class="calsub" style="border-color:var(--line)"><b>แบบอัปเดตเอง</b> <span class="small muted">ใช้ลิงก์เดียวกับ iPhone</span>
-<ol class="alst">
-<li>${subLink ? `<b>เพิ่มใน Google</b> <a class="btn primary ib" href="${H(gAddUrl())}" target="_blank" rel="noopener">➕ เพิ่มใน Google Calendar</a><span class="why">หน้า Google ถามว่าจะเพิ่มปฏิทินนี้มั้ย → กด <b>Add</b> · ถ้ากดแล้วเข้าแอปแต่ไม่มีอะไรขึ้น ใช้ข้อ 2 แทน</span>` : `<b>สร้างลิงก์ก่อน</b><span class="why">กด <b>🔗 สร้างลิงก์ปฏิทินอัปเดตเอง</b> ในกรอบด้านบน แล้วกลับมาข้อนี้</span>`}</li>
+    const linkStep = subLink ? `<b>เพิ่มใน Google</b> <a class="btn primary ib" href="${H(gAddUrl())}" target="_blank" rel="noopener">➕ เพิ่มใน Google Calendar</a><span class="why">หน้า Google ถามว่าจะเพิ่มปฏิทินนี้มั้ย → กด <b>Add</b> · ถ้ากดแล้วเข้าแอปแต่ไม่มีอะไรขึ้น ใช้ข้อ 2 แทน</span>`
+      : `<b>สร้างลิงก์ปฏิทิน</b> <button class="btn primary ib" type="button" data-cal="subMake" ${subBusy ? "disabled" : ""}>🔗 ${subSt ? "สร้างลิงก์ปฏิทินใหม่" : "สร้างลิงก์ปฏิทินอัตโนมัติ"}</button><span class="why">${subSt ? "มีลิงก์ที่สร้างจากเครื่องอื่นอยู่แล้ว · สร้างใหม่แล้วลิงก์เก่าจะหยุดอัปเดต (ปฏิทินที่ Subscribe ลิงก์เก่าไว้ต้องทำใหม่)" : "ลิงก์เดียวกับการ์ดปฏิทิน iPhone ใช้ร่วมกันได้"}</span>`;
+    return `<div class="calsub${gOn() ? " on" : ""}" style="${gOn() ? "" : "border-color:var(--line)"}"><b>📅 แบบอัตโนมัติ</b>
+<div class="small" style="margin:4px 0 6px;line-height:1.6">ตั้งครั้งเดียว แล้ว <b>Google จะไปดึงตารางล่าสุดจาก ${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : "CoolCrew"} ให้เองเป็นรอบ</b> คุณไม่ต้องกดอะไร · แต่ Google ดึงช้า ปกติหลายชั่วโมง บางครั้งถึง 1 วัน ตั้งความถี่เองไม่ได้</div>
+${subMsg && !subLink ? `<div class="small" style="margin-bottom:6px">${subMsg}</div>` : ""}<ol class="alst">
+<li class="${gOn() ? "done" : ""}">${linkStep}</li>
 <li><b>หรือเพิ่มเองจากเว็บ</b> ${subLink ? `<button class="btn ib" type="button" data-cal="subCopy">📋 คัดลอกลิงก์</button>` : ""}<span class="why">เปิด <b>calendar.google.com</b> บนคอม (หรือ Chrome แบบเดสก์ท็อป) → แถบซ้าย <b>Other calendars ＋</b> → <b>From URL</b> → วางลิงก์ → <b>Add calendar</b> · แอป Google Calendar บนมือถือเพิ่มจากลิงก์เองไม่ได้</span></li>
 <li><b>ดูในมือถือ</b><span class="why">แอป Google Calendar → ☰ → ติ๊กปฏิทินใหม่ · ถ้ายังไม่ขึ้น: Settings → แตะชื่อปฏิทิน → เปิด <b>Sync</b></span></li>
 </ol>
-<div class="note warn small" style="margin-top:8px">Google ดึงลิงก์ใหม่เองเป็นรอบ ปกติหลายชั่วโมง บางครั้งถึง 1 วัน ตั้งความถี่เองไม่ได้ (ช้ากว่า iPhone มาก)</div>
-${g ? `<div style="margin-top:10px"><b>แบบกดส่งเอง</b> <span class="small muted">เข้าทันที แต่ต้องกดทุกครั้งที่ตารางเปลี่ยน · ใช้แบบใดแบบหนึ่ง ถ้าใช้ทั้งสองแบบนัดจะขึ้นซ้ำ</span><div class="calbar" style="margin-top:6px">${g}</div></div>` : ""}
-</div></details>`;
+<div class="small" style="margin-top:6px">${gOn() ? `<b style="color:var(--green)">✓ Google ดึงตารางล่าสุด ${when(googleAt())}</b>` : '<span class="muted">Google ยังไม่เคยดึง</span>'}</div></div>
+${g ? `<div class="calsub" style="border-color:var(--line)"><b>✋ แบบกดปุ่มส่งเอง</b>
+<div class="small" style="margin:4px 0 6px;line-height:1.6">คุณต้อง<b>กดปุ่มนี้ทุกครั้ง</b>ที่ตารางเปลี่ยน · กดแล้วเข้า Google ทันที · ใช้แบบใดแบบหนึ่ง ถ้าใช้ทั้งสองแบบนัดจะขึ้นซ้ำ</div>
+<div class="calbar">${g}</div></div>` : ""}`;
+  }
+  function gCard() {
+    const host = $("p-settings"); if (!host) return null;
+    let c = $("calGoogle");
+    if (!c) {
+      c = document.createElement("div"); c.id = "calGoogle"; c.className = "card cc-fold";
+      const after = $("calSetup"); after ? after.insertAdjacentElement("afterend", c) : host.appendChild(c);
+    }
+    return c;
+  }
+  function paintGoogle() {
+    const c = gCard(); if (!c) return;
+    const gs = get(LS_GSYNC, null);
+    const st = gOn() ? `<small class="ok">✓ อัตโนมัติ · Google ดึงล่าสุด ${when(googleAt())}</small>` : gs ? `<small>กดส่งล่าสุด ${when(gs.at)}</small>` : "<small>ยังไม่ได้ตั้ง</small>";
+    const h = `<h2 id="calGoogleTop">Google Calendar ${st}</h2>${gSubHtml()}`;
+    if (c.dataset.h !== h) { c.innerHTML = h; c.dataset.h = h; }
   }
   async function subMake(t) {
     if (subLink && t.dataset.arm !== "1") { t.dataset.arm = "1"; t.textContent = "⚠️ ลิงก์เก่าจะหยุดอัปเดต · กดอีกครั้งเพื่อยืนยัน"; setTimeout(() => { if (t.isConnected) { t.dataset.arm = ""; t.textContent = "🔄 สร้างลิงก์ใหม่"; } }, 6000); return; }
@@ -271,8 +295,8 @@ ${g ? `<div style="margin-top:10px"><b>แบบกดส่งเอง</b> <sp
     return (ios ? iosRow(s) : "") + (ios && g ? '<div style="border-top:1px solid var(--line);margin:4px 0"></div>' : "") + g;
   }
   function iosRow(s) {
-    if (subOn()) return `<div class="row"><b style="font-size:.92rem">📅 ปฏิทิน iPhone</b><span class="small" style="color:var(--green)">อัปเดตเองแล้ว</span></div>
-<div class="st">${H(flashMsg || `ปฏิทิน ${SUB_NAME} ตามตารางเอง · ดึงล่าสุด ${when(subSt.last_used_at)}`)}</div>`;
+    if (subOn()) return `<div class="row"><b style="font-size:.92rem">📅 ปฏิทิน iPhone</b><span class="small" style="color:var(--green)">อัปเดตอัตโนมัติ</span></div>
+<div class="st">${H(flashMsg || `ปฏิทิน ${SUB_NAME} อัปเดตอัตโนมัติ · iPhone ดึงล่าสุด ${when(appleAt())}`)}</div>`;
     const rng = s.p.range.length ? `${fmtDay(s.p.range[0])} – ${fmtDay(s.p.range[1])}` : "";
     const st = !s.setup ? "ยังไม่ได้ตั้งค่า · ตั้งครั้งเดียวในเมนูตั้งเวลา"
       : s.sync ? (s.changed ? `⚠ ตารางเปลี่ยนหลังอัปเดตปฏิทินครั้งล่าสุด (${when(s.sync.at)})` : `✓ ปฏิทินตรงกับตาราง · อัปเดตล่าสุด ${when(s.sync.at)}`)
@@ -327,9 +351,8 @@ Rules: do not add, remove, rename or reorder any action. Do not use "Use Model",
   function paintSetup() {
     const c = setupCard(); if (!c) return;
     const setup = get(LS_SETUP, null);
-    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone ${subOn() ? `<small class="ok">✓ อัปเดตเอง · ดึงล่าสุด ${when(subSt.last_used_at)}</small>` : setup ? "<small>แบบ Shortcut</small>" : "<small>ยังไม่ได้ตั้ง</small>"}</h2>${subHtml()}
-${gSubHtml()}
-<details class="more" id="calOld" style="margin-top:10px" ${setup && !subOn() ? "open" : ""}><summary>แบบเดิม: ผ่าน Shortcut (ต้องกดอัปเดตเองทุกครั้ง) ›</summary>
+    const h = `<h2 id="calSetupTop">ปฏิทิน iPhone ${subOn() ? `<small class="ok">✓ อัตโนมัติ · iPhone ดึงล่าสุด ${when(appleAt())}</small>` : setup ? "<small>แบบ Shortcut</small>" : "<small>ยังไม่ได้ตั้ง</small>"}</h2>${subHtml()}
+<details class="more" id="calOld" style="margin-top:10px" ${setup && !subOn() ? "open" : ""}><summary>แบบเดิม: ผ่าน Shortcut (คุณต้องกดปุ่มส่งทุกครั้งที่ตารางเปลี่ยน) ›</summary>
 <p class="small" style="margin:0;line-height:1.6">ส่งตารางบินเข้าแอป <b>ปฏิทิน</b> บน iPhone <b>เฉพาะตอนคุณกด "อัปเดตปฏิทิน iPhone"</b> (หลังใส่ roster หรือที่แท็บตาราง) · ทุกครั้งที่อัปเดต จะลบ event เดิมของ CoolCrew ในช่วงวันที่ของตารางก่อน แล้วใส่ใหม่ ไม่มีซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
 ${SC_LINK ? `<div class="note ok small" style="margin-top:8px">📱 ใช้ได้ทุก iPhone ที่เป็น <b>iOS 17 ขึ้นไป</b></div>` : `<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน (ต้องโหลดใหม่เองทุกครั้งที่ตารางเปลี่ยน)</span></div>`}
 ${isIOS() ? "" : '<div class="note warn small">ใช้ได้บน iPhone / iPad เท่านั้น · เปิดหน้านี้บน iPhone เพื่อตั้งค่า</div>'}
@@ -384,7 +407,7 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
     else if (a === "subRevoke") subRevoke(t);
     else if (a === "subCopy") copy(t, httpsUrl());
     else if (a === "subShare") {
-      const text = `ปฏิทินตารางบินของฉัน (อัปเดตเอง) · แตะลิงก์บน iPhone → Subscribe → Add\n${webcalUrl()}`;
+      const text = `ปฏิทินตารางบินของฉัน (อัปเดตอัตโนมัติตามตาราง) · แตะลิงก์บน iPhone → Subscribe → Add\n${webcalUrl()}`;
       if (navigator.share) navigator.share({ title: SUB_NAME, text }).catch((e) => { if (e?.name !== "AbortError") copy(t, text); });
       else copy(t, text);
     }
@@ -399,6 +422,7 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
       // calendar lives in one place only (ตั้งเวลา+ปฏิทิน); the old bars on ใส่ roster / ตาราง are not drawn any more
       ["calBarRoster", "calBarMonth", "calBarWl"].forEach((id) => $(id)?.remove());
       paintSetup();
+      paintGoogle();
     } catch (e) { console.warn("calendar", e); }
   }
   // back from the Shortcut (x-success): confirm and clean the URL

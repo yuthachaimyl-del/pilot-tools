@@ -155,7 +155,7 @@ if (typeof Deno !== "undefined") Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "GET" && req.method !== "POST") return json({ ok: false, message: "method not allowed" }, 405);
   const qs = new URL(req.url).searchParams, c = qs.get("c") || "";
-  if (c) return calFeed(c);
+  if (c) return calFeed(c, req.headers.get("user-agent") || "");
   const t = qs.get("t") || "";
   if (!/^[0-9a-f]{48}$/.test(t)) return json({ ok: false, message: "ลิงก์ไม่ถูกต้อง · สร้างลิงก์ใหม่ในหน้า ตั้งเวลา" }, 404);
   const admin = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
@@ -178,7 +178,7 @@ if (typeof Deno !== "undefined") Deno.serve(async (req) => {
   }
 });
 
-async function calFeed(c) {
+async function calFeed(c, ua) {
   const txt = (b, s) => new Response(b, { status: s, headers: { ...cors, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
   if (!/^[0-9a-f]{48}$/.test(c)) return txt("ลิงก์ปฏิทินไม่ถูกต้อง · สร้างลิงก์ใหม่ในหน้า ตั้งเวลา", 404);
   const admin = createClient(Deno.env.get("SUPABASE_URL"), Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false } });
@@ -193,7 +193,11 @@ async function calFeed(c) {
     ]);
     const now = Date.now(), tg = prof?.airline === "TG";
     const { ics } = computeIcs(r?.brief, p?.prefs?.settings, now, { prefix: tg ? "TG" : "VZ", name: tg ? "TG Crew Roster" : "CoolCrew Roster", uid: tok.user_id.slice(0, 8) });
-    await admin.from("cal_tokens").update({ last_used_at: new Date(now).toISOString() }).eq("user_id", tok.user_id);
+    // which calendar read it: Apple (iPhone/iPad dataaccessd, Mac CalendarAgent, iCloud) or Google (Google-Calendar-Importer)
+    const at = new Date(now).toISOString(), upd = { last_used_at: at };
+    if (/google/i.test(ua)) upd.last_google_at = at;
+    else if (/iOS\/|iPadOS|dataaccessd|CalendarAgent|Mac ?OS|iCloud|Darwin/i.test(ua)) upd.last_apple_at = at;
+    await admin.from("cal_tokens").update(upd).eq("user_id", tok.user_id);
     return new Response(ics, { status: 200, headers: { ...cors, "Content-Type": "text/calendar; charset=utf-8", "Content-Disposition": 'inline; filename="' + (tg ? "tgcrew" : "coolcrew") + '.ics"', "Cache-Control": "no-cache, max-age=0" } });
   } catch (e) {
     console.error("cal-feed", String(e?.message || e));
