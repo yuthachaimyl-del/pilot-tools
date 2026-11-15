@@ -178,7 +178,7 @@
 <button class="btn primary" type="button" data-cal="subMake" ${subBusy ? "disabled" : ""}>🔗 ${subSt ? "สร้างลิงก์ปฏิทินใหม่" : "สร้างลิงก์ปฏิทินอัตโนมัติ"}</button>`;
     else body = `<ol class="alst">
 <li class="${subOn() ? "done" : ""}"><b>Subscribe</b> <a class="btn primary ib" href="${H(webcalUrl())}">📅 Subscribe ในปฏิทิน iPhone</a><span class="why">iPhone จะเปิดแอปปฏิทิน → กด <b>Subscribe</b> → หน้าถัดไปกด <b>Add</b> (ถ้ามีให้เลือก Account เลือก <b>On My iPhone</b>) · จะได้ปฏิทินชื่อ <b>${SUB_NAME}</b> แยกจากนัดส่วนตัว</span></li>
-<li><b>ให้คนที่บ้านเห็นด้วย (ไม่บังคับ)</b> <button class="btn ib" type="button" data-cal="subShare">📤 ส่งให้คนอื่น</button><span class="why">ส่งลิงก์ทาง LINE / iMessage · คนรับแตะลิงก์บน iPhone → Subscribe → Add · ปฏิทินเขาจะอัปเดตตามตารางคุณเอง · ส่งให้เฉพาะคนที่ไว้ใจ</span></li>
+<li><b>ให้คนที่บ้านเห็นด้วย (ไม่บังคับ)</b> <button class="btn ib" type="button" data-cal="subShare">📤 ส่งให้คนอื่น</button><span class="why">ส่งทาง LINE / iMessage · ในข้อความมีลิงก์ทั้งสำหรับ iPhone และ Google Calendar · ปฏิทินเขาจะอัปเดตตามตารางคุณเอง · ส่งให้เฉพาะคนที่ไว้ใจ</span></li>
 <li><b>เสร็จแล้ว ไม่ต้องตั้งอะไรเพิ่ม</b><span class="why">iPhone ไปดึงตารางล่าสุดจาก ${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : "CoolCrew"} ให้อัตโนมัติเป็นรอบ ประมาณทุก 15 นาทีถึง 1 ชม. · คุณไม่ต้องกดอะไร · อยากให้อัปเดตทันที: เปิดแอปปฏิทิน → แตะ Calendars → ลากหน้าลงเพื่อรีเฟรช</span></li>
 <li><b>เคยใช้แบบ Shortcut?</b><span class="why">ลบปฏิทินชื่อ <b>${CAL}</b> อันเดิมในแอปปฏิทิน (Calendars → ⓘ ข้าง ${CAL} → Delete Calendar) ไม่งั้นนัดจะขึ้นซ้ำ 2 อัน</span></li>
 </ol>
@@ -204,7 +204,7 @@ ${subMsg ? `<div class="small" style="margin-bottom:6px">${subMsg}</div>` : ""}$
 <div class="small" style="margin:4px 0 6px;line-height:1.6">ตั้งครั้งเดียว แล้ว <b>Google จะไปดึงตารางล่าสุดจาก ${window.FO_CONFIG?.AIRLINE === "TG" ? "แอป" : "CoolCrew"} ให้เองเป็นรอบ</b> คุณไม่ต้องกดอะไร · แต่ Google ดึงช้า ปกติหลายชั่วโมง บางครั้งถึง 1 วัน ตั้งความถี่เองไม่ได้</div>
 ${subMsg && !subLink ? `<div class="small" style="margin-bottom:6px">${subMsg}</div>` : ""}<ol class="alst">
 <li class="${gOn() ? "done" : ""}">${linkStep}</li>
-<li><b>หรือเพิ่มเองจากเว็บ</b> ${subLink ? `<button class="btn ib" type="button" data-cal="subCopy">📋 คัดลอกลิงก์</button>` : ""}<span class="why">เปิด <b>calendar.google.com</b> บนคอม (หรือ Chrome แบบเดสก์ท็อป) → แถบซ้าย <b>Other calendars ＋</b> → <b>From URL</b> → วางลิงก์ → <b>Add calendar</b> · แอป Google Calendar บนมือถือเพิ่มจากลิงก์เองไม่ได้</span></li>
+<li><b>หรือเพิ่มเองจากเว็บ</b> ${subLink ? `<button class="btn ib" type="button" data-cal="subCopy">📋 คัดลอกลิงก์</button> <button class="btn ib" type="button" data-cal="subShare">📤 ส่งให้คนอื่น</button>` : ""}<span class="why">เปิด <b>calendar.google.com</b> บนคอม (หรือ Chrome แบบเดสก์ท็อป) → แถบซ้าย <b>Other calendars ＋</b> → <b>From URL</b> → วางลิงก์ → <b>Add calendar</b> · แอป Google Calendar บนมือถือเพิ่มจากลิงก์เองไม่ได้</span></li>
 <li><b>ดูในมือถือ</b><span class="why">แอป Google Calendar → ☰ → ติ๊กปฏิทินใหม่ · ถ้ายังไม่ขึ้น: Settings → แตะชื่อปฏิทิน → เปิด <b>Sync</b></span></li>
 </ol>
 <div class="small" style="margin-top:6px">${gOn() ? `<b style="color:var(--green)">✓ Google ดึงตารางล่าสุด ${when(googleAt())}</b>` : '<span class="muted">Google ยังไม่เคยดึง</span>'}</div></div>
@@ -407,7 +407,7 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
     else if (a === "subRevoke") subRevoke(t);
     else if (a === "subCopy") copy(t, httpsUrl());
     else if (a === "subShare") {
-      const text = `ปฏิทินตารางบินของฉัน (อัปเดตอัตโนมัติตามตาราง) · แตะลิงก์บน iPhone → Subscribe → Add\n${webcalUrl()}`;
+      const text = `ปฏิทินตารางบินของฉัน (อัปเดตอัตโนมัติตามตาราง)\n\n📱 iPhone: แตะลิงก์นี้ → Subscribe → Add\n${webcalUrl()}\n\n🤖 Google Calendar / Android: เปิด calendar.google.com บนคอม → Other calendars ＋ → From URL → วางลิงก์นี้ → Add calendar\n${httpsUrl()}`;
       if (navigator.share) navigator.share({ title: SUB_NAME, text }).catch((e) => { if (e?.name !== "AbortError") copy(t, text); });
       else copy(t, text);
     }
