@@ -16,7 +16,7 @@ const ICON={
 const TABS=[["next","ถัดไป"],["brief","Brief"],["month","ตาราง"],["more","อื่นๆ"]];
 const MENU=[
   ["roster","📷","ใส่ roster","อัปโหลดรูปตาราง Merlot · เพิ่มหรือแก้ duty เอง · ล้างตาราง"],
-  ["settings","⏰","ตั้งเวลา","เวลาเดินทาง เตรียมตัว โรงแรม · iPhone ปลุกอัตโนมัติ · ปฏิทิน iPhone · แจ้งเตือน"],
+  ["settings","⏰","ตั้งเวลา+ปฏิทิน","เวลาเดินทาง เตรียมตัว โรงแรม · iPhone ปลุกอัตโนมัติ · ปฏิทิน iPhone · แจ้งเตือน"],
   ["fit","😴","PSWM","Prior Sleep–Wake score ก่อนออกจากบ้าน โดยเฉพาะ night duty"],
   ["docs","📄","เอกสาร","วันหมดอายุ license, medical, passport และเอกสารอื่น"]
 ];
