@@ -173,6 +173,7 @@
 <button class="btn primary" type="button" data-cal="subMake" ${subBusy ? "disabled" : ""}>🔗 ${subSt ? "สร้างลิงก์ปฏิทินใหม่" : "สร้างลิงก์ปฏิทินอัปเดตเอง"}</button>`;
     else body = `<ol class="alst">
 <li class="${subOn() ? "done" : ""}"><b>Subscribe</b> <a class="btn primary ib" href="${H(webcalUrl())}">📅 Subscribe ในปฏิทิน iPhone</a><span class="why">iPhone จะเปิดแอปปฏิทิน → กด <b>Subscribe</b> → หน้าถัดไปกด <b>Add</b> (ถ้ามีให้เลือก Account เลือก <b>On My iPhone</b>) · จะได้ปฏิทินชื่อ <b>${SUB_NAME}</b> แยกจากนัดส่วนตัว</span></li>
+<li><b>ให้คนที่บ้านเห็นด้วย (ไม่บังคับ)</b> <button class="btn ib" type="button" data-cal="subShare">📤 ส่งให้คนอื่น</button><span class="why">ส่งลิงก์ทาง LINE / iMessage · คนรับแตะลิงก์บน iPhone → Subscribe → Add · ปฏิทินเขาจะอัปเดตตามตารางคุณเอง · ส่งให้เฉพาะคนที่ไว้ใจ</span></li>
 <li><b>ให้ iPhone ดึงบ่อยขึ้น</b><span class="why">Settings → Apps → Calendar → Calendar Accounts → <b>Fetch New Data</b> → เลือก <b>Every 15 Minutes</b> (iOS 17: Settings → Calendar → Accounts → Fetch New Data) · ไม่ตั้งก็ได้ แต่ iPhone อาจดึงช้ากว่า</span></li>
 <li><b>เคยใช้แบบ Shortcut?</b><span class="why">ลบปฏิทินชื่อ <b>${CAL}</b> อันเดิมในแอปปฏิทิน (Calendars → ⓘ ข้าง ${CAL} → Delete Calendar) ไม่งั้นนัดจะขึ้นซ้ำ 2 อัน</span></li>
 </ol>
@@ -361,6 +362,11 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
     else if (a === "subMake") subMake(t);
     else if (a === "subRevoke") subRevoke(t);
     else if (a === "subCopy") copy(t, httpsUrl());
+    else if (a === "subShare") {
+      const text = `ปฏิทินตารางบินของฉัน (อัปเดตเอง) · แตะลิงก์บน iPhone → Subscribe → Add\n${webcalUrl()}`;
+      if (navigator.share) navigator.share({ title: SUB_NAME, text }).catch((e) => { if (e?.name !== "AbortError") copy(t, text); });
+      else copy(t, text);
+    }
     else if (a === "redo") { set(LS_SETUP, null); redo = true; paint(); setTimeout(() => $("calSteps")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100); }
     else if (a === "setup") { if (typeof showTab === "function") showTab("settings"); setTimeout(() => $("calSetup")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150); }
   });
