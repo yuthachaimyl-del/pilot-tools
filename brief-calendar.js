@@ -312,6 +312,8 @@ Rules: do not add, remove, rename or reorder any action. Do not use "Use Model",
     const c = setupCard(); if (!c) return;
     const setup = get(LS_SETUP, null);
     const h = `<h2 id="calSetupTop">ปฏิทิน iPhone ${subOn() ? `<small class="ok">✓ อัปเดตเอง · ดึงล่าสุด ${when(subSt.last_used_at)}</small>` : setup ? "<small>แบบ Shortcut</small>" : "<small>ยังไม่ได้ตั้ง</small>"}</h2>${subHtml()}
+${GCLIENT && !isIOS() ? `<div class="calbar" style="margin-top:10px">${gRowHtml(state())}</div>` : ""}
+${GCLIENT && isIOS() ? `<details class="more" style="margin-top:10px"><summary>Google Calendar ›</summary><div class="calbar" style="margin-top:6px">${gRowHtml(state())}</div></details>` : ""}
 <details class="more" id="calOld" style="margin-top:10px" ${setup && !subOn() ? "open" : ""}><summary>แบบเดิม: ผ่าน Shortcut (ต้องกดอัปเดตเองทุกครั้ง) ›</summary>
 <p class="small" style="margin:0;line-height:1.6">ส่งตารางบินเข้าแอป <b>ปฏิทิน</b> บน iPhone <b>เฉพาะตอนคุณกด "อัปเดตปฏิทิน iPhone"</b> (หลังใส่ roster หรือที่แท็บตาราง) · ทุกครั้งที่อัปเดต จะลบ event เดิมของ CoolCrew ในช่วงวันที่ของตารางก่อน แล้วใส่ใหม่ ไม่มีซ้ำ · ไม่แตะปฏิทินอื่นและนัดส่วนตัว</p>
 ${SC_LINK ? `<div class="note ok small" style="margin-top:8px">📱 ใช้ได้ทุก iPhone ที่เป็น <b>iOS 17 ขึ้นไป</b></div>` : `<div class="note info small" style="margin-top:8px;line-height:1.6"><b>📱 เครื่องที่ตั้งได้</b> (เพราะต้องใช้ช่อง <b>Describe a shortcut</b> ซึ่งเป็นฟีเจอร์ Apple Intelligence)<br>✅ iPhone 15 Pro / 15 Pro Max, iPhone 16 ทุกรุ่น (รวม 16e) และรุ่นใหม่กว่า · ต้องอัปเป็น <b>iOS 27</b> และเปิด <b>Apple Intelligence</b> ใน Settings → Apple Intelligence &amp; Siri<br>❌ iPhone 15 / 15 Plus, iPhone 14 และรุ่นเก่ากว่า จะไม่มีช่องนี้ แม้อัป iOS ล่าสุดแล้ว<br><span class="muted">รุ่นรองรับแต่ไม่เห็นช่อง Describe a shortcut: เช็คว่าเป็น iOS 27 และเปิด Apple Intelligence แล้ว (ถ้าเปิดไม่ได้ ลองตั้งภาษา Siri เป็น English)</span><br><span class="muted">เครื่องรุ่นเก่า: ใช้ปุ่ม <b>ดาวน์โหลดไฟล์ปฏิทิน (.ics)</b> ในแท็บ Brief แทน (ต้องโหลดใหม่เองทุกครั้งที่ตารางเปลี่ยน)</span></div>`}
@@ -379,9 +381,8 @@ ${SC_LINK ? `<div class="cg"><div class="cg-s"><div class="cg-t"><span class="n"
     try {
       const st = document.createElement("style");
       if (!$("calCss")) { st.id = "calCss"; st.textContent = CSS; document.head.appendChild(st); }
-      placeBar("calBarRoster", $("uploadCard"), "afterend");
-      placeBar("calBarMonth", $("monthTitle")?.closest(".card"), "afterend");
-      const wl = $("wlNote"); if (wl && !wl.hidden) placeBar("calBarWl", wl, "afterend"); else if ($("calBarWl")) $("calBarWl").hidden = true;
+      // calendar lives in one place only (ตั้งเวลา+ปฏิทิน); the old bars on ใส่ roster / ตาราง are not drawn any more
+      ["calBarRoster", "calBarMonth", "calBarWl"].forEach((id) => $(id)?.remove());
       paintSetup();
     } catch (e) { console.warn("calendar", e); }
   }
