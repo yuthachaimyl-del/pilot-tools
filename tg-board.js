@@ -229,6 +229,26 @@
     return isIndia(p) && /^\d{1,2}:\d{2}$/.test(p?.report || "") && /^\d{1,2}:\d{2}$/.test(p?.release || "") && p.report >= "17:00" && p.release < p.report;
   }
   let hideNight = (() => { try { return localStorage.getItem("cc_hide_india_night") !== "0"; } catch { return true; } })();
+  // ── "หาแลก ยุโรป": the poster wants a Europe flight in return; hidden when I have none to give ──
+  // TG Europe flights are the 9xx numbers (900 IST, 910/916 LHR, 920/922 FRA, 924 MUC, 930 CDG, 934 BRU, 936 AMS,
+  // 940 MXP, 950 CPH, 954 OSL, 960 ARN, 970 ZRH)
+  const EU_APT = new Set(["LHR", "LGW", "CDG", "FRA", "MUC", "BRU", "AMS", "MXP", "FCO", "CPH", "OSL", "ARN", "ZRH", "IST", "VIE", "MAD", "BCN", "DUS", "HEL"]);
+  const wantsText = (p) => String(p?.note || "").split(" · ").filter((x) => !x.startsWith("❌")).join(" ");
+  const wantsEurope = (p) => /ยุโรป|ยุโรบ|europe|\beu\b|ลอนดอน|ปารีส|แฟรงค์|มิวนิค|มิวนิก|ซูริค|โคเปน|ออสโล|สต๊อกโฮล์ม|สตอกโฮล์ม|บรัสเซล|อัมสเตอร์|มิลาน|อิสตันบูล/i.test(wantsText(p));
+  function isEurope(d) {
+    const nums = String(d?.code || "").split("/").map((x) => x.replace(/\D/g, "")).filter(Boolean);
+    if (nums.some((n) => /^9\d\d$/.test(String(+n)))) return true;
+    const apts = [d?.to, d?.from, d?.accom, ...(d?.sectors || []).flatMap((x) => [x.dep, x.arr])].map((x) => String(x || "").toUpperCase());
+    return apts.some((a) => EU_APT.has(a));
+  }
+  /** I have no Europe flight from today on in my uploaded roster (no roster = unknown: keep the post) */
+  function iHaveNoEurope() {
+    const S = window.FOSTATE, days = S?.rosters?.[S?.me]?.days || [];
+    if (!days.length) return false;
+    const t = new Date(Date.now() + 7 * 36e5).toISOString().slice(0, 10);
+    return !days.some((d) => d.date >= t && isEurope(d));
+  }
+  let hideEurope = (() => { try { return localStorage.getItem("cc_hide_wants_europe") !== "0"; } catch { return true; } })();
   let hideRefused = (() => { try { return localStorage.getItem("cc_hide_refused") !== "0"; } catch { return true; } })();
 
   // someone else's post that falls on one of my training days (orange TRG): no swap is possible, so it is not shown
@@ -244,6 +264,7 @@
     if (onMyTraining(p)) return false;
     if (hideRefused && indiaClash(p)) return false;
     if (hideNight && p.author !== window.FOSTATE?.me && isIndiaNight(p)) return false;
+    if (hideEurope && p.author !== window.FOSTATE?.me && wantsEurope(p) && iHaveNoEurope()) return false;
     if (!mine || !mine.length) return true;
     const t = typeOf(p);
     return !t || mine.includes(t);
@@ -268,9 +289,16 @@
       `<label><input type="checkbox" value="${k}"${!mine || mine.includes(k) ? " checked" : ""}> ${n}</label>`).join("") +
       `<span class="muted small">ไม่ติ๊ก = ซ่อนโพสต์เครื่องนั้น · โพสต์ที่ไม่ระบุแบบเครื่องจะแสดงเสมอ</span>` +
       `<label class="refuse"><input type="checkbox" data-refuse${hideRefused ? " checked" : ""}> 🚫 ซ่อนโพสต์ที่เขาไม่รับงานของฉัน (❌ ขขค / แขก แต่วันนั้นฉันบินอินเดีย)</label>` +
-      `<label class="refuse"><input type="checkbox" data-night${hideNight ? " checked" : ""}> 🌙 ซ่อนไฟลต์แขกข้ามคืน (ออกเย็น ลงเช้า)</label>`;
+      `<label class="refuse"><input type="checkbox" data-night${hideNight ? " checked" : ""}> 🌙 ซ่อนไฟลต์แขกข้ามคืน (ออกเย็น ลงเช้า)</label>` +
+      `<label class="refuse"><input type="checkbox" data-europe${hideEurope ? " checked" : ""}> 🇪🇺 ซ่อนโพสต์ที่หาแลกบินยุโรป (เมื่อตารางฉันไม่มียุโรป)</label>`;
     chips.insertAdjacentElement("afterend", d);
     d.addEventListener("change", (ev) => {
+      if (ev.target.hasAttribute("data-europe")) {
+        hideEurope = ev.target.checked;
+        try { localStorage.setItem("cc_hide_wants_europe", hideEurope ? "1" : "0"); } catch {}
+        try { typeof renderBoard === "function" && renderBoard(); } catch {}
+        return;
+      }
       if (ev.target.hasAttribute("data-night")) {
         hideNight = ev.target.checked;
         try { localStorage.setItem("cc_hide_india_night", hideNight ? "1" : "0"); } catch {}
@@ -283,7 +311,7 @@
         try { typeof renderBoard === "function" && renderBoard(); } catch {}
         return;
       }
-      mine = [...d.querySelectorAll("input:checked:not([data-refuse]):not([data-night])")].map((i) => i.value);
+      mine = [...d.querySelectorAll("input:checked:not([data-refuse]):not([data-night]):not([data-europe])")].map((i) => i.value);
       save(mine);
       try { window.render && window.render(); } catch {}
       const all = document.querySelector('[data-filter][aria-pressed="true"]'); if (all) all.click();
