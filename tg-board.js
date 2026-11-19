@@ -198,7 +198,21 @@
   }
   window.ccPayTag = payTag;
 
-  window.ccPostFilter = (p) => { if (!mine || !mine.length) return true; const t = typeOf(p); return !t || mine.includes(t); };
+  // someone else's post that falls on one of my training days (orange TRG): no swap is possible, so it is not shown
+  function onMyTraining(p) {
+    const S = window.FOSTATE;
+    if (!S || !S.me || !p || p.author === S.me) return false;
+    const days = S.rosters?.[S.me]?.days || [];
+    if (!days.length) return false;
+    const last = isIso(p.until) && p.until > p.date ? p.until : p.date;
+    return days.some((d) => d.type === "TRN" && d.date >= p.date && d.date <= last);
+  }
+  window.ccPostFilter = (p) => {
+    if (onMyTraining(p)) return false;
+    if (!mine || !mine.length) return true;
+    const t = typeOf(p);
+    return !t || mine.includes(t);
+  };
   const lineUrl = (p) => { const u = String(p?.contact || ""); return /^https:\/\/(line\.me|lin\.ee)\/[\w\/~@.%?=&+-]+$/i.test(u) ? u : ""; };
   window.ccAcTag = (p) => {
     const t = typeOf(p), u = lineUrl(p);
