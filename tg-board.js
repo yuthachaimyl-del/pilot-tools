@@ -279,6 +279,40 @@
       + payTag(p);
   };
 
+  // ── filter settings follow the account (table board_prefs), localStorage is the per-device copy ──
+  const setLocal = (k, on) => { try { localStorage.setItem(k, on ? "1" : "0"); } catch {} };
+  let prefsFor = null, pulling = false, pushTimer = null;
+  const prefsNow = () => ({ ac: mine, refused: hideRefused, night: hideNight, europe: hideEurope });
+  function pushPrefs() {
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(async () => {
+      const c = window.SB, me = window.FOSTATE?.me;
+      if (!c || !me) return;
+      try { await c.from("board_prefs").upsert({ user_id: me, prefs: prefsNow(), updated_at: new Date().toISOString() }, { onConflict: "user_id" }); } catch {}
+    }, 400);
+  }
+  async function pullPrefs() {
+    const c = window.SB, me = window.FOSTATE?.me;
+    if (!c || !me || pulling || prefsFor === me) return;
+    pulling = true;
+    try {
+      const { data, error } = await c.from("board_prefs").select("prefs").maybeSingle();
+      if (error) return;
+      prefsFor = me;
+      const p = data?.prefs;
+      if (!p) { pushPrefs(); return; }             // first time on this account: keep this device's settings
+      if (Array.isArray(p.ac) || p.ac === null) { mine = p.ac; save(mine); }
+      if (typeof p.refused === "boolean") { hideRefused = p.refused; setLocal("cc_hide_refused", hideRefused); }
+      if (typeof p.night === "boolean") { hideNight = p.night; setLocal("cc_hide_india_night", hideNight); }
+      if (typeof p.europe === "boolean") { hideEurope = p.europe; setLocal("cc_hide_wants_europe", hideEurope); }
+      document.getElementById("acBar")?.remove();
+      bar();
+      try { typeof renderBoard === "function" && renderBoard(); } catch {}
+    } finally { pulling = false; }
+  }
+  setInterval(pullPrefs, 1500);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { prefsFor = null; pullPrefs(); } });
+
   function bar() {
     const chips = document.querySelector('#tab-board .chips');
     if (!chips || document.getElementById("acBar")) return;
@@ -295,24 +329,25 @@
     d.addEventListener("change", (ev) => {
       if (ev.target.hasAttribute("data-europe")) {
         hideEurope = ev.target.checked;
-        try { localStorage.setItem("cc_hide_wants_europe", hideEurope ? "1" : "0"); } catch {}
+        setLocal("cc_hide_wants_europe", hideEurope); pushPrefs();
         try { typeof renderBoard === "function" && renderBoard(); } catch {}
         return;
       }
       if (ev.target.hasAttribute("data-night")) {
         hideNight = ev.target.checked;
-        try { localStorage.setItem("cc_hide_india_night", hideNight ? "1" : "0"); } catch {}
+        setLocal("cc_hide_india_night", hideNight); pushPrefs();
         try { typeof renderBoard === "function" && renderBoard(); } catch {}
         return;
       }
       if (ev.target.hasAttribute("data-refuse")) {
         hideRefused = ev.target.checked;
-        try { localStorage.setItem("cc_hide_refused", hideRefused ? "1" : "0"); } catch {}
+        setLocal("cc_hide_refused", hideRefused); pushPrefs();
         try { typeof renderBoard === "function" && renderBoard(); } catch {}
         return;
       }
       mine = [...d.querySelectorAll("input:checked:not([data-refuse]):not([data-night]):not([data-europe])")].map((i) => i.value);
       save(mine);
+      pushPrefs();
       try { window.render && window.render(); } catch {}
       const all = document.querySelector('[data-filter][aria-pressed="true"]'); if (all) all.click();
     });
