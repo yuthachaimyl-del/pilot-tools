@@ -217,6 +217,18 @@
     const v = verdict(p);
     return !!v && v.mine.some(isIndia);
   }
+  // India trips that fly through the night (out in the evening, back in Bangkok in the morning; 335 overnights in DEL):
+  // winter 2026/27 times from OAG via flyteam.jp — 313 23:35/314→05:50, 315 20:00/316→06:05, 317 18:55/318→05:05,
+  // 325 21:35/326→06:25, 329 21:55/330→06:30, 331 23:25/332→09:00, 335 21:50 (DEL night, 336 back 21:35),
+  // 337 21:55/338→05:55, 343 20:55/344→06:50, 351 22:15/352→08:25. Day trips 323, 327, 359 are not in it.
+  const INDIA_NIGHT = new Set(["313", "315", "317", "325", "329", "331", "335", "337", "343", "351"]);
+  function isIndiaNight(p) {
+    const nums = String(p?.code || "").split("/").map((x) => x.replace(/\D/g, "")).filter(Boolean).map((x) => String(+x).padStart(3, "0"));
+    if (nums.some((n) => INDIA_NIGHT.has(n) || INDIA_NIGHT.has(String(+n - 1).padStart(3, "0")))) return true;
+    // other India flights with times on the post: report in the evening and release after midnight
+    return isIndia(p) && /^\d{1,2}:\d{2}$/.test(p?.report || "") && /^\d{1,2}:\d{2}$/.test(p?.release || "") && p.report >= "17:00" && p.release < p.report;
+  }
+  let hideNight = (() => { try { return localStorage.getItem("cc_hide_india_night") !== "0"; } catch { return true; } })();
   let hideRefused = (() => { try { return localStorage.getItem("cc_hide_refused") !== "0"; } catch { return true; } })();
 
   // someone else's post that falls on one of my training days (orange TRG): no swap is possible, so it is not shown
@@ -231,6 +243,7 @@
   window.ccPostFilter = (p) => {
     if (onMyTraining(p)) return false;
     if (hideRefused && indiaClash(p)) return false;
+    if (hideNight && p.author !== window.FOSTATE?.me && isIndiaNight(p)) return false;
     if (!mine || !mine.length) return true;
     const t = typeOf(p);
     return !t || mine.includes(t);
@@ -254,16 +267,23 @@
     d.innerHTML = `<span class="muted">✈️ เครื่องที่ฉันบินได้:</span>` + TYPES.map(([k, n]) =>
       `<label><input type="checkbox" value="${k}"${!mine || mine.includes(k) ? " checked" : ""}> ${n}</label>`).join("") +
       `<span class="muted small">ไม่ติ๊ก = ซ่อนโพสต์เครื่องนั้น · โพสต์ที่ไม่ระบุแบบเครื่องจะแสดงเสมอ</span>` +
-      `<label class="refuse"><input type="checkbox" data-refuse${hideRefused ? " checked" : ""}> 🚫 ซ่อนโพสต์ที่เขาไม่รับงานของฉัน (❌ ขขค / แขก แต่วันนั้นฉันบินอินเดีย)</label>`;
+      `<label class="refuse"><input type="checkbox" data-refuse${hideRefused ? " checked" : ""}> 🚫 ซ่อนโพสต์ที่เขาไม่รับงานของฉัน (❌ ขขค / แขก แต่วันนั้นฉันบินอินเดีย)</label>` +
+      `<label class="refuse"><input type="checkbox" data-night${hideNight ? " checked" : ""}> 🌙 ซ่อนไฟลต์แขกข้ามคืน (ออกเย็น ลงเช้า)</label>`;
     chips.insertAdjacentElement("afterend", d);
     d.addEventListener("change", (ev) => {
+      if (ev.target.hasAttribute("data-night")) {
+        hideNight = ev.target.checked;
+        try { localStorage.setItem("cc_hide_india_night", hideNight ? "1" : "0"); } catch {}
+        try { typeof renderBoard === "function" && renderBoard(); } catch {}
+        return;
+      }
       if (ev.target.hasAttribute("data-refuse")) {
         hideRefused = ev.target.checked;
         try { localStorage.setItem("cc_hide_refused", hideRefused ? "1" : "0"); } catch {}
         try { typeof renderBoard === "function" && renderBoard(); } catch {}
         return;
       }
-      mine = [...d.querySelectorAll("input:checked:not([data-refuse])")].map((i) => i.value);
+      mine = [...d.querySelectorAll("input:checked:not([data-refuse]):not([data-night])")].map((i) => i.value);
       save(mine);
       try { window.render && window.render(); } catch {}
       const all = document.querySelector('[data-filter][aria-pressed="true"]'); if (all) all.click();
