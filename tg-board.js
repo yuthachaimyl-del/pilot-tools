@@ -122,14 +122,16 @@
       while (at(d)?.code === "-->" && k++ < 6) d = prevIso(d);
       for (const x of TC.pairOf(my, d)) if (x.code === "-->" || WORKT.has(x.type) || x.type === "LVE") mineMap.set(x.date, x);
     }
-    const mine = [...mineMap.values()].sort((a, b) => a.date.localeCompare(b.date));
+    // a training day (orange TRG chip) can neither take a flight nor be given away: it blocks the swap
+    const trn = [...mineMap.values()].filter((m) => m.type === "TRN").sort((a, b) => a.date.localeCompare(b.date));
+    const mine = [...mineMap.values()].filter((m) => m.type !== "TRN").sort((a, b) => a.date.localeCompare(b.date));
     const x = TC.evalSwap(my, me.base || "BKK", mine.map((m) => m.date), take);
     let gr = typeof giverRoster === "function" ? giverRoster(r) : null;
     if (!gr && (S.rosters?.[r.author]?.days || []).length) gr = S.rosters[r.author].days;   // a member's own post
     gr = gr ? linkDays(gr) : null;
     const y = mine.length && gr ? TC.evalSwap(gr, S.rosters?.[r.author]?.base || "BKK", take.map((t) => t.date), mine) : null;
     const covered = my.length > 0 && take.some((t) => my[0].date <= t.date && my[my.length - 1].date >= t.date);
-    const v = { take, mine, x, y, gr, covered };
+    const v = { take, mine, trn, x, y, gr, covered };
     if (vcache.size > 400) vcache.clear();
     vcache.set(key, v);
     return v;
@@ -148,6 +150,7 @@
     if (!v.covered) return "";
     const multi = isMultiP(e);
     const lbl = v.mine.length ? `คุณมี ${codesOf(v.mine) || "งาน"} ${multi ? "ในช่วงนั้น" : "วันนั้น"}` : multi ? "คุณว่างทั้งช่วง" : "คุณว่างวันนั้น";
+    if (v.trn.length) return `<span class="hint bad">วันที่ ${h(v.trn.map((t) => dShort(t.date)).join(", "))} คุณเทรน (TRG) · รับบินไม่ได้ แลกออกไม่ได้</span>`;
     const a = bad(v.x), b = bad(v.y);
     if (a.length) return `<span class="hint bad">${h(lbl)} · คุณรับไม่ได้: ${h(why(a[0]))}</span>`;
     if (b.length) return `<span class="hint bad">${h(lbl)} · เขารับของคุณไม่ได้: ${h(why(b[0]))}</span>`;
@@ -161,6 +164,7 @@
   window.ccCheckPanel = (r) => {
     const v = verdict(r);
     if (!v || typeof chkHtml !== "function") return "";
+    if (v.trn.length) return `<div class="chk"><div class="chk-h">✕ วันที่ ${h(v.trn.map((t) => dShort(t.date)).join(", "))} คุณเทรน (TRG): รับบินวันนั้นไม่ได้ และแลกวันเทรนออกไม่ได้</div></div>`;
     const theirs = codesOf(v.take) || "ไฟลต์นี้", mineC = codesOf(v.mine) || "งานของคุณ";
     let out = chkHtml(v.x, v.mine.length ? `คุณ (รับ ${theirs} · ให้ ${mineC})` : `คุณ (รับ ${theirs})`);
     if (!v.mine.length) out += '<div class="chk"><div class="chk-h muted">คุณว่างช่วงนั้น ไม่ต้องให้งานคืน ฝั่งคนปล่อยจึงไม่ต้องตรวจ</div></div>';
@@ -176,7 +180,7 @@
     const g = ppbOf(p.code);
     if (g.pay == null) return g.keys.length ? '<span class="pill pay unk">💰 ไม่มีตัวเลขในตาราง TPI</span>' : "";
     const v = verdict(p);
-    if (!v || !v.covered) return `<span class="pill pay">💰 ${baht(g.pay)}</span>`;
+    if (!v || !v.covered || v.trn.length) return `<span class="pill pay">💰 ${baht(g.pay)}</span>`;
     const work = v.mine.filter((m) => m.code !== "-->");
     if (!work.length) return `<span class="pill pay" title="ค่าเที่ยวของไฟลต์นี้ตามตาราง TPI">💰 ${baht(g.pay)} · วันนั้นคุณว่าง</span>`;
     let mine = 0;
