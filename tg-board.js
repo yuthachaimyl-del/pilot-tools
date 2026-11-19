@@ -151,6 +151,7 @@
     const multi = isMultiP(e);
     const lbl = v.mine.length ? `คุณมี ${codesOf(v.mine) || "งาน"} ${multi ? "ในช่วงนั้น" : "วันนั้น"}` : multi ? "คุณว่างทั้งช่วง" : "คุณว่างวันนั้น";
     if (v.trn.length) return `<span class="hint bad">วันที่ ${h(v.trn.map((t) => dShort(t.date)).join(", "))} คุณเทรน (TRG) · รับบินไม่ได้ แลกออกไม่ได้</span>`;
+    if (refusesIndia(e) && v.mine.some(isIndia)) return `<span class="hint bad">${h(lbl)} · เขาไม่รับไฟลต์อินเดีย (❌ ${h(avoidOf(e))})</span>`;
     const a = bad(v.x), b = bad(v.y);
     if (a.length) return `<span class="hint bad">${h(lbl)} · คุณรับไม่ได้: ${h(why(a[0]))}</span>`;
     if (b.length) return `<span class="hint bad">${h(lbl)} · เขารับของคุณไม่ได้: ${h(why(b[0]))}</span>`;
@@ -198,6 +199,26 @@
   }
   window.ccPayTag = payTag;
 
+  // ── "❌ ขขค / แขก": the poster refuses India flights in return ──
+  // TG outbound numbers to India (return = number + 1), checked against OAG/flyteam/kayak, Nov 2026
+  const INDIA_FLT = new Set(["313", "315", "317", "323", "325", "327", "329", "331", "335", "337", "343", "351", "359"]);
+  const INDIA_APT = new Set(["DEL", "BOM", "CCU", "MAA", "BLR", "HYD", "AMD", "GAY", "COK", "TRV", "GOI", "GOX", "VNS", "LKO", "ATQ", "JAI", "PNQ"]);
+  const avoidOf = (p) => (String(p?.note || "").split(" · ").find((x) => x.startsWith("❌")) || "").replace(/^❌\s*/, "");
+  const refusesIndia = (p) => /ขขค|แขก|อินเดีย|india/i.test(avoidOf(p));
+  function isIndia(d) {
+    const nums = String(d?.code || "").split("/").map((x) => x.replace(/\D/g, "")).filter(Boolean).map((x) => String(+x).padStart(3, "0"));
+    if (nums.some((n) => INDIA_FLT.has(n) || INDIA_FLT.has(String(+n - 1).padStart(3, "0")))) return true;
+    const apts = [d?.to, d?.from, d?.accom, ...(d?.sectors || []).flatMap((x) => [x.dep, x.arr])].map((x) => String(x || "").toUpperCase());
+    return apts.some((a) => INDIA_APT.has(a)) || /\b(DEL|BOM|CCU|MAA|BLR|HYD|AMD|GAY)\b/.test(String(d?.detail || "").toUpperCase());
+  }
+  /** they wrote "❌ ขขค/แขก" and what I would hand them that day is an India flight */
+  function indiaClash(p) {
+    if (!refusesIndia(p)) return false;
+    const v = verdict(p);
+    return !!v && v.mine.some(isIndia);
+  }
+  let hideRefused = (() => { try { return localStorage.getItem("cc_hide_refused") !== "0"; } catch { return true; } })();
+
   // someone else's post that falls on one of my training days (orange TRG): no swap is possible, so it is not shown
   function onMyTraining(p) {
     const S = window.FOSTATE;
@@ -209,6 +230,7 @@
   }
   window.ccPostFilter = (p) => {
     if (onMyTraining(p)) return false;
+    if (hideRefused && indiaClash(p)) return false;
     if (!mine || !mine.length) return true;
     const t = typeOf(p);
     return !t || mine.includes(t);
@@ -231,10 +253,17 @@
     d.className = "acbar";
     d.innerHTML = `<span class="muted">✈️ เครื่องที่ฉันบินได้:</span>` + TYPES.map(([k, n]) =>
       `<label><input type="checkbox" value="${k}"${!mine || mine.includes(k) ? " checked" : ""}> ${n}</label>`).join("") +
-      `<span class="muted small">ไม่ติ๊ก = ซ่อนโพสต์เครื่องนั้น · โพสต์ที่ไม่ระบุแบบเครื่องจะแสดงเสมอ</span>`;
+      `<span class="muted small">ไม่ติ๊ก = ซ่อนโพสต์เครื่องนั้น · โพสต์ที่ไม่ระบุแบบเครื่องจะแสดงเสมอ</span>` +
+      `<label class="refuse"><input type="checkbox" data-refuse${hideRefused ? " checked" : ""}> 🚫 ซ่อนโพสต์ที่เขาไม่รับงานของฉัน (❌ ขขค / แขก แต่วันนั้นฉันบินอินเดีย)</label>`;
     chips.insertAdjacentElement("afterend", d);
-    d.addEventListener("change", () => {
-      mine = [...d.querySelectorAll("input:checked")].map((i) => i.value);
+    d.addEventListener("change", (ev) => {
+      if (ev.target.hasAttribute("data-refuse")) {
+        hideRefused = ev.target.checked;
+        try { localStorage.setItem("cc_hide_refused", hideRefused ? "1" : "0"); } catch {}
+        try { typeof renderBoard === "function" && renderBoard(); } catch {}
+        return;
+      }
+      mine = [...d.querySelectorAll("input:checked:not([data-refuse])")].map((i) => i.value);
       save(mine);
       try { window.render && window.render(); } catch {}
       const all = document.querySelector('[data-filter][aria-pressed="true"]'); if (all) all.click();
@@ -260,6 +289,7 @@
   css.textContent = `.chk li small{display:none!important}
 .acbar{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin:6px 0 10px;font-size:13px}
 .acbar label{display:inline-flex;gap:4px;align-items:center;white-space:nowrap}
+.acbar label.refuse{flex-basis:100%;white-space:normal}
 .acbar .small{flex-basis:100%;font-size:11.5px}
 .pill.ac{background:#e8eefc;color:#1d3f8f}.pill.line{background:#06c755;color:#fff;text-decoration:none}.pill.pic{background:#fff3d6;color:#7a5200;border:0;cursor:pointer;font:inherit}.pill.ac.unk{background:#f1f1f1;color:#777}
 .pill.pay{background:#eef7ee;color:#22572a;white-space:normal}.pill.pay.add{background:#fdecec;color:#9b1c1c}.pill.pay.get{background:#e6f6ea;color:#14632b;font-weight:600}.pill.pay.unk{background:#f1f1f1;color:#777}`;
